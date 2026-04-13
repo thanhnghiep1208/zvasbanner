@@ -136,7 +136,7 @@ export function CanvasSizeSelector({ className }: { className?: string }) {
   }, [canvasConfig.width, canvasConfig.height]);
 
   return (
-    <div className={cn("flex flex-col gap-4", className)}>
+    <div className={cn("flex w-full min-w-0 flex-col gap-4", className)}>
       <div className="space-y-2">
         <span className="text-sm font-medium" id="canvas-size-label">
           Canvas size
@@ -144,7 +144,7 @@ export function CanvasSizeSelector({ className }: { className?: string }) {
         <Select value={presetId} onValueChange={handlePresetChange}>
           <SelectTrigger
             size="default"
-            className="h-9 w-full min-w-0 max-w-md justify-between"
+            className="h-9 w-full min-w-0 max-w-full justify-between"
             aria-labelledby="canvas-size-label"
           >
             <SelectValue />
@@ -229,24 +229,28 @@ export function CanvasSizeSelector({ className }: { className?: string }) {
         </div>
       ) : null}
 
-      <div className="flex items-center gap-4">
+      <div className="flex w-full min-w-0 flex-col gap-3">
         <div
-          className="flex shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40"
-          style={{
-            width: preview.pw + 16,
-            height: preview.ph + 16,
-            minWidth: 40,
-            minHeight: 40,
-          }}
+          className="flex w-full justify-center"
           aria-hidden
         >
           <div
-            className="rounded-sm bg-primary/25 ring-1 ring-primary/40"
+            className="flex items-center justify-center rounded-lg border border-zinc-200 bg-zinc-100/80 dark:border-border dark:bg-muted/40"
             style={{
-              width: Math.max(4, preview.pw),
-              height: Math.max(4, preview.ph),
+              width: preview.pw + 16,
+              height: preview.ph + 16,
+              minWidth: 40,
+              minHeight: 40,
             }}
-          />
+          >
+            <div
+              className="rounded-sm bg-primary/25 ring-1 ring-primary/40"
+              style={{
+                width: Math.max(4, preview.pw),
+                height: Math.max(4, preview.ph),
+              }}
+            />
+          </div>
         </div>
         <MetadataBlock config={canvasConfig} />
       </div>
@@ -259,27 +263,40 @@ function MetadataBlock({ config }: { config: CanvasConfig }) {
     config.width,
     config.height
   );
+  const ratioTitle = `${ratioLabel} (${ratioDecimal}:1)`;
   return (
-    <dl className="grid min-w-0 flex-1 gap-2 text-sm sm:grid-cols-3 sm:gap-x-4">
-      <div className="min-w-0">
-        <dt className="text-xs font-medium text-muted-foreground">Platform</dt>
-        <dd className="truncate font-medium text-foreground">{config.platform}</dd>
+    <dl className="w-full min-w-0 space-y-2.5 text-sm">
+      <div className="min-w-0 space-y-0.5">
+        <dt className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase dark:text-muted-foreground">
+          Platform
+        </dt>
+        <dd
+          className="break-words font-medium leading-snug text-zinc-900 dark:text-foreground"
+          title={config.platform}
+        >
+          {config.platform}
+        </dd>
       </div>
-      <div className="min-w-0">
-        <dt className="text-xs font-medium text-muted-foreground">
+      <div className="min-w-0 space-y-0.5">
+        <dt className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase dark:text-muted-foreground">
           Dimensions
         </dt>
-        <dd className="font-medium text-foreground tabular-nums">
+        <dd className="font-medium tabular-nums leading-snug text-zinc-900 dark:text-foreground">
           {config.width} × {config.height} px
         </dd>
       </div>
-      <div className="min-w-0 sm:col-span-1">
-        <dt className="text-xs font-medium text-muted-foreground">
+      <div className="min-w-0 space-y-0.5">
+        <dt className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase dark:text-muted-foreground">
           Aspect ratio
         </dt>
-        <dd className="font-medium text-foreground tabular-nums">
-          {ratioLabel}
-          <span className="ml-1.5 text-muted-foreground">({ratioDecimal}:1)</span>
+        <dd
+          className="break-words font-medium leading-snug text-zinc-900 tabular-nums dark:text-foreground"
+          title={ratioTitle}
+        >
+          <span className="text-zinc-900 dark:text-foreground">{ratioLabel}</span>
+          <span className="mt-0.5 block text-xs font-normal text-zinc-500 sm:mt-0 sm:ml-1.5 sm:inline dark:text-muted-foreground">
+            ({ratioDecimal}:1)
+          </span>
         </dd>
       </div>
     </dl>

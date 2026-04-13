@@ -5,10 +5,21 @@ export interface CanvasConfig {
   name: string;
 }
 
+export type AssetRole = "logo" | "image" | "background" | "decoration";
+
+export const ASSET_ROLE_OPTIONS: { value: AssetRole; label: string }[] = [
+  { value: "logo", label: "Logo" },
+  { value: "image", label: "Product image" },
+  { value: "background", label: "Background" },
+  { value: "decoration", label: "Decoration" },
+];
+
 export interface UploadedAsset {
   id: string;
   url: string;
-  role: "logo" | "image" | "background";
+  /** Original file name for display */
+  fileName: string;
+  role: AssetRole;
   hasAlpha: boolean;
   originalDims: { width: number; height: number };
 }
