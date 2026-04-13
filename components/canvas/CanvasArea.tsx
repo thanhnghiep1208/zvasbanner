@@ -19,11 +19,19 @@ const checkerboardStyle: CSSProperties = {
 
 export function CanvasArea({ className }: { className?: string }) {
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
-  const generatedImageUrl = useEditorStore((s) => s.generatedImageUrl);
+  const variations = useEditorStore((s) => s.variations);
+  const selectedVariation = useEditorStore((s) => s.selectedVariation);
 
   const { width, height } = canvasConfig;
   const aspectRatio =
     width > 0 && height > 0 ? (`${width} / ${height}` as const) : "1 / 1";
+
+  const previewUrl =
+    selectedVariation !== null &&
+    variations.length > selectedVariation &&
+    variations[selectedVariation]
+      ? variations[selectedVariation]
+      : null;
 
   return (
     <div
@@ -54,11 +62,10 @@ export function CanvasArea({ className }: { className?: string }) {
               aria-hidden
             />
 
-            {generatedImageUrl ? (
-              // Generation returns data URLs or arbitrary hosts; native img avoids next/image domain config.
-              // eslint-disable-next-line @next/next/no-img-element -- see above
+            {previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- data URLs / arbitrary hosts
               <img
-                src={generatedImageUrl}
+                src={previewUrl}
                 alt="Generated banner preview"
                 className="relative z-10 size-full object-contain"
                 draggable={false}

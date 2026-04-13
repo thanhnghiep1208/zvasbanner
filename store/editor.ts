@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { presetToCanvasConfig, getPresetById } from "@/lib/canvas-presets";
 import type {
   AssetRole,
+  BrandKit,
   CanvasConfig,
   StyleControls,
   UploadedAsset,
@@ -14,6 +15,8 @@ const defaultStyleControls: StyleControls = {
   colorPalette: "auto",
 };
 
+const defaultBrandKit: BrandKit = { colors: [] };
+
 const defaultPreset = getPresetById("social-facebook-ad");
 const defaultCanvas: CanvasConfig = defaultPreset
   ? presetToCanvasConfig(defaultPreset)
@@ -24,14 +27,13 @@ const defaultCanvas: CanvasConfig = defaultPreset
       name: "Facebook Ad",
     };
 
+export type SelectedVariationIndex = 0 | 1 | 2;
+
 export interface EditorState {
   canvasConfig: CanvasConfig;
   setCanvasConfig: (
     config: CanvasConfig | ((prev: CanvasConfig) => CanvasConfig)
   ) => void;
-  /** Data URL or remote URL of the last generated banner preview */
-  generatedImageUrl: string | null;
-  setGeneratedImageUrl: (url: string | null) => void;
   assets: UploadedAsset[];
   addAsset: (asset: UploadedAsset) => void;
   removeAsset: (id: string) => void;
@@ -40,6 +42,13 @@ export interface EditorState {
   setUserPrompt: (value: string) => void;
   styleControls: StyleControls;
   setStyleControls: (partial: Partial<StyleControls>) => void;
+  brandKit: BrandKit;
+  setBrandKit: (partial: Partial<BrandKit> | BrandKit) => void;
+  /** Last generated image URLs / data URLs (length 3 after a full run). */
+  variations: string[];
+  setVariations: (urls: string[]) => void;
+  selectedVariation: SelectedVariationIndex | null;
+  setSelectedVariation: (index: SelectedVariationIndex | null) => void;
   isGenerating: boolean;
   setIsGenerating: (value: boolean) => void;
 }
@@ -51,8 +60,6 @@ export const useEditorStore = create<EditorState>((set) => ({
       canvasConfig:
         typeof updater === "function" ? updater(s.canvasConfig) : updater,
     })),
-  generatedImageUrl: null,
-  setGeneratedImageUrl: (url) => set({ generatedImageUrl: url }),
   assets: [],
   addAsset: (asset) =>
     set((s) => ({ assets: [...s.assets, asset] })),
@@ -75,6 +82,15 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((s) => ({
       styleControls: { ...s.styleControls, ...partial },
     })),
+  brandKit: defaultBrandKit,
+  setBrandKit: (partial) =>
+    set((s) => ({
+      brandKit: { ...s.brandKit, ...partial },
+    })),
+  variations: [],
+  setVariations: (urls) => set({ variations: urls }),
+  selectedVariation: null,
+  setSelectedVariation: (index) => set({ selectedVariation: index }),
   isGenerating: false,
   setIsGenerating: (value) => set({ isGenerating: value }),
 }));

@@ -19,14 +19,25 @@ export function EditorToolbar({
   className,
 }: EditorToolbarProps) {
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
+  const isGenerating = useEditorStore((s) => s.isGenerating);
 
   return (
     <header
       className={cn(
-        "grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-zinc-200 bg-white px-3 shadow-sm lg:px-4",
+        "relative grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-zinc-200 bg-white px-3 shadow-sm lg:px-4",
         className
       )}
     >
+      {isGenerating ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-zinc-200"
+          role="progressbar"
+          aria-label="Đang tạo banner"
+          aria-busy="true"
+        >
+          <div className="h-full w-[38%] bg-indigo-600 animate-generation-indeterminate" />
+        </div>
+      ) : null}
       <div className="flex min-w-0 items-center gap-2 justify-self-start">
         <Button
           type="button"

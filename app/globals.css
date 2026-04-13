@@ -47,6 +47,19 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  @keyframes generation-indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(350%);
+    }
+  }
+
+  .animate-generation-indeterminate {
+    animation: generation-indeterminate 1.25s ease-in-out infinite;
+  }
 }
 
 @layer base {

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,15 +14,15 @@ const MAX_CHARS = 1000;
 const PLACEHOLDER =
   "Mô tả banner bạn muốn tạo... Ví dụ: Banner sale 50% cho shop thời trang, tone màu pastel, phong cách tối giản";
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export function PromptInput({ className }: { className?: string }) {
   const userPrompt = useEditorStore((s) => s.userPrompt);
   const setUserPrompt = useEditorStore((s) => s.setUserPrompt);
+  const canvasConfig = useEditorStore((s) => s.canvasConfig);
+  const assets = useEditorStore((s) => s.assets);
   const isGenerating = useEditorStore((s) => s.isGenerating);
   const setIsGenerating = useEditorStore((s) => s.setIsGenerating);
+  const setVariations = useEditorStore((s) => s.setVariations);
+  const setSelectedVariation = useEditorStore((s) => s.setSelectedVariation);
 
   const [isEnhancing, setIsEnhancing] = React.useState(false);
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
@@ -38,17 +39,24 @@ export function PromptInput({ className }: { className?: string }) {
       const res = await fetch("/api/enhance-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: userPrompt }),
+        body: JSON.stringify({ userPrompt, canvasConfig, assets }),
       });
+      const data = (await res.json()) as {
+        enhancedPrompt?: unknown;
+        error?: unknown;
+      };
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+        const msg =
+          typeof data.error === "string" ? data.error : `HTTP ${res.status}`;
+        throw new Error(msg);
       }
-      const data = (await res.json()) as { enhancedPrompt?: unknown };
       const text =
         typeof data.enhancedPrompt === "string" ? data.enhancedPrompt : "";
       setUserPrompt(text.slice(0, MAX_CHARS));
-    } catch {
-      setEnhanceError("Không cải thiện được prompt. Thử lại sau.");
+      toast.success("Prompt đã được cải thiện", { duration: 2200 });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Lỗi không xác định";
+      setEnhanceError(msg);
     } finally {
       setIsEnhancing(false);
     }
@@ -56,19 +64,45 @@ export function PromptInput({ className }: { className?: string }) {
 
   const handleGenerate = async () => {
     const state = useEditorStore.getState();
-    console.log("[generate stub]", {
-      userPrompt: state.userPrompt,
-      styleControls: state.styleControls,
-      canvasConfig: state.canvasConfig,
-      assets: state.assets.map((a) => ({
-        id: a.id,
-        role: a.role,
-        fileName: a.fileName,
-      })),
-    });
     setIsGenerating(true);
-    await sleep(2000);
-    setIsGenerating(false);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          canvasConfig: state.canvasConfig,
+          assets: state.assets,
+          brandKit: state.brandKit,
+          userPrompt: state.userPrompt,
+          styleControls: state.styleControls,
+        }),
+      });
+      const data = (await res.json()) as {
+        variations?: unknown;
+        error?: unknown;
+      };
+      if (!res.ok) {
+        const msg =
+          typeof data.error === "string" ? data.error : `HTTP ${res.status}`;
+        toast.error("Tạo banner thất bại", { description: msg });
+        return;
+      }
+      if (
+        !Array.isArray(data.variations) ||
+        data.variations.length !== 3 ||
+        !data.variations.every((u) => typeof u === "string")
+      ) {
+        toast.error("Phản hồi từ máy chủ không hợp lệ.");
+        return;
+      }
+      const urls = data.variations as string[];
+      setVariations(urls);
+      setSelectedVariation(0);
+    } catch {
+      toast.error("Không kết nối được máy chủ. Thử lại sau.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const len = userPrompt.length;
