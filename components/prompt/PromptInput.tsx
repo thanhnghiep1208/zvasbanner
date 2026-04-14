@@ -1,3 +1,7 @@
+/*
+ * tsc --noEmit: (no errors in this file)
+ */
+
 "use client";
 
 import * as React from "react";
@@ -5,8 +9,16 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useEditorStore } from "@/store/editor";
+import {
+  composeUserPrompt,
+  requestFullGeneration,
+} from "@/lib/client-generation";
+import {
+  useEditorStore,
+  type GenerationProgress,
+} from "@/store/editor";
 import { cn } from "@/lib/utils";
 
 const MAX_CHARS = 1000;
@@ -14,18 +26,53 @@ const MAX_CHARS = 1000;
 const PLACEHOLDER =
   "Mô tả banner bạn muốn tạo... Ví dụ: Banner sale 50% cho shop thời trang, tone màu pastel, phong cách tối giản";
 
+function GenerateSpinnerIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={cn("size-4 shrink-0", className)}
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <circle
+        className="animate-generate-spinner-stroke"
+        cx="8"
+        cy="8"
+        r="6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function PromptInput({ className }: { className?: string }) {
   const userPrompt = useEditorStore((s) => s.userPrompt);
   const setUserPrompt = useEditorStore((s) => s.setUserPrompt);
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
   const assets = useEditorStore((s) => s.assets);
+  const headline = useEditorStore((s) => s.headline);
+  const setHeadline = useEditorStore((s) => s.setHeadline);
+  const subheadline = useEditorStore((s) => s.subheadline);
+  const setSubheadline = useEditorStore((s) => s.setSubheadline);
+  const ctaText = useEditorStore((s) => s.ctaText);
+  const setCtaText = useEditorStore((s) => s.setCtaText);
+  const styleControls = useEditorStore((s) => s.styleControls);
+  const setStyleControls = useEditorStore((s) => s.setStyleControls);
   const isGenerating = useEditorStore((s) => s.isGenerating);
   const setIsGenerating = useEditorStore((s) => s.setIsGenerating);
-  const setVariations = useEditorStore((s) => s.setVariations);
-  const setSelectedVariation = useEditorStore((s) => s.setSelectedVariation);
+  const setGeneratedImage = useEditorStore((s) => s.setGeneratedImage);
+  const setGenerationError = useEditorStore((s) => s.setGenerationError);
+  const setGenerationProgress = useEditorStore((s) => s.setGenerationProgress);
+  const resetGenerationProgress = useEditorStore((s) => s.resetGenerationProgress);
+  const generationStats = useEditorStore((s) => s.generationStats);
+  const setGenerationStats = useEditorStore((s) => s.setGenerationStats);
 
   const [isEnhancing, setIsEnhancing] = React.useState(false);
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
+  const generationAbortRef = React.useRef<AbortController | null>(null);
 
   const onPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value.slice(0, MAX_CHARS);
@@ -39,7 +86,16 @@ export function PromptInput({ className }: { className?: string }) {
       const res = await fetch("/api/enhance-prompt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userPrompt, canvasConfig, assets }),
+        body: JSON.stringify({
+          userPrompt: composeUserPrompt({
+            userPrompt,
+            headline,
+            subheadline,
+            ctaText,
+          }),
+          canvasConfig,
+          assets,
+        }),
       });
       const data = (await res.json()) as {
         enhancedPrompt?: unknown;
@@ -63,46 +119,57 @@ export function PromptInput({ className }: { className?: string }) {
   };
 
   const handleGenerate = async () => {
-    const state = useEditorStore.getState();
-    setIsGenerating(true);
-    try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          canvasConfig: state.canvasConfig,
-          assets: state.assets,
-          brandKit: state.brandKit,
-          userPrompt: state.userPrompt,
-          styleControls: state.styleControls,
-        }),
-      });
-      const data = (await res.json()) as {
-        variations?: unknown;
-        error?: unknown;
-      };
-      if (!res.ok) {
-        const msg =
-          typeof data.error === "string" ? data.error : `HTTP ${res.status}`;
-        toast.error("Tạo banner thất bại", { description: msg });
-        return;
-      }
-      if (
-        !Array.isArray(data.variations) ||
-        data.variations.length !== 3 ||
-        !data.variations.every((u) => typeof u === "string")
-      ) {
-        toast.error("Phản hồi từ máy chủ không hợp lệ.");
-        return;
-      }
-      const urls = data.variations as string[];
-      setVariations(urls);
-      setSelectedVariation(0);
-    } catch {
-      toast.error("Không kết nối được máy chủ. Thử lại sau.");
-    } finally {
-      setIsGenerating(false);
+    if (generationAbortRef.current) {
+      generationAbortRef.current.abort();
     }
+    const controller = new AbortController();
+    generationAbortRef.current = controller;
+    const nextProgress: GenerationProgress = {
+      percent: 0,
+      status: "pending",
+    };
+    setGenerationError(null);
+    setGenerationStats(null);
+    setGenerationProgress(nextProgress);
+    setIsGenerating(true);
+    const result = await requestFullGeneration({
+      signal: controller.signal,
+      onProgress: ({ status }) => {
+        nextProgress.status = status;
+        nextProgress.percent = status === "running" ? 65 : 100;
+        setGenerationProgress({ ...nextProgress });
+      },
+    });
+    if (generationAbortRef.current === controller) {
+      generationAbortRef.current = null;
+    }
+    setIsGenerating(false);
+    if (!result.ok) {
+      setGenerationError(result.error);
+      if (result.error.includes("hủy")) {
+        resetGenerationProgress();
+      }
+      return;
+    }
+    setGeneratedImage(result.image);
+    setGenerationError(null);
+    setGenerationStats(result.meta ?? null);
+    if (result.source === "placeholder") {
+      const details = result.placeholderError ?? "Không rõ nguyên nhân.";
+      const step = result.failedStep ? ` (bước: ${result.failedStep})` : "";
+      const msg = `Ảnh AI lỗi, đang hiển thị placeholder${step}. ${details}`;
+      setGenerationError(msg);
+      toast.error(msg);
+    }
+    setGenerationProgress({
+      percent: 100,
+      status: result.source === "placeholder" ? "fallback" : "done",
+    });
+  };
+
+  const handleCancelGenerate = () => {
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
   };
 
   const len = userPrompt.length;
@@ -112,6 +179,29 @@ export function PromptInput({ className }: { className?: string }) {
   return (
     <div className={cn("space-y-3", className)}>
       <div className="relative">
+        <div className="mb-2 grid grid-cols-1 gap-2">
+          <Input
+            value={headline}
+            onChange={(e) => setHeadline(e.target.value)}
+            disabled={isGenerating}
+            placeholder="Tiêu đề chính (tuỳ chọn)"
+            aria-label="Tiêu đề chính"
+          />
+          <Input
+            value={subheadline}
+            onChange={(e) => setSubheadline(e.target.value)}
+            disabled={isGenerating}
+            placeholder="Tiêu đề phụ (tuỳ chọn)"
+            aria-label="Tiêu đề phụ"
+          />
+          <Input
+            value={ctaText}
+            onChange={(e) => setCtaText(e.target.value)}
+            disabled={isGenerating}
+            placeholder="Nút kêu gọi hành động (tuỳ chọn)"
+            aria-label="Nút kêu gọi hành động"
+          />
+        </div>
         <Textarea
           value={userPrompt}
           onChange={onPromptChange}
@@ -162,14 +252,68 @@ export function PromptInput({ className }: { className?: string }) {
         >
           {isGenerating ? (
             <>
-              <Loader2 className="size-4 animate-spin" aria-hidden />
+              <GenerateSpinnerIcon />
               Đang tạo...
             </>
           ) : (
             "Tạo banner"
           )}
         </Button>
+        {isGenerating ? (
+          <Button type="button" variant="outline" onClick={handleCancelGenerate}>
+            Hủy
+          </Button>
+        ) : null}
       </div>
+
+      <label
+        htmlFor="strict-preserve-mode-prompt"
+        className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2"
+      >
+        <input
+          id="strict-preserve-mode-prompt"
+          type="checkbox"
+          className="mt-0.5 size-4 rounded border-zinc-300"
+          checked={styleControls.strictPreserveMode}
+          onChange={(e) =>
+            setStyleControls({ strictPreserveMode: e.target.checked })
+          }
+          disabled={isGenerating}
+        />
+        <span className="space-y-0.5 text-xs">
+          <span className="block font-medium text-zinc-800">
+            Giữ nguyên chủ thể upload
+          </span>
+          <span className="block text-zinc-600">
+            Hạn chế sửa sản phẩm/logo/chủ thể; AI chủ yếu thêm nền, ánh sáng và
+            hiệu ứng.
+          </span>
+        </span>
+      </label>
+
+      {generationStats ? (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-xs text-zinc-700">
+          <p>
+            Model: <span className="font-medium">{generationStats.model}</span>
+          </p>
+          <p>
+            Thời gian tạo:{" "}
+            <span className="font-medium">
+              {(generationStats.elapsedMs / 1000).toFixed(2)}s
+            </span>
+          </p>
+          <p>
+            Token:{" "}
+            <span className="font-medium">
+              {generationStats.totalTokens ?? "-"}
+            </span>{" "}
+            <span className="text-zinc-500">
+              (prompt: {generationStats.promptTokens ?? "-"}, output:{" "}
+              {generationStats.outputTokens ?? "-"})
+            </span>
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

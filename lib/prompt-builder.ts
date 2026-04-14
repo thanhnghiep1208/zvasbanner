@@ -4,15 +4,12 @@ import type {
   UploadedAsset,
 } from "@/lib/types";
 
-/** Which of three composition variants to request from the model. */
-export type VariationIndex = 0 | 1 | 2;
-
 const SECTION = {
   system: "=== SYSTEM ===",
   context: "=== CONTEXT ===",
   creative: "=== CREATIVE DIRECTION ===",
   user: "=== USER BRIEF ===",
-  variation: "=== VARIATION ===",
+  output: "=== OUTPUT PRIORITY ===",
 } as const;
 
 /**
@@ -31,6 +28,12 @@ export function buildSystemPrompt(): string {
     "Logos & brand marks:",
     "- When a logo asset is provided, preserve its proportions, colors, and clarity—do not distort, redraw, or crop essential marks.",
     "- Place logos in a clean, unobstructed area with sufficient padding.",
+    "",
+    "Uploaded item integrity (strict):",
+    "- Treat uploaded product/object/logo items as locked content.",
+    "- Do not replace, redraw, heavily transform, or invent a different item.",
+    "- Allowed creativity is mainly in background design, lighting, texture, effects, composition framing, and supporting graphic elements.",
+    "- You may apply subtle global color grading so the locked items blend naturally, but keep their identity and key details intact.",
     "",
     "Layout & safe zones:",
     "- Respect platform-style safe margins (roughly 5–8% inset from each edge) so nothing important is clipped on social or ad placements.",
@@ -77,6 +80,7 @@ export function buildContextBlock(config: GenerationRequest): string {
       image: [],
       background: [],
       decoration: [],
+      "style-reference": [],
     };
     for (const a of assets) {
       (byRole[a.role] ??= []).push(a);
@@ -86,11 +90,20 @@ export function buildContextBlock(config: GenerationRequest): string {
       "image",
       "background",
       "decoration",
+      "style-reference",
     ];
     for (const role of order) {
       const list = byRole[role];
       if (!list?.length) continue;
       lines.push(`Role: ${role}`);
+      if (role === "style-reference") {
+        lines.push(
+          "- CRITICAL: Treat these as style anchors. Reuse their color logic, graphic element system, texture/noise character, and overall art direction."
+        );
+        lines.push(
+          "- Do not clone exact text, logo, brand identity, or copyrighted composition."
+        );
+      }
       for (const asset of list) {
         lines.push(formatAssetLine(asset));
       }
@@ -148,6 +161,55 @@ const PALETTE_PHRASES: Record<StyleControls["colorPalette"], string> = {
   cool: "Cool-forward palette: blues, teals, slate, and crisp whites.",
 };
 
+const FONT_STYLE_PHRASES: Record<StyleControls["fontStyle"], string> = {
+  sans:
+    "Typography direction: clean sans-serif family, high legibility, balanced spacing.",
+  serif:
+    "Typography direction: elegant serif headlines with careful contrast and readability.",
+  display:
+    "Typography direction: expressive display headline style for strong visual impact.",
+  handwritten:
+    "Typography direction: handwritten-inspired style, still clear and readable for key text.",
+  modern:
+    "Typography direction: modern geometric sans style, crisp and contemporary.",
+};
+
+const BG_TONE_LABELS: Record<StyleControls["backgroundConfig"]["tones"][number], string> = {
+  "warm-sunset": "Warm Sunset",
+  "ocean-breeze": "Ocean Breeze",
+  "deep-twilight": "Deep Twilight",
+  "pastel-dream": "Pastel Dream",
+  "nordic-forest": "Nordic Forest",
+  "desert-sand": "Desert Sand",
+  "volcanic-ash": "Volcanic Ash",
+  "spring-blossom": "Spring Blossom",
+  "cyberpunk-neon": "Cyberpunk Neon",
+  "midnight-luxury": "Midnight Luxury",
+  "industrial-grey": "Industrial Grey",
+  "synthwave-night": "Synthwave Night",
+  "lavender-haze": "Lavender Haze",
+  "vintage-film": "Vintage Film",
+  "monochrome-mist": "Monochrome Mist",
+  "ethereal-glow": "Ethereal Glow",
+};
+const BG_GRAIN_LABELS: Record<StyleControls["backgroundConfig"]["grains"][number], string> = {
+  "subtle-grain": "Subtle Grain",
+  "classic-film": "Classic Film",
+  "heavy-retro": "Heavy Retro",
+};
+const BG_SHAPE_LABELS: Record<StyleControls["backgroundConfig"]["shapes"][number], string> = {
+  "blurry-organic": "Blurry Organic",
+  "abstract-blobs": "Abstract Blobs",
+  "liquid-flow": "Liquid Flow",
+  "central-glow": "Central Glow",
+};
+const BG_EFFECT_LABELS: Record<StyleControls["backgroundConfig"]["effects"][number], string> = {
+  minimalist: "Minimalist",
+  "dreamy-ethereal": "Dreamy/Ethereal",
+  "lofi-vintage": "Lo-fi Vintage",
+  "high-contrast": "High-Contrast",
+};
+
 /**
  * Maps style controls to compact visual-descriptor phrases for the creative layer.
  */
@@ -156,31 +218,52 @@ export function buildStylePhrase(controls: StyleControls): string {
     `Overall style (${controls.style}): ${STYLE_PHRASES[controls.style]}.`,
     `Mood (${controls.mood}): ${MOOD_PHRASES[controls.mood]}.`,
     `Color treatment (${controls.colorPalette}): ${PALETTE_PHRASES[controls.colorPalette]}`,
+    FONT_STYLE_PHRASES[controls.fontStyle],
   ];
+  const bgParts: string[] = [];
+  if (controls.backgroundConfig.tones.length > 0) {
+    bgParts.push(
+      `Background tone options: ${controls.backgroundConfig.tones.map((x) => BG_TONE_LABELS[x]).join(", ")}.`
+    );
+  }
+  if (controls.backgroundConfig.grains.length > 0) {
+    bgParts.push(
+      `Background grain options: ${controls.backgroundConfig.grains.map((x) => BG_GRAIN_LABELS[x]).join(", ")}.`
+    );
+  }
+  if (controls.backgroundConfig.shapes.length > 0) {
+    bgParts.push(
+      `Background shape options: ${controls.backgroundConfig.shapes.map((x) => BG_SHAPE_LABELS[x]).join(", ")}.`
+    );
+  }
+  if (controls.backgroundConfig.effects.length > 0) {
+    bgParts.push(
+      `Background effect options: ${controls.backgroundConfig.effects.map((x) => BG_EFFECT_LABELS[x]).join(", ")}.`
+    );
+  }
+  if (bgParts.length > 0) {
+    parts.push(`Preselected background checklist: ${bgParts.join(" ")}`);
+  }
   return parts.join(" ");
 }
 
-const VARIATION_DIRECTIVES: Record<VariationIndex, string> = {
-  0: "Composition: centered symmetrical layout, text stacked vertically center",
-  1: "Composition: subject left third, text right two-thirds, diagonal visual flow",
-  2: "Composition: typography-led, large headline dominates, minimal imagery",
-};
-
-/**
- * Per-variation composition instructions (three distinct layouts).
- */
-export function buildVariationDirective(variationIndex: VariationIndex): string {
-  return VARIATION_DIRECTIVES[variationIndex];
+export function buildOutputPriorityDirective(): string {
+  return [
+    "Generate one final banner only (no alternatives).",
+    "Prioritize visual originality, strong concept, and premium finish quality.",
+    "Preserve uploaded items with minimal alteration; add creativity mostly through background/effects.",
+    "Keep composition coherent and production-ready for direct use.",
+  ].join(" ");
 }
 
 /**
- * Assembles Layers 1–5 into one prompt string for Gemini (or similar multimodal APIs).
- * Order: system → context → style → user brief → variation directive.
+ * Assembles layers into one prompt string for Gemini (or similar multimodal APIs).
+ * Order: system → context → style → user brief → output priority.
  */
-export function assembleFullPrompt(
-  request: GenerationRequest,
-  variationIndex: VariationIndex
-): string {
+export function assembleFullPrompt(request: GenerationRequest): string {
+  const strictPreserveInstruction = request.styleControls.strictPreserveMode
+    ? "STRICT PRESERVE MODE: Keep uploaded product/logo/object assets nearly unchanged. Only allow subtle integration edits (global tone match, edge cleanup, shadow harmonization). Do not redesign or reshape uploaded subjects."
+    : "Balanced preserve mode: keep uploaded assets recognizable while allowing moderate blending and stylistic adaptation.";
   const blocks = [
     SECTION.system,
     buildSystemPrompt(),
@@ -194,8 +277,10 @@ export function assembleFullPrompt(
     SECTION.user,
     request.userPrompt.trim() || "(No additional user text.)",
     "",
-    SECTION.variation,
-    buildVariationDirective(variationIndex),
+    strictPreserveInstruction,
+    "",
+    SECTION.output,
+    buildOutputPriorityDirective(),
   ];
   return blocks.join("\n").trim();
 }

@@ -1,3 +1,7 @@
+/*
+ * tsc --noEmit: (no errors in this file)
+ */
+
 "use client"
 
 import * as React from "react"
@@ -67,6 +71,7 @@ function SheetContent({
                 variant="ghost"
                 className="absolute top-3 right-3"
                 size="icon-sm"
+                aria-label="Close sidebar"
               />
             }
           >

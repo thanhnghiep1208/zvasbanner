@@ -16,6 +16,11 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Troubleshooting (Local Dev)
+
+- If you see React hydration mismatch warnings with `bis_skin_checked`, this is usually caused by browser extensions (commonly Bitwarden) injecting attributes into the DOM before hydration.
+- Fix: disable the extension/autofill for `localhost:3000` (or open in an extension-free profile) and hard refresh.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses `[next/font](https://nextjs.org/docs/app/building-your-application/optimizing/fonts)` to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

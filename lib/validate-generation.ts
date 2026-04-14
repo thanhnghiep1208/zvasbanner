@@ -1,5 +1,9 @@
 import type {
   AssetRole,
+  BackgroundEffectOption,
+  BackgroundGrainOption,
+  BackgroundShapeOption,
+  BackgroundToneOption,
   BrandKit,
   CanvasConfig,
   GenerationRequest,
@@ -12,6 +16,7 @@ const ASSET_ROLES: AssetRole[] = [
   "image",
   "background",
   "decoration",
+  "style-reference",
 ];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -36,7 +41,7 @@ export function parseCanvasConfig(v: unknown): CanvasConfig | null {
 
 export function parseUploadedAsset(v: unknown): UploadedAsset | null {
   if (!isRecord(v)) return null;
-  const { id, url, fileName, role, hasAlpha, originalDims } = v;
+  const { id, url, fileName, role, hasAlpha, originalDims, dataUrl } = v;
   if (
     typeof id !== "string" ||
     typeof url !== "string" ||
@@ -51,9 +56,11 @@ export function parseUploadedAsset(v: unknown): UploadedAsset | null {
   const w = originalDims.width;
   const h = originalDims.height;
   if (typeof w !== "number" || typeof h !== "number") return null;
+  if (dataUrl !== undefined && typeof dataUrl !== "string") return null;
   return {
     id,
     url,
+    dataUrl,
     fileName,
     role: role as AssetRole,
     hasAlpha,
@@ -93,14 +100,59 @@ const PALETTES: StyleControls["colorPalette"][] = [
   "warm",
   "cool",
 ];
+const FONT_STYLES: StyleControls["fontStyle"][] = [
+  "sans",
+  "serif",
+  "display",
+  "handwritten",
+  "modern",
+];
+const BACKGROUND_TONES: BackgroundToneOption[] = [
+  "warm-sunset",
+  "ocean-breeze",
+  "deep-twilight",
+  "pastel-dream",
+  "nordic-forest",
+  "desert-sand",
+  "volcanic-ash",
+  "spring-blossom",
+  "cyberpunk-neon",
+  "midnight-luxury",
+  "industrial-grey",
+  "synthwave-night",
+  "lavender-haze",
+  "vintage-film",
+  "monochrome-mist",
+  "ethereal-glow",
+];
+const BACKGROUND_GRAINS: BackgroundGrainOption[] = [
+  "subtle-grain",
+  "classic-film",
+  "heavy-retro",
+];
+const BACKGROUND_SHAPES: BackgroundShapeOption[] = [
+  "blurry-organic",
+  "abstract-blobs",
+  "liquid-flow",
+  "central-glow",
+];
+const BACKGROUND_EFFECTS: BackgroundEffectOption[] = [
+  "minimalist",
+  "dreamy-ethereal",
+  "lofi-vintage",
+  "high-contrast",
+];
 
 export function parseStyleControls(v: unknown): StyleControls | null {
   if (!isRecord(v)) return null;
-  const { style, mood, colorPalette } = v;
+  const { style, mood, colorPalette, fontStyle, strictPreserveMode, backgroundConfig } = v;
   if (
     typeof style !== "string" ||
     typeof mood !== "string" ||
-    typeof colorPalette !== "string"
+    typeof colorPalette !== "string" ||
+    typeof fontStyle !== "string" ||
+    (strictPreserveMode !== undefined && typeof strictPreserveMode !== "boolean") ||
+    !isRecord(backgroundConfig)
   ) {
     return null;
   }
@@ -108,10 +160,28 @@ export function parseStyleControls(v: unknown): StyleControls | null {
   if (!MOODS.includes(mood as StyleControls["mood"])) return null;
   if (!PALETTES.includes(colorPalette as StyleControls["colorPalette"]))
     return null;
+  if (!FONT_STYLES.includes(fontStyle as StyleControls["fontStyle"]))
+    return null;
+  const tones = backgroundConfig.tones;
+  const grains = backgroundConfig.grains;
+  const shapes = backgroundConfig.shapes;
+  const effects = backgroundConfig.effects;
+  if (!Array.isArray(tones) || !tones.every((x) => BACKGROUND_TONES.includes(x as BackgroundToneOption))) return null;
+  if (!Array.isArray(grains) || !grains.every((x) => BACKGROUND_GRAINS.includes(x as BackgroundGrainOption))) return null;
+  if (!Array.isArray(shapes) || !shapes.every((x) => BACKGROUND_SHAPES.includes(x as BackgroundShapeOption))) return null;
+  if (!Array.isArray(effects) || !effects.every((x) => BACKGROUND_EFFECTS.includes(x as BackgroundEffectOption))) return null;
   return {
     style: style as StyleControls["style"],
     mood: mood as StyleControls["mood"],
     colorPalette: colorPalette as StyleControls["colorPalette"],
+    fontStyle: fontStyle as StyleControls["fontStyle"],
+    strictPreserveMode: strictPreserveMode ?? true,
+    backgroundConfig: {
+      tones: tones as BackgroundToneOption[],
+      grains: grains as BackgroundGrainOption[],
+      shapes: shapes as BackgroundShapeOption[],
+      effects: effects as BackgroundEffectOption[],
+    },
   };
 }
 
@@ -141,8 +211,6 @@ export function parseGenerationRequest(v: unknown): GenerationRequest | null {
 
 export type ParsedGenerateBody = {
   request: GenerationRequest;
-  regenerateVariationIndex?: 0 | 1 | 2;
-  existingVariations?: [string, string, string];
 };
 
 /**
@@ -150,24 +218,8 @@ export type ParsedGenerateBody = {
  */
 export function parseGenerateApiBody(v: unknown): ParsedGenerateBody | null {
   const request = parseGenerationRequest(v);
-  if (!request || !isRecord(v)) return null;
-
-  const rawIdx = v.regenerateVariationIndex;
-  if (rawIdx === undefined) {
-    return { request };
-  }
-  if (rawIdx !== 0 && rawIdx !== 1 && rawIdx !== 2) return null;
-
-  const ex = v.existingVariations;
-  if (!Array.isArray(ex) || ex.length !== 3) return null;
-  if (!ex.every((item): item is string => typeof item === "string")) {
-    return null;
-  }
-  return {
-    request,
-    regenerateVariationIndex: rawIdx,
-    existingVariations: [ex[0], ex[1], ex[2]],
-  };
+  if (!request) return null;
+  return { request };
 }
 
 export type EnhancePromptBody = {

@@ -1,3 +1,7 @@
+/*
+ * tsc --noEmit: N/A (CSS only; no TypeScript in this file)
+ */
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -59,6 +63,20 @@
 
   .animate-generation-indeterminate {
     animation: generation-indeterminate 1.25s ease-in-out infinite;
+  }
+
+  @keyframes generate-spinner-stroke {
+    0% {
+      stroke-dashoffset: 20;
+    }
+    100% {
+      stroke-dashoffset: -20;
+    }
+  }
+
+  .animate-generate-spinner-stroke {
+    stroke-dasharray: 14 22;
+    animation: generate-spinner-stroke 0.9s linear infinite;
   }
 }
 

@@ -15,14 +15,16 @@ const ENHANCE_MODELS = [
   "gemini-2.0-flash",
 ] as const;
 
-/** Imagen via Gemini API REST (same key as Generative AI). */
-const IMAGEN_MODELS = [
-  "imagen-4.0-generate-001",
-  "imagen-3.0-generate-002",
-  "imagen-3.0-generate-001",
-] as const;
+/** Locked image model. */
+const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
 
-const IMAGEN_PROMPT_MAX_CHARS = 1800;
+export type ImageGenerationMeta = {
+  model: string;
+  elapsedMs: number;
+  promptTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+};
 
 export function getGeminiApiKey(): string {
   const key = process.env.GEMINI_API_KEY?.trim();
@@ -120,97 +122,104 @@ export async function runGeminiEnhance(
 }
 
 /**
- * Maps canvas dimensions to the closest Imagen-supported aspect ratio.
+ * Image generation via locked Gemini model.
  */
-export function inferImagenAspectRatio(width: number, height: number): string {
-  if (width <= 0 || height <= 0) return "1:1";
-  const r = width / height;
-  const options: { id: string; ratio: number }[] = [
-    { id: "1:1", ratio: 1 },
-    { id: "4:3", ratio: 4 / 3 },
-    { id: "3:4", ratio: 3 / 4 },
-    { id: "16:9", ratio: 16 / 9 },
-    { id: "9:16", ratio: 9 / 16 },
-  ];
-  let best = options[0];
-  let bestDiff = Math.abs(r - best.ratio);
-  for (const o of options) {
-    const d = Math.abs(r - o.ratio);
-    if (d < bestDiff) {
-      best = o;
-      bestDiff = d;
-    }
-  }
-  return best.id;
-}
-
-type ImagenPredictResponse = {
-  predictions?: Array<{
-    bytesBase64Encoded?: string;
-    mimeType?: string;
-  }>;
-  error?: { message?: string };
-};
-
-/**
- * Imagen image generation via REST `:predict` (generateImages-equivalent).
- */
-export async function imagenGenerateOne(
+export async function geminiGenerateOneImage(
   apiKey: string,
   prompt: string,
-  aspectRatio: string
-): Promise<string> {
-  const safePrompt =
-    prompt.length > IMAGEN_PROMPT_MAX_CHARS
-      ? `${prompt.slice(0, IMAGEN_PROMPT_MAX_CHARS - 1)}…`
-      : prompt;
-
-  let lastStatus = 0;
-  let lastBody = "";
-
-  for (const model of IMAGEN_MODELS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
+  assets: UploadedAsset[] = []
+): Promise<{ image: string; meta: ImageGenerationMeta }> {
+  const startedAt = Date.now();
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const visualParts = buildAssetInlineParts(assets);
+  const model = genAI.getGenerativeModel({ model: GEMINI_IMAGE_MODEL });
+  const result = await withTimeout(
+    model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text:
+                `${prompt}\n\nOutput requirement: Return one final rendered image result. Prioritize image output.`,
+            },
+            ...visualParts,
+          ],
         },
-        body: JSON.stringify({
-          instances: [{ prompt: safePrompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio,
-          },
-        }),
-        signal: controller.signal,
+      ],
+    }),
+    GEMINI_TIMEOUT_MS,
+    `Gemini image ${GEMINI_IMAGE_MODEL}`
+  );
+  const parts = result.response.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find((p) => p.inlineData?.data);
+  const b64 = imagePart?.inlineData?.data;
+  if (!b64) {
+    throw new Error(`No image data in response from ${GEMINI_IMAGE_MODEL}`);
+  }
+  const mime = imagePart.inlineData?.mimeType ?? "image/png";
+  const usage = result.response.usageMetadata as
+    | {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      }
+    | undefined;
+  return {
+    image: `data:${mime};base64,${b64}`,
+    meta: {
+      model: GEMINI_IMAGE_MODEL,
+      elapsedMs: Date.now() - startedAt,
+      promptTokens: usage?.promptTokenCount,
+      outputTokens: usage?.candidatesTokenCount,
+      totalTokens: usage?.totalTokenCount,
+    },
+  };
+}
+
+function buildAssetInlineParts(assets: UploadedAsset[]) {
+  const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
+  const styleRefs = assets.filter((a) => a.role === "style-reference");
+  const others = assets.filter((a) => a.role !== "style-reference");
+  const ordered = [...styleRefs, ...others];
+
+  for (const asset of ordered) {
+    const p = parseDataUrl(asset.dataUrl);
+    if (!p) continue;
+    const roleInstruction =
+      asset.role === "style-reference"
+        ? "Use this as a strict style reference: match its color palette, gradient treatment, lighting mood, and graphic element language (shapes, lines, texture/noise, decorative motifs). Keep the same visual DNA and styling direction. Do not copy brand marks, faces, or exact text/content."
+        : "Preserve this uploaded item as-is: keep its identity, proportions, silhouette, and key details. Do not redesign, replace, or heavily alter it; only harmonize lighting/color grading to match the new background and effects.";
+    parts.push({
+      text: `Reference asset (${asset.role}): ${asset.fileName}. ${roleInstruction}`,
+    });
+    parts.push({
+      inlineData: {
+        mimeType: p.mimeType,
+        data: p.base64,
+      },
+    });
+    if (asset.role === "style-reference") {
+      // Repeat style anchor once to increase conditioning strength.
+      parts.push({
+        text: `Style anchor reinforcement for ${asset.fileName}: preserve palette, gradients, texture grain, and graphic motif language.`,
       });
-      lastStatus = res.status;
-      const data = (await res.json()) as ImagenPredictResponse;
-      if (!res.ok) {
-        lastBody = JSON.stringify(data).slice(0, 500);
-        continue;
-      }
-      const first = data.predictions?.[0];
-      const b64 = first?.bytesBase64Encoded;
-      if (b64) {
-        const mime = first.mimeType ?? "image/png";
-        return `data:${mime};base64,${b64}`;
-      }
-    } catch {
-      /* try next model */
-    } finally {
-      clearTimeout(timer);
+      parts.push({
+        inlineData: {
+          mimeType: p.mimeType,
+          data: p.base64,
+        },
+      });
     }
   }
+  return parts;
+}
 
-  throw new Error(
-    `Imagen predict failed (last HTTP ${lastStatus}): ${lastBody || "no body"}`
-  );
+function parseDataUrl(dataUrl: string | undefined): { mimeType: string; base64: string } | null {
+  if (!dataUrl || !dataUrl.startsWith("data:")) return null;
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) return null;
+  return { mimeType: m[1], base64: m[2] };
 }
 
 /**

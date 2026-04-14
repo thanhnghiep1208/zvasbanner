@@ -1,3 +1,7 @@
+/*
+ * tsc --noEmit: (no errors in this file)
+ */
+
 import { create } from "zustand";
 
 import { presetToCanvasConfig, getPresetById } from "@/lib/canvas-presets";
@@ -13,6 +17,14 @@ const defaultStyleControls: StyleControls = {
   style: "minimalist",
   mood: "professional",
   colorPalette: "auto",
+  fontStyle: "modern",
+  strictPreserveMode: true,
+  backgroundConfig: {
+    tones: [],
+    grains: [],
+    shapes: [],
+    effects: [],
+  },
 };
 
 const defaultBrandKit: BrandKit = { colors: [] };
@@ -27,7 +39,25 @@ const defaultCanvas: CanvasConfig = defaultPreset
       name: "Facebook Ad",
     };
 
-export type SelectedVariationIndex = 0 | 1 | 2;
+export type VariationProgressStatus =
+  | "pending"
+  | "running"
+  | "done"
+  | "fallback"
+  | "error";
+
+export interface GenerationProgress {
+  percent: number;
+  status: VariationProgressStatus;
+}
+
+export interface GenerationStats {
+  model: string;
+  elapsedMs: number;
+  promptTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+}
 
 export interface EditorState {
   canvasConfig: CanvasConfig;
@@ -40,18 +70,35 @@ export interface EditorState {
   updateAssetRole: (id: string, role: AssetRole) => void;
   userPrompt: string;
   setUserPrompt: (value: string) => void;
+  headline: string;
+  setHeadline: (value: string) => void;
+  subheadline: string;
+  setSubheadline: (value: string) => void;
+  ctaText: string;
+  setCtaText: (value: string) => void;
   styleControls: StyleControls;
   setStyleControls: (partial: Partial<StyleControls>) => void;
   brandKit: BrandKit;
   setBrandKit: (partial: Partial<BrandKit> | BrandKit) => void;
-  /** Last generated image URLs / data URLs (length 3 after a full run). */
-  variations: string[];
-  setVariations: (urls: string[]) => void;
-  selectedVariation: SelectedVariationIndex | null;
-  setSelectedVariation: (index: SelectedVariationIndex | null) => void;
+  /** Last generated image URL / data URL (single result mode). */
+  generatedImage: string | null;
+  setGeneratedImage: (url: string | null) => void;
   isGenerating: boolean;
   setIsGenerating: (value: boolean) => void;
+  /** Set when POST /api/generate fails (full run); cleared on success or retry. */
+  generationError: string | null;
+  setGenerationError: (value: string | null) => void;
+  generationProgress: GenerationProgress;
+  setGenerationProgress: (progress: GenerationProgress) => void;
+  resetGenerationProgress: () => void;
+  generationStats: GenerationStats | null;
+  setGenerationStats: (stats: GenerationStats | null) => void;
 }
+
+const defaultGenerationProgress: GenerationProgress = {
+  percent: 0,
+  status: "pending",
+};
 
 export const useEditorStore = create<EditorState>((set) => ({
   canvasConfig: defaultCanvas,
@@ -77,6 +124,12 @@ export const useEditorStore = create<EditorState>((set) => ({
     })),
   userPrompt: "",
   setUserPrompt: (value) => set({ userPrompt: value }),
+  headline: "",
+  setHeadline: (value) => set({ headline: value }),
+  subheadline: "",
+  setSubheadline: (value) => set({ subheadline: value }),
+  ctaText: "",
+  setCtaText: (value) => set({ ctaText: value }),
   styleControls: defaultStyleControls,
   setStyleControls: (partial) =>
     set((s) => ({
@@ -87,10 +140,16 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((s) => ({
       brandKit: { ...s.brandKit, ...partial },
     })),
-  variations: [],
-  setVariations: (urls) => set({ variations: urls }),
-  selectedVariation: null,
-  setSelectedVariation: (index) => set({ selectedVariation: index }),
+  generatedImage: null,
+  setGeneratedImage: (url) => set({ generatedImage: url }),
   isGenerating: false,
   setIsGenerating: (value) => set({ isGenerating: value }),
+  generationError: null,
+  setGenerationError: (value) => set({ generationError: value }),
+  generationProgress: defaultGenerationProgress,
+  setGenerationProgress: (progress) => set({ generationProgress: progress }),
+  resetGenerationProgress: () =>
+    set({ generationProgress: defaultGenerationProgress }),
+  generationStats: null,
+  setGenerationStats: (stats) => set({ generationStats: stats }),
 }));

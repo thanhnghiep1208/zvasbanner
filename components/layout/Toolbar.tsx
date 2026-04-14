@@ -4,6 +4,7 @@ import { PanelLeft, PanelRight, Settings } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ExportPopover } from "./ExportPopover";
 import { useEditorStore } from "@/store/editor";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ export function EditorToolbar({
 }: EditorToolbarProps) {
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
   const isGenerating = useEditorStore((s) => s.isGenerating);
+  const generationProgress = useEditorStore((s) => s.generationProgress);
 
   return (
     <header
@@ -33,9 +35,15 @@ export function EditorToolbar({
           className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-zinc-200"
           role="progressbar"
           aria-label="Đang tạo banner"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={generationProgress.percent}
           aria-busy="true"
         >
-          <div className="h-full w-[38%] bg-indigo-600 animate-generation-indeterminate" />
+          <div
+            className="h-full bg-indigo-600 transition-[width] duration-300 ease-out"
+            style={{ width: `${generationProgress.percent}%` }}
+          />
         </div>
       ) : null}
       <div className="flex min-w-0 items-center gap-2 justify-self-start">
@@ -67,15 +75,7 @@ export function EditorToolbar({
       </div>
 
       <div className="flex items-center justify-end gap-2 justify-self-end">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled
-          className="border-zinc-200 bg-zinc-100 text-zinc-600"
-        >
-          Export
-        </Button>
+        <ExportPopover />
         <Button
           type="button"
           variant="ghost"

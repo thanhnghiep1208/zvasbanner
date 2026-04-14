@@ -9,7 +9,6 @@ import { CanvasSizeSelector } from "@/components/canvas/CanvasSizeSelector";
 import { EditorToolbar } from "@/components/layout/Toolbar";
 import { PromptInput } from "@/components/prompt/PromptInput";
 import { StyleControls } from "@/components/prompt/StyleControls";
-import { VariationGrid } from "@/components/results/VariationGrid";
 import {
   Sheet,
   SheetContent,
@@ -60,13 +59,12 @@ export function EditorWorkspace() {
 
         {/* Center */}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white">
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden p-3 lg:p-4">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 lg:p-4">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
               <div className="flex min-h-[12rem] min-w-0 flex-1 flex-col items-center justify-center">
                 <CanvasArea className="w-full max-w-full" />
               </div>
             </div>
-            <VariationGrid />
           </div>
         </main>
 
