@@ -57,6 +57,7 @@ export interface GenerationStats {
   promptTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  costUsd?: number;
 }
 
 export interface EditorState {

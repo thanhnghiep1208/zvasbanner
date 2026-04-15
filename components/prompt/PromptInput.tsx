@@ -16,6 +16,7 @@ import {
   composeUserPrompt,
   requestFullGeneration,
 } from "@/lib/client-generation";
+import { track } from "@/lib/analytics";
 import {
   useEditorStore,
   type GenerationProgress,
@@ -70,7 +71,7 @@ export function PromptInput({ className }: { className?: string }) {
   const resetGenerationProgress = useEditorStore((s) => s.resetGenerationProgress);
   const generationStats = useEditorStore((s) => s.generationStats);
   const setGenerationStats = useEditorStore((s) => s.setGenerationStats);
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   const [isEnhancing, setIsEnhancing] = React.useState(false);
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
@@ -160,6 +161,21 @@ export function PromptInput({ className }: { className?: string }) {
     setGeneratedImage(result.image);
     setGenerationError(null);
     setGenerationStats(result.meta ?? null);
+    const bannerId = `banner-${canvasConfig.name}-${Date.now()}`;
+    try {
+      await track("generate_banner", {
+        banner_id: bannerId,
+        user_id: userId ?? "unknown",
+        source: result.source,
+        success: result.source === "gemini",
+        has_asset: assets.length > 0,
+        generation_time_ms: result.meta?.elapsedMs ?? undefined,
+        regenerate_count: 0,
+        cost_usd: result.meta?.costUsd ?? 0,
+      });
+    } catch {
+      // Non-blocking analytics path; generation UX should not fail.
+    }
     if (result.source === "placeholder") {
       const details = result.placeholderError ?? "Không rõ nguyên nhân.";
       const step = result.failedStep ? ` (bước: ${result.failedStep})` : "";
@@ -317,6 +333,14 @@ export function PromptInput({ className }: { className?: string }) {
             <span className="text-zinc-500">
               (prompt: {generationStats.promptTokens ?? "-"}, output:{" "}
               {generationStats.outputTokens ?? "-"})
+            </span>
+          </p>
+          <p>
+            Cost:{" "}
+            <span className="font-medium">
+              {generationStats.costUsd !== undefined
+                ? `$${generationStats.costUsd.toFixed(6)}`
+                : "-"}
             </span>
           </p>
         </div>

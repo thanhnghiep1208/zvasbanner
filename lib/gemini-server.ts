@@ -24,7 +24,23 @@ export type ImageGenerationMeta = {
   promptTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  costUsd?: number;
 };
+
+const INPUT_COST_PER_1K_TOKENS_USD = 0.00015;
+const OUTPUT_COST_PER_1K_TOKENS_USD = 0.0006;
+
+function estimateGenerationCostUsd(params: {
+  promptTokens?: number;
+  outputTokens?: number;
+}): number {
+  const promptTokens = params.promptTokens ?? 0;
+  const outputTokens = params.outputTokens ?? 0;
+  const cost =
+    (promptTokens / 1000) * INPUT_COST_PER_1K_TOKENS_USD +
+    (outputTokens / 1000) * OUTPUT_COST_PER_1K_TOKENS_USD;
+  return Number(cost.toFixed(6));
+}
 
 export function getGeminiApiKey(): string {
   const key = process.env.GEMINI_API_KEY?.trim();
@@ -173,6 +189,10 @@ export async function geminiGenerateOneImage(
       promptTokens: usage?.promptTokenCount,
       outputTokens: usage?.candidatesTokenCount,
       totalTokens: usage?.totalTokenCount,
+      costUsd: estimateGenerationCostUsd({
+        promptTokens: usage?.promptTokenCount,
+        outputTokens: usage?.candidatesTokenCount,
+      }),
     },
   };
 }

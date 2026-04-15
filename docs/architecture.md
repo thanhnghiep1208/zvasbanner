@@ -24,6 +24,14 @@ He thong gom 3 lop chinh:
   - `/api/enhance-prompt`
   - `/api/generate`
   - `/api/proxy-image`
+  - `/api/track` — nhan event analytics tu client, ghi PostgreSQL (`banner_events`)
+  - `/api/dashboard` — aggregate metrics cho UI dashboard
+- **Auth (Clerk):**
+  - `ClerkProvider` trong `app/layout.tsx`, `clerkMiddleware` trong `proxy.ts`.
+  - Mot so hanh vi (tao banner) chi khi da sign-in; canvas preview co the thay bang thong bao dang nhap.
+- **Analytics persistence:**
+  - `lib/analytics.ts` + `lib/analytics-events.ts` (type-safe) → POST `/api/track`
+  - `lib/db.ts` — pool `pg` theo `DATABASE_URL`
 - **State management (Zustand):**
   - Quan ly canvas, assets, style, generated image, progress, generation stats.
 
@@ -33,9 +41,12 @@ He thong gom 3 lop chinh:
 - React 19 + TypeScript
 - Tailwind CSS v4
 - shadcn/ui + Base UI
+- Font: Inter (`next/font/google`)
 - Zustand
 - Sonner
 - @google/generative-ai
+- @clerk/nextjs (middleware `proxy.ts`)
+- `pg` + PostgreSQL (analytics)
 
 ## Luong nghiep vu end-to-end
 
@@ -48,6 +59,7 @@ He thong gom 3 lop chinh:
   - Loi: placeholder + `failedStep` + `placeholderError` + `meta`
 6. Client cap nhat `generatedImage`, progress, error state, status box.
 7. User export anh.
+8. (Tuy cau hinh DB) Client goi `track()` → `/api/track` luu event; `/dashboard` goi `/api/dashboard` hien thi funnel + canh bao.
 
 ## Frontend module map
 
@@ -62,7 +74,11 @@ He thong gom 3 lop chinh:
 - `components/layout/ExportPopover.tsx`
   - Export format/quality/scale.
 - `components/layout/EditorWorkspace.tsx`
-  - Layout 3 cot.
+  - Layout 3 cot; an canvas neu chua sign-in (Clerk).
+- `components/layout/Toolbar.tsx`
+  - Export, Settings, Sign in / Sign up / UserButton.
+- `app/dashboard/page.tsx`
+  - Dashboard analytics (client, poll 10 phut).
 - `store/editor.ts`
   - Global editor state.
 
@@ -81,3 +97,11 @@ He thong gom 3 lop chinh:
   - Runtime validation cho API payload.
 - `app/api/proxy-image/route.ts`
   - Proxy image remote de tranh CORS canvas taint.
+- `app/api/track/route.ts`
+  - Validate event name + insert `banner_events`.
+- `app/api/dashboard/route.ts`
+  - Query aggregate: generated/previewed/exported, export_rate, averages, cost + period cost cho alert.
+- `proxy.ts`
+  - `clerkMiddleware()` + matcher chuan Clerk cho App Router.
+- `db/banner_events.sql`
+  - Schema bang analytics.

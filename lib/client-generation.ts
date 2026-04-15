@@ -18,6 +18,7 @@ export type FullGenerationResult =
         promptTokens?: number;
         outputTokens?: number;
         totalTokens?: number;
+        costUsd?: number;
       };
       placeholderError?: string;
       failedStep?: string;
@@ -35,6 +36,7 @@ type GenerationUpdate = {
     promptTokens?: number;
     outputTokens?: number;
     totalTokens?: number;
+    costUsd?: number;
   };
   placeholderError?: string;
   failedStep?: string;
@@ -127,6 +129,7 @@ export async function requestFullGeneration(options?: {
             promptTokens?: number;
             outputTokens?: number;
             totalTokens?: number;
+            costUsd?: number;
           })
         : undefined;
     options?.onProgress?.({
