@@ -16,6 +16,12 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [API Reference](docs/api.md)
+- [Development Guide](docs/development-guide.md)
+
 ## Troubleshooting (Local Dev)
 
 - If you see React hydration mismatch warnings with `bis_skin_checked`, this is usually caused by browser extensions (commonly Bitwarden) injecting attributes into the DOM before hydration.

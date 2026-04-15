@@ -21,6 +21,13 @@ export const CANVAS_PRESET_GROUPS: CanvasPresetGroup[] = [
     label: "Social Media",
     presets: [
       {
+        id: "social-zalo-oa-img",
+        name: "Zalo OA Img",
+        width: 1075,
+        height: 645,
+        category: "Social Media",
+      },
+      {
         id: "social-facebook-ad",
         name: "Facebook Ad",
         width: 1200,

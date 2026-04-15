@@ -29,14 +29,14 @@ const defaultStyleControls: StyleControls = {
 
 const defaultBrandKit: BrandKit = { colors: [] };
 
-const defaultPreset = getPresetById("social-facebook-ad");
+const defaultPreset = getPresetById("social-zalo-oa-img");
 const defaultCanvas: CanvasConfig = defaultPreset
   ? presetToCanvasConfig(defaultPreset)
   : {
-      width: 1200,
-      height: 628,
+      width: 1075,
+      height: 645,
       platform: "Social Media",
-      name: "Facebook Ad",
+      name: "Zalo OA Img",
     };
 
 export type VariationProgressStatus =
