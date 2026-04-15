@@ -18,7 +18,7 @@ export const CUSTOM_PRESET_ID = "custom" as const;
 
 export const CANVAS_PRESET_GROUPS: CanvasPresetGroup[] = [
   {
-    label: "Social Media",
+    label: "Presets",
     presets: [
       {
         id: "social-zalo-oa-img",
@@ -28,91 +28,11 @@ export const CANVAS_PRESET_GROUPS: CanvasPresetGroup[] = [
         category: "Social Media",
       },
       {
-        id: "social-facebook-ad",
-        name: "Facebook Ad",
-        width: 1200,
-        height: 628,
+        id: "mp3-home",
+        name: "MP3 Home",
+        width: 1071,
+        height: 357,
         category: "Social Media",
-      },
-      {
-        id: "social-instagram-post",
-        name: "Instagram Post",
-        width: 1080,
-        height: 1080,
-        category: "Social Media",
-      },
-      {
-        id: "social-instagram-story",
-        name: "Instagram Story",
-        width: 1080,
-        height: 1920,
-        category: "Social Media",
-      },
-      {
-        id: "social-twitter-header",
-        name: "Twitter/X Header",
-        width: 1500,
-        height: 500,
-        category: "Social Media",
-      },
-      {
-        id: "social-linkedin-cover",
-        name: "LinkedIn Cover",
-        width: 1584,
-        height: 396,
-        category: "Social Media",
-      },
-    ],
-  },
-  {
-    label: "Google Ads",
-    presets: [
-      {
-        id: "ads-leaderboard",
-        name: "Leaderboard",
-        width: 728,
-        height: 90,
-        category: "Google Ads",
-      },
-      {
-        id: "ads-medium-rectangle",
-        name: "Medium Rectangle",
-        width: 300,
-        height: 250,
-        category: "Google Ads",
-      },
-      {
-        id: "ads-wide-skyscraper",
-        name: "Wide Skyscraper",
-        width: 160,
-        height: 600,
-        category: "Google Ads",
-      },
-      {
-        id: "ads-large-rectangle",
-        name: "Large Rectangle",
-        width: 336,
-        height: 280,
-        category: "Google Ads",
-      },
-    ],
-  },
-  {
-    label: "Other",
-    presets: [
-      {
-        id: "other-youtube-thumbnail",
-        name: "YouTube Thumbnail",
-        width: 1280,
-        height: 720,
-        category: "Other",
-      },
-      {
-        id: "other-email-header",
-        name: "Email Header",
-        width: 600,
-        height: 200,
-        category: "Other",
       },
     ],
   },

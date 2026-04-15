@@ -1,52 +1,74 @@
-import { Slider as SliderPrimitive } from "@base-ui/react/slider"
+"use client";
 
-import { cn } from "@/lib/utils"
+import * as React from "react";
 
+import { cn } from "@/lib/utils";
+
+export type SliderProps = Omit<
+  React.ComponentProps<"input">,
+  "type" | "value" | "defaultValue" | "onChange"
+> & {
+  value?: number[];
+  defaultValue?: number[];
+  min?: number;
+  max?: number;
+  step?: number;
+  onValueChange?: (value: number[]) => void;
+};
+
+/**
+ * Native range input — avoids Base UI Slider injecting <script> in thumbs,
+ * which React 19 warns about on the client.
+ */
 function Slider({
   className,
-  defaultValue,
   value,
+  defaultValue,
   min = 0,
   max = 100,
+  step = 1,
+  onValueChange,
+  disabled,
+  id,
   ...props
-}: SliderPrimitive.Root.Props) {
-  const _values = Array.isArray(value)
-    ? value
-    : Array.isArray(defaultValue)
-      ? defaultValue
-      : [min, max]
+}: SliderProps) {
+  const controlled = value !== undefined;
+  const [inner, setInner] = React.useState(defaultValue?.[0] ?? min);
+
+  const n = controlled ? (value?.[0] ?? min) : inner;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = Number(e.target.value);
+    if (!controlled) setInner(next);
+    onValueChange?.([next]);
+  };
 
   return (
-    <SliderPrimitive.Root
-      className={cn("data-horizontal:w-full data-vertical:h-full", className)}
-      data-slot="slider"
-      defaultValue={defaultValue}
-      value={value}
+    <input
+      {...props}
+      id={id}
+      type="range"
       min={min}
       max={max}
-      thumbAlignment="edge"
-      {...props}
-    >
-      <SliderPrimitive.Control className="relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col">
-        <SliderPrimitive.Track
-          data-slot="slider-track"
-          className="relative grow overflow-hidden rounded-full bg-muted select-none data-horizontal:h-1 data-horizontal:w-full data-vertical:h-full data-vertical:w-1"
-        >
-          <SliderPrimitive.Indicator
-            data-slot="slider-range"
-            className="bg-primary select-none data-horizontal:h-full data-vertical:w-full"
-          />
-        </SliderPrimitive.Track>
-        {Array.from({ length: _values.length }, (_, index) => (
-          <SliderPrimitive.Thumb
-            data-slot="slider-thumb"
-            key={index}
-            className="relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
-          />
-        ))}
-      </SliderPrimitive.Control>
-    </SliderPrimitive.Root>
-  )
+      step={step}
+      value={n}
+      disabled={disabled}
+      onChange={handleChange}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={n}
+      className={cn(
+        "h-1 w-full cursor-pointer appearance-none rounded-full bg-muted",
+        "accent-primary",
+        "disabled:pointer-events-none disabled:opacity-50",
+        "[&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-ring [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-sm",
+        "[&::-webkit-slider-runnable-track]:h-1 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted",
+        "[&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border [&::-moz-range-thumb]:border-ring [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-sm",
+        "[&::-moz-range-track]:h-1 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted",
+        className
+      )}
+    />
+  );
 }
 
-export { Slider }
+export { Slider };

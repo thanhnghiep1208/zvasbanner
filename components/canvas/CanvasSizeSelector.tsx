@@ -161,11 +161,12 @@ export function CanvasSizeSelector({ className }: { className?: string }) {
                     </span>
                   </SelectItem>
                 ))}
-                {group.label === "Other" ? (
-                  <SelectItem value={CUSTOM_PRESET_ID}>Custom…</SelectItem>
-                ) : null}
               </SelectGroup>
             ))}
+            <SelectGroup>
+              <SelectLabel>Custom</SelectLabel>
+              <SelectItem value={CUSTOM_PRESET_ID}>Custom…</SelectItem>
+            </SelectGroup>
           </SelectContent>
         </Select>
       </div>

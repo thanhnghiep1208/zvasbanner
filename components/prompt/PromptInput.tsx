@@ -66,6 +66,7 @@ export function PromptInput({ className }: { className?: string }) {
   const isGenerating = useEditorStore((s) => s.isGenerating);
   const setIsGenerating = useEditorStore((s) => s.setIsGenerating);
   const setGeneratedImage = useEditorStore((s) => s.setGeneratedImage);
+  const setCurrentBannerId = useEditorStore((s) => s.setCurrentBannerId);
   const setGenerationError = useEditorStore((s) => s.setGenerationError);
   const setGenerationProgress = useEditorStore((s) => s.setGenerationProgress);
   const resetGenerationProgress = useEditorStore((s) => s.resetGenerationProgress);
@@ -137,6 +138,7 @@ export function PromptInput({ className }: { className?: string }) {
     };
     setGenerationError(null);
     setGenerationStats(null);
+    setCurrentBannerId(null);
     setGenerationProgress(nextProgress);
     setIsGenerating(true);
     const result = await requestFullGeneration({
@@ -162,6 +164,7 @@ export function PromptInput({ className }: { className?: string }) {
     setGenerationError(null);
     setGenerationStats(result.meta ?? null);
     const bannerId = `banner-${canvasConfig.name}-${Date.now()}`;
+    setCurrentBannerId(bannerId);
     try {
       await track("generate_banner", {
         banner_id: bannerId,

@@ -5,7 +5,10 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import * as React from "react";
+import { useAuth } from "@clerk/nextjs";
 
+import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/editor";
 
@@ -50,6 +53,9 @@ function BannerPlaceholderIcon({ className }: { className?: string }) {
 export function CanvasArea({ className }: { className?: string }) {
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
   const generatedImage = useEditorStore((s) => s.generatedImage);
+  const currentBannerId = useEditorStore((s) => s.currentBannerId);
+  const { isSignedIn, userId } = useAuth();
+  const trackedPreviewRef = React.useRef<Set<string>>(new Set());
 
   const { width, height } = canvasConfig;
   const aspectRatio =
@@ -59,6 +65,19 @@ export function CanvasArea({ className }: { className?: string }) {
   const previewUrl = generatedImage || null;
 
   const showSpecEmpty = !generatedImage && !previewUrl;
+
+  React.useEffect(() => {
+    if (!isSignedIn || !userId || !generatedImage || !currentBannerId) return;
+    if (trackedPreviewRef.current.has(currentBannerId)) return;
+    trackedPreviewRef.current.add(currentBannerId);
+    void track("preview_banner", {
+      banner_id: currentBannerId,
+      user_id: userId,
+      view: "canvas",
+    }).catch(() => {
+      trackedPreviewRef.current.delete(currentBannerId);
+    });
+  }, [isSignedIn, userId, generatedImage, currentBannerId]);
 
   return (
     <div

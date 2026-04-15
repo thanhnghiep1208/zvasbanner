@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { TriangleAlert } from "lucide-react";
+import { Loader2, TriangleAlert } from "lucide-react";
 
 import {
   Card,
@@ -9,25 +9,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  TimeRangeFilter,
+  type DashboardRange,
+} from "@/components/dashboard/TimeRangeFilter";
+import { UserAnalyticsTable } from "@/components/dashboard/UserAnalyticsTable";
 
 type DashboardData = {
   total_generated: number;
   total_previewed: number;
   total_exported: number;
   export_rate: number;
-  avg_regenerate: number;
   avg_generation_time: number;
   total_cost: number;
   current_period_cost: number;
   previous_period_cost: number;
 };
 
+const RANGE_STORAGE_KEY = "dashboard:range";
+
 const EMPTY_DATA: DashboardData = {
   total_generated: 0,
   total_previewed: 0,
   total_exported: 0,
   export_rate: 0,
-  avg_regenerate: 0,
   avg_generation_time: 0,
   total_cost: 0,
   current_period_cost: 0,
@@ -55,18 +60,28 @@ function safeRatio(numerator: number, denominator: number): number {
   return numerator / denominator;
 }
 
+function rangeLabel(range: DashboardRange): string {
+  if (range === "today") return "Showing today";
+  if (range === "30d") return "Showing last 30 days";
+  return "Showing last 7 days";
+}
+
+function buildCostComparisonText(data: DashboardData): string | null {
+  const prev = data.previous_period_cost;
+  const curr = data.current_period_cost;
+  if (prev <= 0) return null;
+  const ratio = curr / prev;
+  const deltaPct = Math.abs((ratio - 1) * 100);
+  const arrow = ratio >= 1 ? "↑" : "↓";
+  return `${arrow} ${deltaPct.toFixed(1)}% vs previous period`;
+}
+
 function buildAlerts(data: DashboardData): string[] {
   const alerts: string[] = [];
 
   if (data.export_rate < 0.4) {
     alerts.push(
       `Export rate đang thấp (${formatPercent(data.export_rate)}), dưới ngưỡng 40%.`
-    );
-  }
-
-  if (data.avg_regenerate > 3) {
-    alerts.push(
-      `Avg regenerate đang cao (${data.avg_regenerate.toFixed(2)}), vượt ngưỡng 3 lần.`
     );
   }
 
@@ -88,19 +103,45 @@ function buildAlerts(data: DashboardData): string[] {
 
 export default function DashboardPage() {
   const [data, setData] = React.useState<DashboardData>(EMPTY_DATA);
+  const [range, setRange] = React.useState<DashboardRange>("7d");
   const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = React.useState<number | null>(null);
+  const hasLoadedOnceRef = React.useRef(false);
+
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(RANGE_STORAGE_KEY);
+      if (saved === "today" || saved === "7d" || saved === "30d") {
+        setRange(saved);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(RANGE_STORAGE_KEY, range);
+    } catch {
+      // ignore storage errors
+    }
+  }, [range]);
 
   React.useEffect(() => {
     let cancelled = false;
+    const wasLoadingAtEffectStart = loading;
 
-    async function loadDashboard(isInitial = false) {
+    async function loadDashboard(options?: { initial?: boolean }) {
+      const isInitial = options?.initial ?? false;
       if (isInitial) {
         setLoading(true);
+      } else {
+        setRefreshing(true);
       }
       try {
-        const res = await fetch("/api/dashboard", {
+        const res = await fetch(`/api/dashboard?range=${range}`, {
           method: "GET",
           cache: "no-store",
         });
@@ -117,7 +158,6 @@ export default function DashboardPage() {
           total_previewed: Number(json.total_previewed ?? 0),
           total_exported: Number(json.total_exported ?? 0),
           export_rate: Number(json.export_rate ?? 0),
-          avg_regenerate: Number(json.avg_regenerate ?? 0),
           avg_generation_time: Number(json.avg_generation_time ?? 0),
           total_cost: Number(json.total_cost ?? 0),
           current_period_cost: Number(json.current_period_cost ?? 0),
@@ -129,39 +169,70 @@ export default function DashboardPage() {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Failed to load dashboard");
       } finally {
-        if (!cancelled && isInitial) {
-          setLoading(false);
+        if (!cancelled) {
+          if (isInitial || wasLoadingAtEffectStart) {
+            setLoading(false);
+          }
+          if (!isInitial) {
+            setRefreshing(false);
+          }
         }
       }
     }
 
-    void loadDashboard(true);
+    const isInitial = !hasLoadedOnceRef.current;
+    hasLoadedOnceRef.current = true;
+    void loadDashboard({ initial: isInitial });
     const id = window.setInterval(() => {
-      void loadDashboard(false);
+      void loadDashboard();
     }, 10 * 60 * 1000);
 
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, []);
+  }, [range]);
 
   const alerts = React.useMemo(() => buildAlerts(data), [data]);
+  const costComparison = React.useMemo(
+    () => buildCostComparisonText(data),
+    [data]
+  );
+  const hasCoreData = React.useMemo(
+    () => data.total_generated > 0 || data.total_exported > 0 || data.total_cost > 0,
+    [data.total_generated, data.total_exported, data.total_cost]
+  );
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
-          Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Analytics overview for banner generation performance.
-        </p>
-        <p className="mt-1 text-xs text-zinc-500">
-          {lastUpdatedAt
-            ? `Updated ${new Date(lastUpdatedAt).toLocaleTimeString()}`
-            : "Waiting for first data..."}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
+              Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-zinc-600">
+              Analytics overview for banner generation performance.
+            </p>
+            <p
+              className="mt-1 text-xs text-indigo-600 transition-all duration-300 ease-out"
+              key={range}
+            >
+              {rangeLabel(range)}
+            </p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {lastUpdatedAt
+                ? `Updated ${new Date(lastUpdatedAt).toLocaleTimeString()}`
+                : "Waiting for first data..."}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {refreshing ? (
+              <Loader2 className="size-4 animate-spin text-zinc-500" aria-hidden />
+            ) : null}
+            <TimeRangeFilter value={range} onChange={setRange} />
+          </div>
+        </div>
       </div>
 
       {error ? (
@@ -191,53 +262,69 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Generated</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">
-              {loading ? "..." : formatNumber(data.total_generated)}
-            </p>
-          </CardContent>
-        </Card>
+      <div
+        className={`flex flex-col gap-6 transition-all duration-300 ease-out ${
+          refreshing ? "translate-y-[1px] opacity-90" : "opacity-100"
+        }`}
+        data-refreshing={refreshing}
+      >
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>Total Generated</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-semibold">
+                {loading ? "..." : formatNumber(data.total_generated)}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Export Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">
-              {loading ? "..." : formatPercent(data.export_rate)}
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Export Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-semibold">
+                {loading ? "..." : formatPercent(data.export_rate)}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Avg Regenerate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">
-              {loading ? "..." : data.avg_regenerate.toFixed(2)}
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Total Cost</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-semibold">
+                {loading ? "..." : formatUsd(data.total_cost)}
+              </p>
+              {!loading && costComparison ? (
+                <p className="mt-1 text-xs text-zinc-500">{costComparison}</p>
+              ) : null}
+            </CardContent>
+          </Card>
+        </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Cost</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold">
-              {loading ? "..." : formatUsd(data.total_cost)}
-            </p>
-          </CardContent>
-        </Card>
-      </section>
+        {!loading && !error && !hasCoreData ? (
+          <section
+            className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700"
+            role="status"
+            aria-live="polite"
+          >
+            Chưa có dữ liệu cho khoảng thời gian hiện tại. Hãy thử đổi range (ví dụ
+            30 Days) hoặc tạo thêm hành vi Generate/Export để dashboard cập nhật.
+          </section>
+        ) : null}
 
-      <section className="mt-6">
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">
+            Top Users
+          </h2>
+          <UserAnalyticsTable range={range} />
+        </section>
+
+        <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">
           Funnel
         </h2>
@@ -276,7 +363,8 @@ export default function DashboardPage() {
             );
           })}
         </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 }

@@ -5,6 +5,7 @@
 "use client";
 
 import * as React from "react";
+import { useAuth } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,6 +22,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { track } from "@/lib/analytics";
 import { exportBanner } from "@/lib/export";
 import { useEditorStore } from "@/store/editor";
 import { cn } from "@/lib/utils";
@@ -28,6 +30,8 @@ import { cn } from "@/lib/utils";
 export function ExportPopover() {
   const generatedImage = useEditorStore((s) => s.generatedImage);
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
+  const currentBannerId = useEditorStore((s) => s.currentBannerId);
+  const { userId } = useAuth();
 
   const [open, setOpen] = React.useState(false);
   const [format, setFormat] = React.useState<"png" | "jpg">("png");
@@ -52,6 +56,17 @@ export function ExportPopover() {
         quality: qualityPct / 100,
         scale,
       });
+      if (currentBannerId && userId) {
+        void track("export_banner", {
+          banner_id: currentBannerId,
+          user_id: userId,
+          format,
+          scale,
+          quality: format === "jpg" ? qualityPct / 100 : undefined,
+        }).catch(() => {
+          // Non-blocking analytics path; export UX should not fail.
+        });
+      }
       setOpen(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Xuất thất bại";

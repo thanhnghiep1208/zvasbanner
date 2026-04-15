@@ -84,6 +84,8 @@ export interface EditorState {
   /** Last generated image URL / data URL (single result mode). */
   generatedImage: string | null;
   setGeneratedImage: (url: string | null) => void;
+  currentBannerId: string | null;
+  setCurrentBannerId: (value: string | null) => void;
   isGenerating: boolean;
   setIsGenerating: (value: boolean) => void;
   /** Set when POST /api/generate fails (full run); cleared on success or retry. */
@@ -143,6 +145,8 @@ export const useEditorStore = create<EditorState>((set) => ({
     })),
   generatedImage: null,
   setGeneratedImage: (url) => set({ generatedImage: url }),
+  currentBannerId: null,
+  setCurrentBannerId: (value) => set({ currentBannerId: value }),
   isGenerating: false,
   setIsGenerating: (value) => set({ isGenerating: value }),
   generationError: null,

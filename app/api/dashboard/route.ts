@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { getDbPool } from "@/lib/db";
 
+type DashboardRange = "today" | "7d" | "30d";
+
 type DashboardRow = {
   total_generated: string | number | null;
   total_exported: string | number | null;
   total_previewed: string | number | null;
   export_rate: string | number | null;
-  avg_regenerate: string | number | null;
   avg_generation_time: string | number | null;
   total_cost: string | number | null;
   current_period_cost: string | number | null;
@@ -19,14 +20,46 @@ function toNumber(value: string | number | null): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export async function GET() {
+function parseRange(input: string | null): DashboardRange {
+  if (input === "today" || input === "7d" || input === "30d") {
+    return input;
+  }
+  return "7d";
+}
+
+function resolveStartMs(range: DashboardRange, nowMs: number): number {
+  const now = new Date(nowMs);
+
+  if (range === "today") {
+    // Use UTC midnight to avoid server local-time drift.
+    return Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      0,
+      0,
+      0,
+      0
+    );
+  }
+
+  const days = range === "30d" ? 30 : 7;
+  return nowMs - days * 24 * 60 * 60 * 1000;
+}
+
+export async function GET(req: Request) {
   try {
     const pool = getDbPool();
+    const range = parseRange(new URL(req.url).searchParams.get("range"));
+    const nowMs = Date.now();
+    const startMs = resolveStartMs(range, nowMs);
 
-    const { rows } = await pool.query<DashboardRow>(`
+    const { rows } = await pool.query<DashboardRow>(
+      `
       WITH bounds AS (
         SELECT
-          (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint AS now_ms,
+          $1::bigint AS now_ms,
+          $2::bigint AS start_ms,
           (EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours') * 1000)::bigint AS current_start_ms,
           (EXTRACT(EPOCH FROM NOW() - INTERVAL '48 hours') * 1000)::bigint AS previous_start_ms
       )
@@ -40,7 +73,6 @@ export async function GET() {
             (COUNT(*) FILTER (WHERE be.event_name = 'export_banner'))::numeric
             / (COUNT(*) FILTER (WHERE be.event_name = 'generate_banner'))::numeric
         END AS export_rate,
-        COALESCE(AVG(be.regenerate_count), 0) AS avg_regenerate,
         COALESCE(AVG(be.generation_time_ms), 0) AS avg_generation_time,
         COALESCE(SUM(be.cost_usd), 0) AS total_cost,
         COALESCE(
@@ -59,7 +91,10 @@ export async function GET() {
         ) AS previous_period_cost
       FROM banner_events be
       CROSS JOIN bounds b
-    `);
+      WHERE be.timestamp >= b.start_ms
+    `,
+      [nowMs, startMs]
+    );
 
     const row = rows[0];
     if (!row) {
@@ -69,7 +104,6 @@ export async function GET() {
           total_previewed: 0,
           total_exported: 0,
           export_rate: 0,
-          avg_regenerate: 0,
           avg_generation_time: 0,
           total_cost: 0,
           current_period_cost: 0,
@@ -84,7 +118,6 @@ export async function GET() {
       total_previewed: Math.round(toNumber(row.total_previewed)),
       total_exported: Math.round(toNumber(row.total_exported)),
       export_rate: toNumber(row.export_rate),
-      avg_regenerate: toNumber(row.avg_regenerate),
       avg_generation_time: toNumber(row.avg_generation_time),
       total_cost: toNumber(row.total_cost),
       current_period_cost: toNumber(row.current_period_cost),
