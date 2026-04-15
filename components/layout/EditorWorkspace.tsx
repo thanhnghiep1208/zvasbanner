@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useAuth } from "@clerk/nextjs";
+import { TriangleAlert } from "lucide-react";
 
 import { AssetPanel } from "@/components/assets/AssetPanel";
 import { AssetUploader } from "@/components/assets/AssetUploader";
@@ -38,6 +40,7 @@ function RightSidebarBody() {
 export function EditorWorkspace() {
   const [leftOpen, setLeftOpen] = React.useState(false);
   const [rightOpen, setRightOpen] = React.useState(false);
+  const { isSignedIn } = useAuth();
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-100 text-zinc-900">
@@ -62,7 +65,28 @@ export function EditorWorkspace() {
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 lg:p-4">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
               <div className="flex min-h-[12rem] min-w-0 flex-1 flex-col items-center justify-center">
-                <CanvasArea className="w-full max-w-full" />
+                {isSignedIn ? (
+                  <CanvasArea className="w-full max-w-full" />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center rounded-lg border-2 border-amber-300 bg-amber-50 px-6 py-10 text-center shadow-sm"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <div className="flex max-w-md flex-col items-center gap-3">
+                      <div className="rounded-full bg-amber-100 p-2 text-amber-700">
+                        <TriangleAlert className="size-6" aria-hidden />
+                      </div>
+                      <p className="text-base font-semibold text-amber-900">
+                        Cần đăng nhập để tạo banner
+                      </p>
+                      <p className="text-sm text-amber-800/90">
+                        Vui lòng sign in để bắt đầu và mở toàn bộ tính năng tạo
+                        ảnh.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -5,6 +5,7 @@
 "use client";
 
 import * as React from "react";
+import { useAuth } from "@clerk/nextjs";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,6 +70,7 @@ export function PromptInput({ className }: { className?: string }) {
   const resetGenerationProgress = useEditorStore((s) => s.resetGenerationProgress);
   const generationStats = useEditorStore((s) => s.generationStats);
   const setGenerationStats = useEditorStore((s) => s.setGenerationStats);
+  const { isSignedIn } = useAuth();
 
   const [isEnhancing, setIsEnhancing] = React.useState(false);
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
@@ -119,6 +121,10 @@ export function PromptInput({ className }: { className?: string }) {
   };
 
   const handleGenerate = async () => {
+    if (!isSignedIn) {
+      toast.error("Cần sign in để tạo banner.");
+      return;
+    }
     if (generationAbortRef.current) {
       generationAbortRef.current.abort();
     }
@@ -174,7 +180,7 @@ export function PromptInput({ className }: { className?: string }) {
 
   const len = userPrompt.length;
   const disableEnhance = isEnhancing || isGenerating || len === 0;
-  const disableGenerate = isGenerating || isEnhancing;
+  const disableGenerate = isGenerating || isEnhancing || !isSignedIn;
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -249,6 +255,7 @@ export function PromptInput({ className }: { className?: string }) {
           disabled={disableGenerate}
           onClick={() => void handleGenerate()}
           className="min-w-[9rem]"
+          title={!isSignedIn ? "Cần sign in để tạo banner" : undefined}
         >
           {isGenerating ? (
             <>

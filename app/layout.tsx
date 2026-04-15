@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { ClerkProvider } from "@clerk/nextjs";
+import { Inter } from "next/font/google";
 
 import { Providers } from "./providers";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+const inter = Inter({
+  subsets: ["latin", "vietnamese"],
+  variable: "--font-inter",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -29,10 +26,12 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       {/* Extensions often inject attrs on <body>/<html> before hydrate (e.g. Bitwarden bis_register). */}
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.className} ${inter.variable} antialiased`}
         suppressHydrationWarning
       >
-        <Providers>{children}</Providers>
+        <ClerkProvider>
+          <Providers>{children}</Providers>
+        </ClerkProvider>
       </body>
     </html>
   );

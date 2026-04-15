@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  Show,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/nextjs";
 import { PanelLeft, PanelRight, Settings } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +82,21 @@ export function EditorToolbar({
 
       <div className="flex items-center justify-end gap-2 justify-self-end">
         <ExportPopover />
+        <Show when="signed-out">
+          <SignInButton mode="modal">
+            <Button type="button" variant="secondary" size="sm">
+              Sign in
+            </Button>
+          </SignInButton>
+          <SignUpButton mode="modal">
+            <Button type="button" variant="default" size="sm">
+              Sign up
+            </Button>
+          </SignUpButton>
+        </Show>
+        <Show when="signed-in">
+          <UserButton />
+        </Show>
         <Button
           type="button"
           variant="ghost"
