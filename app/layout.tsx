@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 
 import { Providers } from "./providers";
 import "./globals.css";
@@ -32,6 +33,7 @@ export default function RootLayout({
         <ClerkProvider>
           <Providers>{children}</Providers>
         </ClerkProvider>
+        <Analytics />
       </body>
     </html>
   );
