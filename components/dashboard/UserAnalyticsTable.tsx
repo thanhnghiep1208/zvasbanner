@@ -4,6 +4,7 @@ import * as React from "react";
 
 import type { DashboardRange } from "@/components/dashboard/TimeRangeFilter";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -24,6 +25,12 @@ type UserAnalyticsRow = {
 
 type UsersApiResponse = {
   users?: UserAnalyticsRow[];
+  pagination?: {
+    page: number;
+    pageSize: number;
+    totalUsers: number;
+    totalPages: number;
+  };
   error?: string;
 };
 
@@ -85,9 +92,16 @@ function buildInsights(rows: UserAnalyticsRow[]): string[] {
 
 export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
   const [rows, setRows] = React.useState<UserAnalyticsRow[]>([]);
+  const [page, setPage] = React.useState(1);
+  const [totalUsers, setTotalUsers] = React.useState(0);
+  const [totalPages, setTotalPages] = React.useState(0);
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [range]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -95,7 +109,7 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
     async function loadUsers() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/dashboard/users?range=${range}`, {
+        const res = await fetch(`/api/dashboard/users?range=${range}&page=${page}`, {
           method: "GET",
           cache: "no-store",
         });
@@ -105,11 +119,15 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
         }
         if (cancelled) return;
         setRows(Array.isArray(json.users) ? json.users : []);
+        setTotalUsers(Number(json.pagination?.totalUsers ?? 0));
+        setTotalPages(Number(json.pagination?.totalPages ?? 0));
         setError(null);
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : "Failed to load users table");
         setRows([]);
+        setTotalUsers(0);
+        setTotalPages(0);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -119,7 +137,7 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
     return () => {
       cancelled = true;
     };
-  }, [range]);
+  }, [range, page]);
 
   const maxGenerate = rows.reduce(
     (max, row) => Math.max(max, row.total_generate),
@@ -246,6 +264,31 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
             )}
           </TableBody>
         </Table>
+        <div className="flex items-center justify-between border-t border-zinc-200 px-3 py-2 text-xs text-zinc-600">
+          <span>
+            Page {totalPages === 0 ? 0 : page}/{Math.max(totalPages, 1)} - {totalUsers} users
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={loading || page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              Prev
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={loading || totalPages === 0 || page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

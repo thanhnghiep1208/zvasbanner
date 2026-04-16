@@ -155,6 +155,7 @@ export function PromptInput({ className }: { className?: string }) {
     setIsGenerating(false);
     if (!result.ok) {
       setGenerationError(result.error);
+      toast.error(result.error);
       if (result.error.includes("hủy")) {
         resetGenerationProgress();
       }
@@ -182,7 +183,8 @@ export function PromptInput({ className }: { className?: string }) {
     if (result.source === "placeholder") {
       const details = result.placeholderError ?? "Không rõ nguyên nhân.";
       const step = result.failedStep ? ` (bước: ${result.failedStep})` : "";
-      const msg = `Ảnh AI lỗi, đang hiển thị placeholder${step}. ${details}`;
+      const code = result.errorCode ? ` [${result.errorCode}]` : "";
+      const msg = `Ảnh AI lỗi, đang hiển thị placeholder${step}${code}. ${details}`;
       setGenerationError(msg);
       toast.error(msg);
     }

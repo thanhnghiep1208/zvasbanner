@@ -8,6 +8,7 @@ type DashboardUsersRow = {
   user_id: string | null;
   total_generate: string | number | null;
   total_export: string | number | null;
+  total_users: string | number | null;
 };
 
 type DashboardUser = {
@@ -22,6 +23,14 @@ function toNumber(value: string | number | null): number {
   if (value == null) return 0;
   const n = typeof value === "number" ? value : Number.parseFloat(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+const PAGE_SIZE = 15;
+
+function parsePage(input: string | null): number {
+  const n = Number.parseInt(input ?? "1", 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return n;
 }
 
 function parseRange(input: string | null): DashboardRange {
@@ -54,7 +63,10 @@ function resolveStartMs(range: DashboardRange, nowMs: number): number {
 export async function GET(req: Request) {
   try {
     const pool = getDbPool();
-    const range = parseRange(new URL(req.url).searchParams.get("range"));
+    const url = new URL(req.url);
+    const range = parseRange(url.searchParams.get("range"));
+    const page = parsePage(url.searchParams.get("page"));
+    const offset = (page - 1) * PAGE_SIZE;
     const nowMs = Date.now();
     const startMs = resolveStartMs(range, nowMs);
 
@@ -78,17 +90,30 @@ export async function GET(req: Request) {
       SELECT
         ua.user_id,
         ua.total_generate,
-        ua.total_export
+        ua.total_export,
+        COUNT(*) OVER() AS total_users
       FROM user_agg ua
       WHERE ua.total_generate > 0
       ORDER BY ua.total_generate DESC
-      LIMIT 10
+      LIMIT $2::int
+      OFFSET $3::int
     `,
-      [startMs]
+      [startMs, PAGE_SIZE, offset]
     );
 
     if (!rows.length) {
-      return NextResponse.json({ users: [] as DashboardUser[] }, { status: 200 });
+      return NextResponse.json(
+        {
+          users: [] as DashboardUser[],
+          pagination: {
+            page,
+            pageSize: PAGE_SIZE,
+            totalUsers: 0,
+            totalPages: 0,
+          },
+        },
+        { status: 200 }
+      );
     }
 
     const ids = rows
@@ -140,7 +165,21 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ users }, { status: 200 });
+    const totalUsers = Math.max(0, Math.round(toNumber(rows[0]?.total_users ?? 0)));
+    const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
+
+    return NextResponse.json(
+      {
+        users,
+        pagination: {
+          page,
+          pageSize: PAGE_SIZE,
+          totalUsers,
+          totalPages,
+        },
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("[dashboard.users] aggregate query failed", error);
     return NextResponse.json(

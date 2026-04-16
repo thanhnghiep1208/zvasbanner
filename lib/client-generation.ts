@@ -22,6 +22,7 @@ export type FullGenerationResult =
       };
       placeholderError?: string;
       failedStep?: string;
+      errorCode?: string;
     }
   | { ok: false; error: string };
 
@@ -40,7 +41,24 @@ type GenerationUpdate = {
   };
   placeholderError?: string;
   failedStep?: string;
+  errorCode?: string;
 };
+
+function explainGenerateHttpError(status: number, serverMessage?: string): string {
+  if (status === 400) {
+    return `Yêu cầu tạo ảnh chưa hợp lệ. ${serverMessage ?? ""}`.trim();
+  }
+  if (status === 401 || status === 403) {
+    return "Không có quyền truy cập Gemini API. Vui lòng kiểm tra API key/cấu hình quyền.";
+  }
+  if (status === 429) {
+    return "Gemini API đang bị giới hạn tốc độ (429). Vui lòng đợi một chút rồi thử lại.";
+  }
+  if (status >= 500) {
+    return `Máy chủ tạo ảnh gặp lỗi (${status}). ${serverMessage ?? "Vui lòng thử lại sau."}`.trim();
+  }
+  return serverMessage ?? `Yêu cầu tạo ảnh thất bại (HTTP ${status}).`;
+}
 
 function timeoutSignal(timeoutMs: number, externalSignal?: AbortSignal): AbortSignal {
   const controller = new AbortController();
@@ -110,10 +128,12 @@ export async function requestFullGeneration(options?: {
       meta?: unknown;
       placeholderError?: unknown;
       failedStep?: unknown;
+      errorCode?: unknown;
       error?: unknown;
     };
     if (!res.ok || typeof data.image !== "string") {
-      const msg = typeof data.error === "string" ? data.error : `HTTP ${res.status}`;
+      const serverMsg = typeof data.error === "string" ? data.error : undefined;
+      const msg = explainGenerateHttpError(res.status, serverMsg);
       throw new Error(msg);
     }
     const source = data.source === "placeholder" ? "placeholder" : "gemini";
@@ -121,6 +141,7 @@ export async function requestFullGeneration(options?: {
       typeof data.placeholderError === "string" ? data.placeholderError : undefined;
     const failedStep =
       typeof data.failedStep === "string" ? data.failedStep : undefined;
+    const errorCode = typeof data.errorCode === "string" ? data.errorCode : undefined;
     const meta =
       typeof data.meta === "object" && data.meta !== null
         ? (data.meta as {
@@ -138,16 +159,29 @@ export async function requestFullGeneration(options?: {
       meta,
       placeholderError,
       failedStep,
+      errorCode,
     });
-    return { ok: true, image: data.image, source, meta, placeholderError, failedStep };
+    return {
+      ok: true,
+      image: data.image,
+      source,
+      meta,
+      placeholderError,
+      failedStep,
+      errorCode,
+    };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
       return { ok: false, error: "Đã hủy tác vụ tạo banner." };
     }
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Tạo banner thất bại do lỗi không xác định.";
     options?.onProgress?.({ status: "error" });
     return {
       ok: false,
-      error: "Tạo banner bị timeout hoặc lỗi mạng. Vui lòng thử lại.",
+      error: message,
     };
   }
 }
