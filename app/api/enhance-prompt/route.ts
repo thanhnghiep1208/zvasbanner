@@ -9,13 +9,55 @@ import { parseEnhancePromptBody } from "@/lib/validate-generation";
 
 export const maxDuration = 60;
 
+function normalizeEnhanceError(raw: string): { message: string; status: number } {
+  const msg = raw.toLowerCase();
+
+  if (
+    msg.includes("api key") ||
+    msg.includes("unauthenticated") ||
+    msg.includes("permission denied")
+  ) {
+    return {
+      status: 502,
+      message:
+        "Không thể xác thực với Gemini API khi cải thiện prompt. Vui lòng kiểm tra API key/quyền truy cập.",
+    };
+  }
+
+  if (
+    msg.includes("quota") ||
+    msg.includes("rate") ||
+    msg.includes("resource exhausted")
+  ) {
+    return {
+      status: 429,
+      message:
+        "Gemini API đang chạm giới hạn quota/rate limit khi cải thiện prompt. Vui lòng thử lại sau ít phút.",
+    };
+  }
+
+  if (msg.includes("timed out") || msg.includes("timeout") || msg.includes("deadline")) {
+    return {
+      status: 504,
+      message:
+        "Yêu cầu cải thiện prompt đã bị timeout do phản hồi Gemini quá chậm. Vui lòng thử lại.",
+    };
+  }
+
+  return {
+    status: 502,
+    message:
+      "Không thể cải thiện prompt do lỗi từ Gemini API. Vui lòng thử lại.",
+  };
+}
+
 export async function POST(request: Request) {
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json(
-      { error: "Invalid JSON body" },
+      { error: "Body JSON không hợp lệ. Vui lòng kiểm tra dữ liệu gửi lên." },
       { status: 400 }
     );
   }
@@ -25,7 +67,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Invalid body. Expected { userPrompt: string, canvasConfig, assets: UploadedAsset[] }",
+          "Dữ liệu chưa hợp lệ. Cần có userPrompt, canvasConfig và assets.",
       },
       { status: 400 }
     );
@@ -36,7 +78,10 @@ export async function POST(request: Request) {
     apiKey = getGeminiApiKey();
   } catch {
     return NextResponse.json(
-      { error: "Server is not configured with GEMINI_API_KEY" },
+      {
+        error:
+          "Server chưa cấu hình GEMINI_API_KEY nên không thể gọi Gemini API.",
+      },
       { status: 500 }
     );
   }
@@ -52,14 +97,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ enhancedPrompt });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    const isTimeout =
-      message.includes("timed out") ||
-      message.includes("timeout") ||
-      (e instanceof Error && e.name === "AbortError");
+    const normalized = normalizeEnhanceError(message);
 
     return NextResponse.json(
-      { error: message || "Enhancement failed" },
-      { status: isTimeout ? 504 : 502 }
+      {
+        error: `${normalized.message} (Chi tiết kỹ thuật: ${
+          message || "Enhancement failed"
+        })`,
+      },
+      { status: normalized.status }
     );
   }
 }

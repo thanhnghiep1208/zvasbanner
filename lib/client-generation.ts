@@ -45,6 +45,20 @@ type GenerationUpdate = {
 };
 
 function explainGenerateHttpError(status: number, serverMessage?: string): string {
+  const lower = (serverMessage ?? "").toLowerCase();
+  const payloadTooLarge =
+    status === 413 ||
+    lower.includes("request entity too large") ||
+    lower.includes("payload too large") ||
+    lower.includes("content too large");
+
+  if (payloadTooLarge) {
+    return (
+      "Ảnh tải lên quá lớn nên hệ thống không thể xử lý. " +
+      "Vui lòng giảm dung lượng/kích thước ảnh (khuyến nghị < 5MB mỗi ảnh) rồi thử lại."
+    );
+  }
+
   if (status === 400) {
     return `Yêu cầu tạo ảnh chưa hợp lệ. ${serverMessage ?? ""}`.trim();
   }
@@ -58,6 +72,69 @@ function explainGenerateHttpError(status: number, serverMessage?: string): strin
     return `Máy chủ tạo ảnh gặp lỗi (${status}). ${serverMessage ?? "Vui lòng thử lại sau."}`.trim();
   }
   return serverMessage ?? `Yêu cầu tạo ảnh thất bại (HTTP ${status}).`;
+}
+
+function mapGenerateErrorCode(params: {
+  status: number;
+  serverMessage?: string;
+  serverErrorCode?: string;
+}): string {
+  const fromServer = params.serverErrorCode?.trim();
+  if (fromServer) {
+    return `E-GEN-${fromServer}`;
+  }
+  const lower = (params.serverMessage ?? "").toLowerCase();
+  if (
+    params.status === 413 ||
+    lower.includes("request entity too large") ||
+    lower.includes("payload too large")
+  ) {
+    return "E-GEN-413";
+  }
+  if (params.status === 400) return "E-GEN-400";
+  if (params.status === 401 || params.status === 403) return "E-GEN-403";
+  if (params.status === 429) return "E-GEN-429";
+  if (params.status === 504) return "E-GEN-504";
+  if (params.status >= 500) return "E-GEN-5XX";
+  return "E-GEN-UNKNOWN";
+}
+
+async function parseGenerateResponse(res: Response): Promise<{
+  json: {
+    image?: unknown;
+    source?: unknown;
+    meta?: unknown;
+    placeholderError?: unknown;
+    failedStep?: unknown;
+    errorCode?: unknown;
+    error?: unknown;
+  } | null;
+  text: string | null;
+}> {
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      const json = (await res.json()) as {
+        image?: unknown;
+        source?: unknown;
+        meta?: unknown;
+        placeholderError?: unknown;
+        failedStep?: unknown;
+        errorCode?: unknown;
+        error?: unknown;
+      };
+      return { json, text: null };
+    } catch {
+      return { json: null, text: null };
+    }
+  }
+
+  try {
+    const text = await res.text();
+    return { json: null, text };
+  } catch {
+    return { json: null, text: null };
+  }
 }
 
 function timeoutSignal(timeoutMs: number, externalSignal?: AbortSignal): AbortSignal {
@@ -122,18 +199,24 @@ export async function requestFullGeneration(options?: {
       signal: timeoutSignal(CLIENT_TIMEOUT_MS, options?.signal),
       body: JSON.stringify(payload),
     });
-    const data = (await res.json()) as {
-      image?: unknown;
-      source?: unknown;
-      meta?: unknown;
-      placeholderError?: unknown;
-      failedStep?: unknown;
-      errorCode?: unknown;
-      error?: unknown;
-    };
-    if (!res.ok || typeof data.image !== "string") {
-      const serverMsg = typeof data.error === "string" ? data.error : undefined;
-      const msg = explainGenerateHttpError(res.status, serverMsg);
+    const parsed = await parseGenerateResponse(res);
+    const data = parsed.json;
+    if (!res.ok || typeof data?.image !== "string") {
+      const serverMsg =
+        typeof data?.error === "string"
+          ? data.error
+          : parsed.text?.trim() || undefined;
+      const shortCode = mapGenerateErrorCode({
+        status: res.status,
+        serverMessage: serverMsg,
+        serverErrorCode:
+          typeof data?.errorCode === "string" ? data.errorCode : undefined,
+      });
+      const friendly = explainGenerateHttpError(res.status, serverMsg);
+      const technical = serverMsg
+        ? ` [Chi tiết phản hồi: ${serverMsg.slice(0, 200)}]`
+        : "";
+      const msg = `[${shortCode}] ${friendly}${technical}`;
       throw new Error(msg);
     }
     const source = data.source === "placeholder" ? "placeholder" : "gemini";

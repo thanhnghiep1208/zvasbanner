@@ -124,7 +124,11 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
         setError(null);
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : "Failed to load users table");
+        const msg =
+          e instanceof Error ? e.message : "Không thể tải danh sách người dùng.";
+        setError(
+          `Không thể tải Top Users. ${msg} Vui lòng đổi range hoặc thử lại sau.`
+        );
         setRows([]);
         setTotalUsers(0);
         setTotalPages(0);

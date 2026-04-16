@@ -167,7 +167,10 @@ export default function DashboardPage() {
         setLastUpdatedAt(Date.now());
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : "Failed to load dashboard");
+        const msg = e instanceof Error ? e.message : "Không thể tải dashboard.";
+        setError(
+          `Không thể tải dữ liệu dashboard. ${msg} Vui lòng thử đổi range hoặc tải lại trang.`
+        );
       } finally {
         if (!cancelled) {
           if (isInitial || wasLoadingAtEffectStart) {
