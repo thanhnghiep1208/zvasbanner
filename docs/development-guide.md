@@ -1,58 +1,77 @@
-# Development Guide
+# Hướng dẫn phát triển
 
-## Yeu cau moi truong
+Tài liệu tập trung vào **cấu hình FE/BE**, **luồng làm việc** và **API** (tóm tắt). Chi tiết từng endpoint xem [API Reference](./api.md); sơ đồ module xem [Architecture](./architecture.md); **triển khai production (Vercel, Clerk, domain, DB)** xem [Deploy](./deploy.md).
 
-- Node.js >= `20.9.0`
-- NPM (hoac package manager tuong duong)
-- Tai khoan [Google AI Studio](https://aistudio.google.com/) hoac key Gemini hop le
-- (Tuy chon nhung khuyen nghi production) [Clerk](https://clerk.com/) cho dang nhap
-- (Tuy chon) PostgreSQL de luu analytics; khong co `DATABASE_URL` thi `/api/track` va `/api/dashboard` se loi khi goi
+## Yêu cầu môi trường
 
-## Cai dat
+- **Node.js** ≥ `20.9.0` (đồng bộ với `package.json` → `engines`)
+- **npm** (hoặc tương đương)
+- Tài khoản [Google AI Studio](https://aistudio.google.com/) hoặc API key Gemini hợp lệ
+- **Clerk** — khuyến nghị cho đăng nhập production (có thể dùng instance dev khi làm local)
+- **PostgreSQL** — tùy chọn cho dev thuần UI; **bắt buộc** nếu cần `/api/track`, `/api/dashboard`, `/api/dashboard/users`
+
+## Cài đặt
 
 ```bash
 npm install
 ```
 
-## Cau hinh env
+## Phân tách cấu hình: Frontend vs Backend
 
-Tao file `.env.local` o root project. **Khong** commit file nay (da co trong `.gitignore`).
+Cùng một repo Next.js, nhưng **biến môi trường và ranh giới thực thi** khác nhau.
 
-### Bien bat buoc (tao anh / enhance)
+### Frontend (trình duyệt)
 
+- Chạy trong browser: React components, Zustand, `fetch` tới `/api/*`.
+- Chỉ đọc được biến có tiền tố `**NEXT_PUBLIC_*`** (embed vào bundle).
+- **Clerk**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — dùng cho SDK phía client (nút đăng nhập, session).
+- **Gọi API**: không gắn `GEMINI_API_KEY` trên client; mọi gọi Gemini đi qua Route Handlers.
+- **Font / UI**: Inter qua `next/font` trong `app/layout.tsx`; Tailwind + component trong `components/`.
 
-| Bien             | Mo ta                                                                    |
-| ---------------- | ------------------------------------------------------------------------ |
-| `GEMINI_API_KEY` | Key server-side cho `@google/generative-ai` (generate + enhance prompt). |
+### Backend (server — Route Handlers & middleware)
 
+- File trong `app/api/**/route.ts` và middleware `proxy.ts` chạy trên Node.
+- `**GEMINI_API_KEY`**: chỉ server; dùng cho `@google/generative-ai` (generate, enhance, edit-image).
+- `**CLERK_SECRET_KEY`**: chỉ server; xác thực session / gọi Clerk Backend API (ví dụ enrich user trên dashboard).
+- `**DATABASE_URL`**: chỉ server; `pg` pool cho analytics.
+- `**proxy.ts**`: export `clerkMiddleware()` — bảo vệ / đồng bộ auth theo khuyến nghị Clerk cho App Router.
 
-### Bien Clerk (dang nhap UI + middleware)
+## Cấu hình file `.env.local`
 
+Tạo file `**.env.local**` ở thư mục gốc project. **Không** commit (đã có trong `.gitignore`).
 
-| Bien                                | Mo ta                     |
-| ----------------------------------- | ------------------------- |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Publishable key (client). |
-| `CLERK_SECRET_KEY`                  | Secret key (server).      |
-
-
-Lay key trong [Clerk Dashboard](https://dashboard.clerk.com/) → API Keys. Khi dev, ban cung co the dung **Keyless** (bo qua env neu tool tu inject); production **bat buoc** set day du 2 bien.
-
-File `proxy.ts` o root chay `clerkMiddleware()` cho App Router (khong dung `middleware.ts` ten cu).
-
-### Bien PostgreSQL (analytics)
-
-
-| Bien           | Mo ta                                                                                         |
-| -------------- | --------------------------------------------------------------------------------------------- |
-| `DATABASE_URL` | Connection string PostgreSQL, dang `postgresql://user:pass@host:5432/dbname?sslmode=require`. |
+### Biến bắt buộc (tạo ảnh / cải thiện prompt / chỉnh sửa ảnh)
 
 
-- Lay tu nha cung cap DB: [Neon](https://neon.tech/), [Supabase](https://supabase.com/), RDS, v.v.
-- Neu mat khau URL co ky tu dac biet (`&`, `#`, `@`...), **URL-encode** hoac dat ca gia tri trong **ngoac don** trong `.env.local` de shell khong parse sai, vi du:
-  - `DATABASE_URL='postgresql://...'`
-- Schema bang: chay file `db/banner_events.sql` mot lan (xem muc duoi).
+| Biến             | Mô tả                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY` | Key server cho `@google/generative-ai` — dùng cho `POST /api/generate`, `POST /api/enhance-prompt`, `POST /api/edit-image`. |
 
-### Vi du `.env.local` day du
+
+### Biến Clerk (đăng nhập)
+
+
+| Biến                                | Phạm vi        | Mô tả            |
+| ----------------------------------- | -------------- | ---------------- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Client + build | Publishable key. |
+| `CLERK_SECRET_KEY`                  | Server only    | Secret key.      |
+
+
+Lấy key tại [Clerk Dashboard](https://dashboard.clerk.com/) → **API Keys**.  
+Production: tạo **Production instance**, copy key production vào biến môi trường trên host (Vercel). Development keys có giới hạn — không dùng cho site public.
+
+### Biến PostgreSQL (analytics)
+
+
+| Biến           | Mô tả                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `DATABASE_URL` | Chuỗi kết nối PostgreSQL, ví dụ `postgresql://user:pass@host:5432/dbname?sslmode=require`. |
+
+
+- Lấy từ nhà cung cấp: [Neon](https://neon.tech/), [Supabase](https://supabase.com/), RDS, v.v.
+- Nếu mật khẩu hoặc URL có ký tự đặc biệt (`&`, `#`, `@`, …), hãy **URL-encode** hoặc bọc toàn bộ giá trị trong **dấu nháy đơn** trong `.env.local`, ví dụ: `DATABASE_URL='postgresql://...'`.
+
+### Ví dụ `.env.local` đầy đủ
 
 ```bash
 GEMINI_API_KEY=your_gemini_key
@@ -65,37 +84,49 @@ DATABASE_URL='postgresql://user:pass@host:5432/dbname?sslmode=require'
 
 ## Migration analytics (PostgreSQL)
 
-Sau khi co `DATABASE_URL` hop le:
+Sau khi có `DATABASE_URL` hợp lệ:
 
 ```bash
-# Vi du: load env roi chay psql (can cai psql client)
 set -a && source .env.local && set +a
 psql "$DATABASE_URL" -f db/banner_events.sql
 ```
 
-Neu bang/index da ton tai, Postgres se bao `already exists, skipping` — van coi la thanh cong.
+Nếu bảng/index đã tồn tại, Postgres có thể báo `already exists, skipping` — vẫn coi là thành công.
 
-Kiem tra nhanh:
+Kiểm tra nhanh:
 
 ```bash
 psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM banner_events;"
 ```
 
+## Luồng làm việc (workflow) — từ góc nhìn sản phẩm
+
+1. **Đăng nhập** (Clerk) — các thao tác tạo banner chính yêu cầu user đã sign in.
+2. **Chọn canvas** — preset (ví dụ Zalo OA Img, MP3 Home) hoặc custom; state trong Zustand.
+3. **Upload asset** — ảnh sản phẩm / logo / ảnh tham chiếu style; chuẩn bị data URL gửi kèm generate.
+4. **Nhập nội dung** — prompt chính, headline, sub, CTA; tùy chọn “Giữ nguyên chủ thể upload” (strict preserve).
+5. **(Tùy chọn) Cải thiện prompt** — `POST /api/enhance-prompt` cập nhật text prompt.
+6. **Tạo banner** — `POST /api/generate`; hiển thị tiến trình / lỗi có mã; lưu ảnh + stats (model, thời gian, token, cost).
+7. **Preview** — hiển thị ảnh trong canvas; có thể ghi nhận analytics preview theo `banner_id`.
+8. **(Tùy chọn) Chỉnh sửa ảnh đã tạo** — `POST /api/edit-image` với `imageDataUrl` + `editPrompt` (điều chỉnh nhẹ, không tạo mới hoàn toàn).
+9. **Xuất file** — export PNG/JPG qua Canvas API; có thể dùng `GET /api/proxy-image` nếu cần tải ảnh remote.
+10. **Analytics** — `track(...)` gửi sự kiện tới `POST /api/track` (generate, preview, export, …).
+
 ## Dashboard analytics
 
 - URL local: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
-- Du lieu lay tu `GET /api/dashboard` (aggregate bang `banner_events`).
-- Trang client poll moi **10 phut**; can co event thuc te trong app (generate, export, ...) de so lieu tang.
+- Dữ liệu: `GET /api/dashboard` và `GET /api/dashboard/users` với query `range` (`today`, `7d`, `30d`) và `page` (users).
+- Trang client **poll** định kỳ (mặc định khoảng 10 phút trong code hiện tại); cần có event thật trong app thì số liệu mới tăng.
 
-## Chay local
+## Chạy local
 
 ```bash
 npm run dev
 ```
 
-Mo `http://localhost:3000`.
+Mở [http://localhost:3000](http://localhost:3000).
 
-## Build production
+## Build production (kiểm tra trước khi deploy)
 
 ```bash
 npm run build
@@ -109,46 +140,38 @@ npm run lint
 npx tsc --noEmit
 ```
 
-## Quy uoc phat trien
+## Triển khai (deploy)
 
-- Keep model image generation locked o `gemini-3.1-flash-image-preview` neu chua co quyet dinh kien truc moi.
-- Khong lam mat asset fidelity: uu tien preserve chu the upload.
-- Placeholder fallback phai co `failedStep` + `placeholderError`.
-- Export giu nguyen banner output, khong chen them watermark/logo.
+Hướng dẫn chi tiết: checklist **Vercel + Clerk + domain + Postgres**, cấu hình DNS, biến môi trường production và xử lý sự cố — xem **[Deploy](./deploy.md)**.
 
-## Test checklist thu cong
+## Quy ước phát triển
 
-1. Upload assets + bat/tat "Giu nguyen chu the upload".
-2. Generate image va verify preview.
-3. Kiem tra status box:
-  - Model
-  - Thoi gian tao
-  - Token usage
-4. Thu truong hop loi (mock timeout) va verify:
-  - Placeholder duoc hien
-  - Error thong bao ro buoc loi
-5. Export PNG/JPG va verify output khong bi chen logo watermark.
+- Model tạo ảnh khóa ở `gemini-3.1-flash-image-preview` trừ khi có quyết định kiến trúc mới.
+- Ưu tiên **giữ trung thực asset** user upload khi generate.
+- Khi generate thất bại có placeholder: phản hồi phải gồm `failedStep` + `placeholderError` (hoặc tương đương) để UI báo rõ bước lỗi.
+- Export: không chèn thêm watermark logo (logo đã có trong thiết kế thì do user/model).
 
-## Troubleshooting
+## Checklist thử nghiệm thủ công
 
-- Hydration warning `bis_skin_checked`:
-  - Thu tat extension autofill (vi du Bitwarden) tren localhost.
-- Chi ra placeholder:
-  - Xem thong bao loi tren UI (`failedStep`, `placeholderError`).
-  - Check `GEMINI_API_KEY`.
-  - Check network/API quota.
-- `source .env.local` loi `parse error near '&'`:
-  - Bao toan gia tri `DATABASE_URL` bang dau ngoac don `'` hoac `"`.
-- `psql: command not found`:
-  - Cai PostgreSQL client (vi du `brew install libpq` tren macOS) hoac dung SQL editor tren dashboard nha cung cap DB.
-- `connection to server on socket ... failed`:
-  - `DATABASE_URL` dang tro localhost nhung Postgres chua chay, hoac sai host — dung URL remote day du.
-- Dashboard toan `0` / `500` tu `/api/dashboard`:
-  - Chay migration `db/banner_events.sql`, verify `DATABASE_URL` tren server (Vercel → Environment Variables).
+1. Upload asset, bật/tắt “Giữ nguyên chủ thể upload”.
+2. Tạo ảnh và kiểm tra preview + hộp stats (model, thời gian, token).
+3. Thử lỗi (timeout / quota) và xác nhận thông báo có mã lỗi ngắn.
+4. Chỉnh sửa ảnh đã tạo qua `edit-image`.
+5. Export PNG/JPG; xác nhận không bị chèn watermark thêm.
 
-## Tai lieu lien quan
+## Xử lý sự cố (troubleshooting)
 
-- `docs/architecture.md`
-- `docs/api.md`
-- `README.md`
+- **Hydration / `bis_skin_checked`**: thường do extension trình duyệt (ví dụ Bitwarden). Tắt extension trên `localhost` hoặc dùng profile sạch.
+- **Chỉ thấy placeholder khi generate**: đọc thông báo lỗi trên UI; kiểm tra `GEMINI_API_KEY`, quota, và log server.
+- `**source .env.local` lỗi `parse error near '&'`**: bọc `DATABASE_URL` trong `'...'`.
+- `**psql: command not found`**: cài client PostgreSQL (ví dụ `brew install libpq`) hoặc dùng SQL editor trên dashboard DB.
+- **Socket Postgres local failed**: `DATABASE_URL` đang trỏ localhost nhưng server không chạy — dùng URL remote đầy đủ.
+- **Dashboard trả 500 / không có dữ liệu**: kiểm tra `DATABASE_URL` trên Vercel và đã chạy migration.
+
+## Tài liệu liên quan
+
+- [Architecture](./architecture.md)
+- [API Reference](./api.md)
+- [Deploy](./deploy.md)
+- [README](../README.md)
 

@@ -6,9 +6,10 @@
 
 import * as React from "react";
 import { useAuth } from "@clerk/nextjs";
-import { Loader2 } from "lucide-react";
+import { Loader2, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -97,8 +98,11 @@ export function PromptInput({ className }: { className?: string }) {
   const generationStats = useEditorStore((s) => s.generationStats);
   const setGenerationStats = useEditorStore((s) => s.setGenerationStats);
   const { isSignedIn, userId } = useAuth();
+  const generatedImage = useEditorStore((s) => s.generatedImage);
 
   const [isEnhancing, setIsEnhancing] = React.useState(false);
+  const [isEditingImage, setIsEditingImage] = React.useState(false);
+  const [editPrompt, setEditPrompt] = React.useState("");
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
   const generationAbortRef = React.useRef<AbortController | null>(null);
 
@@ -246,6 +250,81 @@ export function PromptInput({ className }: { className?: string }) {
   const handleCancelGenerate = () => {
     generationAbortRef.current?.abort();
     generationAbortRef.current = null;
+  };
+
+  const handleEditGeneratedImage = async () => {
+    if (!generatedImage) {
+      toast.error("Chưa có ảnh để chỉnh sửa.");
+      return;
+    }
+    if (!isSignedIn) {
+      toast.error("Cần sign in để chỉnh sửa ảnh.");
+      return;
+    }
+    const trimmed = editPrompt.trim();
+    if (trimmed.length < 3) {
+      toast.error("Nhập prompt chỉnh sửa tối thiểu 3 ký tự.");
+      return;
+    }
+
+    setIsEditingImage(true);
+    try {
+      const res = await fetch("/api/edit-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageDataUrl: generatedImage,
+          editPrompt: trimmed,
+          canvasConfig,
+        }),
+      });
+
+      const contentType = res.headers.get("content-type") ?? "";
+      let payload: { image?: unknown; error?: unknown; meta?: unknown } | null = null;
+      let textError: string | null = null;
+      if (contentType.includes("application/json")) {
+        try {
+          payload = (await res.json()) as {
+            image?: unknown;
+            error?: unknown;
+            meta?: unknown;
+          };
+        } catch {
+          payload = null;
+        }
+      } else {
+        textError = await res.text().catch(() => null);
+      }
+
+      if (!res.ok || typeof payload?.image !== "string") {
+        const msg =
+          typeof payload?.error === "string"
+            ? payload.error
+            : textError || `Chỉnh sửa ảnh thất bại (HTTP ${res.status}).`;
+        throw new Error(msg);
+      }
+
+      setGeneratedImage(payload.image);
+      setGenerationStats(
+        payload.meta && typeof payload.meta === "object"
+          ? (payload.meta as {
+              model: string;
+              elapsedMs: number;
+              promptTokens?: number;
+              outputTokens?: number;
+              totalTokens?: number;
+              costUsd?: number;
+            })
+          : null
+      );
+      toast.success("Đã chỉnh sửa ảnh theo prompt.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Chỉnh sửa ảnh thất bại.";
+      toast.error(msg);
+      setGenerationError(msg);
+    } finally {
+      setIsEditingImage(false);
+    }
   };
 
   const len = userPrompt.length;
@@ -397,6 +476,73 @@ export function PromptInput({ className }: { className?: string }) {
                 : "-"}
             </span>
           </p>
+        </div>
+      ) : null}
+
+      {generatedImage ? (
+        <div
+          className="space-y-3 rounded-xl border-2 border-primary/25 bg-gradient-to-br from-primary/[0.08] via-background to-violet-500/[0.06] p-4 shadow-md ring-1 ring-primary/15 dark:border-primary/35 dark:from-primary/[0.12] dark:ring-primary/25"
+          role="region"
+          aria-label="Chỉnh sửa ảnh đã tạo"
+        >
+          <div className="flex gap-3">
+            <div
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm"
+              aria-hidden
+            >
+              <PencilLine className="size-5" strokeWidth={2} />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-semibold leading-tight text-foreground">
+                  Chỉnh sửa ảnh vừa tạo
+                </h3>
+                <Badge
+                  variant="default"
+                  className="h-5 px-2 text-[10px] font-semibold uppercase tracking-wide"
+                >
+                  Có sẵn
+                </Badge>
+              </div>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Giữ nguyên bố cục và chủ thể. Mô tả thay đổi nhẹ: dịch vị trí, xoay,
+                sáng/tối, màu nền hoặc tone — không tạo banner mới từ đầu.
+              </p>
+            </div>
+          </div>
+          <Textarea
+            value={editPrompt}
+            onChange={(e) => setEditPrompt(e.target.value)}
+            placeholder="Ví dụ: Dời sản phẩm sang trái một chút, xoay nhẹ 8°, ấm màu hơn"
+            rows={3}
+            disabled={isEditingImage || isGenerating}
+            aria-label="Prompt chỉnh sửa ảnh đã tạo"
+            className="min-h-[5rem] resize-none border-primary/20 bg-background/80 focus-visible:border-primary/40"
+          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="default"
+              size="default"
+              className="min-w-[11rem] gap-2 font-semibold shadow-sm"
+              disabled={
+                isEditingImage || isGenerating || editPrompt.trim().length < 3
+              }
+              onClick={() => void handleEditGeneratedImage()}
+            >
+              {isEditingImage ? (
+                <>
+                  <Loader2 className="size-4 animate-spin shrink-0" aria-hidden />
+                  Đang chỉnh sửa...
+                </>
+              ) : (
+                <>
+                  <PencilLine className="size-4 shrink-0" aria-hidden />
+                  Áp dụng chỉnh sửa
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>
