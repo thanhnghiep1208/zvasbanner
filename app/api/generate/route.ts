@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireUserJson } from "@/lib/require-user";
 import {
   buildPlaceholderDataUrl,
   geminiGenerateOneImage,
@@ -138,6 +139,11 @@ async function generateOneVariation(
 }
 
 export async function POST(req: Request) {
+  const authGate = await requireUserJson({
+    error: "Cần đăng nhập để tạo banner.",
+  });
+  if (authGate instanceof NextResponse) return authGate;
+
   let body: unknown;
   try {
     body = await req.json();

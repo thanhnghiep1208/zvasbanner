@@ -33,6 +33,12 @@ function explainEnhanceHttpError(status: number, message?: string): string {
   if (status === 400) {
     return `Dữ liệu cải thiện prompt chưa hợp lệ. ${message ?? ""}`.trim();
   }
+  if (status === 401) {
+    return (
+      message?.trim() ||
+      "Cần đăng nhập để cải thiện prompt. Vui lòng đăng nhập và thử lại."
+    );
+  }
   if (status === 429) {
     return "Gemini API đang quá tải/rate limit khi cải thiện prompt. Vui lòng thử lại sau ít phút.";
   }
@@ -47,6 +53,7 @@ function explainEnhanceHttpError(status: number, message?: string): string {
 
 function mapEnhanceErrorCode(status: number): string {
   if (status === 400) return "E-ENH-400";
+  if (status === 401) return "E-ENH-401";
   if (status === 429) return "E-ENH-429";
   if (status === 504) return "E-ENH-504";
   if (status >= 500) return "E-ENH-5XX";

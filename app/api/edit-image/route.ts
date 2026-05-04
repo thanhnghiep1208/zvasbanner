@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireUserJson } from "@/lib/require-user";
 import {
   geminiGenerateOneImage,
   getGeminiApiKey,
@@ -101,6 +102,11 @@ function classifyEditError(message: string): { errorCode: string; userMessage: s
 }
 
 export async function POST(req: Request) {
+  const authGate = await requireUserJson({
+    error: "Cần đăng nhập để chỉnh sửa ảnh.",
+  });
+  if (authGate instanceof NextResponse) return authGate;
+
   let body: unknown;
   try {
     body = await req.json();

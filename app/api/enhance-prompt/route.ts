@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { requireUserJson } from "@/lib/require-user";
 import {
   buildEnhanceMetaPrompt,
   getGeminiApiKey,
@@ -52,6 +53,11 @@ function normalizeEnhanceError(raw: string): { message: string; status: number }
 }
 
 export async function POST(request: Request) {
+  const authGate = await requireUserJson({
+    error: "Cần đăng nhập để cải thiện prompt.",
+  });
+  if (authGate instanceof NextResponse) return authGate;
+
   let body: unknown;
   try {
     body = await request.json();

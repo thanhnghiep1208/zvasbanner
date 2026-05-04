@@ -62,7 +62,13 @@ function explainGenerateHttpError(status: number, serverMessage?: string): strin
   if (status === 400) {
     return `Yêu cầu tạo ảnh chưa hợp lệ. ${serverMessage ?? ""}`.trim();
   }
-  if (status === 401 || status === 403) {
+  if (status === 401) {
+    return (
+      serverMessage?.trim() ||
+      "Cần đăng nhập để tạo ảnh. Vui lòng đăng nhập và thử lại."
+    );
+  }
+  if (status === 403) {
     return "Không có quyền truy cập Gemini API. Vui lòng kiểm tra API key/cấu hình quyền.";
   }
   if (status === 429) {
@@ -92,7 +98,8 @@ function mapGenerateErrorCode(params: {
     return "E-GEN-413";
   }
   if (params.status === 400) return "E-GEN-400";
-  if (params.status === 401 || params.status === 403) return "E-GEN-403";
+  if (params.status === 401) return "E-GEN-401";
+  if (params.status === 403) return "E-GEN-403";
   if (params.status === 429) return "E-GEN-429";
   if (params.status === 504) return "E-GEN-504";
   if (params.status >= 500) return "E-GEN-5XX";

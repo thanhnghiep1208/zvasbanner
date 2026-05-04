@@ -34,7 +34,7 @@ Cùng một repo Next.js, nhưng **biến môi trường và ranh giới thực 
 - `**GEMINI_API_KEY`**: chỉ server; dùng cho `@google/generative-ai` (generate, enhance, edit-image).
 - `**CLERK_SECRET_KEY`**: chỉ server; xác thực session / gọi Clerk Backend API (ví dụ enrich user trên dashboard).
 - `**DATABASE_URL`**: chỉ server; `pg` pool cho analytics.
-- `**proxy.ts**`: export `clerkMiddleware()` — bảo vệ / đồng bộ auth theo khuyến nghị Clerk cho App Router.
+- `**proxy.ts`**: export `clerkMiddleware()` — bảo vệ / đồng bộ auth theo khuyến nghị Clerk cho App Router.
 
 ## Cấu hình file `.env.local`
 

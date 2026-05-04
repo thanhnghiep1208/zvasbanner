@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import type { AnalyticsEventName } from "@/lib/analytics-events";
 import { getDbPool } from "@/lib/db";
+import { requireUserJson } from "@/lib/require-user";
 
 type TrackRequestBody = {
   event: AnalyticsEventName;
   banner_id: string;
-  user_id: string;
   timestamp: number;
   [key: string]: unknown;
 };
@@ -42,12 +42,11 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 function parseTrackBody(v: unknown): TrackRequestBody | null {
   if (!isRecord(v)) return null;
 
-  const { event, banner_id, user_id, timestamp } = v;
+  const { event, banner_id, timestamp } = v;
   if (
     typeof event !== "string" ||
     !ANALYTICS_EVENTS.includes(event as AnalyticsEventName) ||
     typeof banner_id !== "string" ||
-    typeof user_id !== "string" ||
     typeof timestamp !== "number" ||
     !Number.isFinite(timestamp)
   ) {
@@ -58,7 +57,6 @@ function parseTrackBody(v: unknown): TrackRequestBody | null {
   return {
     event: typedEvent,
     banner_id,
-    user_id,
     timestamp,
     ...v,
   };
@@ -76,10 +74,10 @@ function toOptionalNumber(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
-function mapToInsertRow(body: TrackRequestBody): BannerEventInsert {
+function mapToInsertRow(body: TrackRequestBody, userId: string): BannerEventInsert {
   return {
     event_name: body.event,
-    user_id: body.user_id,
+    user_id: userId,
     banner_id: body.banner_id,
     timestamp: body.timestamp,
     style: toOptionalString(body.style),
@@ -93,6 +91,12 @@ function mapToInsertRow(body: TrackRequestBody): BannerEventInsert {
 }
 
 export async function POST(req: Request) {
+  const session = await requireUserJson({
+    error: "Cần đăng nhập để ghi nhận hoạt động.",
+  });
+  if (session instanceof NextResponse) return session;
+  const { userId } = session;
+
   let body: unknown;
   try {
     body = await req.json();
@@ -105,14 +109,14 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Invalid track payload. Required: event, banner_id, user_id, timestamp.",
+          "Invalid track payload. Required: event, banner_id, timestamp.",
       },
       { status: 400 }
     );
   }
 
   try {
-    const row = mapToInsertRow(parsed);
+    const row = mapToInsertRow(parsed, userId);
     const pool = getDbPool();
     await pool.query(
       `
