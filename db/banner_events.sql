@@ -10,7 +10,11 @@ CREATE TABLE IF NOT EXISTS banner_events (
   generation_time_ms INTEGER,
   regenerate_count INTEGER,
   exported BOOLEAN,
-  cost_usd NUMERIC(12, 4)
+  cost_usd NUMERIC(12, 4),
+  generation_success BOOLEAN,
+  prompt_tokens INTEGER,
+  output_tokens INTEGER,
+  total_tokens INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_banner_events_event_name

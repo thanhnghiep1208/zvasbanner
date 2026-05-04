@@ -42,6 +42,9 @@ export type AnalyticsEventPayloadMap = {
     generation_time_ms?: number;
     regenerate_count?: number;
     cost_usd?: number;
+    prompt_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
   };
   regenerate_banner: AnalyticsBasePayload & {
     reason?: string;

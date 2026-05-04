@@ -236,6 +236,9 @@ export function PromptInput({ className }: { className?: string }) {
         generation_time_ms: result.meta?.elapsedMs ?? undefined,
         regenerate_count: 0,
         cost_usd: result.meta?.costUsd ?? 0,
+        prompt_tokens: result.meta?.promptTokens,
+        output_tokens: result.meta?.outputTokens,
+        total_tokens: result.meta?.totalTokens,
       });
     } catch {
       // Non-blocking analytics path; generation UX should not fail.

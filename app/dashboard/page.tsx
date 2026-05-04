@@ -24,6 +24,13 @@ type DashboardData = {
   total_cost: number;
   current_period_cost: number;
   previous_period_cost: number;
+  avg_tokens_per_request: number;
+  avg_input_tokens: number;
+  avg_output_tokens: number;
+  total_tokens_month: number;
+  cost_per_gen_user: number;
+  cost_per_success_image: number;
+  cost_per_export_image: number;
 };
 
 const RANGE_STORAGE_KEY = "dashboard:range";
@@ -37,10 +44,23 @@ const EMPTY_DATA: DashboardData = {
   total_cost: 0,
   current_period_cost: 0,
   previous_period_cost: 0,
+  avg_tokens_per_request: 0,
+  avg_input_tokens: 0,
+  avg_output_tokens: 0,
+  total_tokens_month: 0,
+  cost_per_gen_user: 0,
+  cost_per_success_image: 0,
+  cost_per_export_image: 0,
 };
 
 function formatNumber(n: number): string {
   return new Intl.NumberFormat("en-US").format(n);
+}
+
+function formatDecimal(n: number): string {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(n);
 }
 
 function formatPercent(n: number): string {
@@ -131,7 +151,6 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     let cancelled = false;
-    const wasLoadingAtEffectStart = loading;
 
     async function loadDashboard(options?: { initial?: boolean }) {
       const isInitial = options?.initial ?? false;
@@ -162,6 +181,13 @@ export default function DashboardPage() {
           total_cost: Number(json.total_cost ?? 0),
           current_period_cost: Number(json.current_period_cost ?? 0),
           previous_period_cost: Number(json.previous_period_cost ?? 0),
+          avg_tokens_per_request: Number(json.avg_tokens_per_request ?? 0),
+          avg_input_tokens: Number(json.avg_input_tokens ?? 0),
+          avg_output_tokens: Number(json.avg_output_tokens ?? 0),
+          total_tokens_month: Number(json.total_tokens_month ?? 0),
+          cost_per_gen_user: Number(json.cost_per_gen_user ?? 0),
+          cost_per_success_image: Number(json.cost_per_success_image ?? 0),
+          cost_per_export_image: Number(json.cost_per_export_image ?? 0),
         }));
         setError(null);
         setLastUpdatedAt(Date.now());
@@ -173,7 +199,7 @@ export default function DashboardPage() {
         );
       } finally {
         if (!cancelled) {
-          if (isInitial || wasLoadingAtEffectStart) {
+          if (isInitial) {
             setLoading(false);
           }
           if (!isInitial) {
@@ -307,6 +333,92 @@ export default function DashboardPage() {
               ) : null}
             </CardContent>
           </Card>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">
+            Token Usage
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Avg Tokens / Request</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">
+                  {loading ? "..." : formatDecimal(data.avg_tokens_per_request)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Avg Input Tokens</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">
+                  {loading ? "..." : formatDecimal(data.avg_input_tokens)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Avg Output Tokens</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">
+                  {loading ? "..." : formatDecimal(data.avg_output_tokens)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Total Tokens (Month)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">
+                  {loading ? "..." : formatNumber(data.total_tokens_month)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">
+            Cost Efficiency
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cost / Gen User</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">
+                  {loading ? "..." : formatUsd(data.cost_per_gen_user)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Cost / Success Image</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">
+                  {loading ? "..." : formatUsd(data.cost_per_success_image)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Cost / Export Image</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold">
+                  {loading ? "..." : formatUsd(data.cost_per_export_image)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
         {!loading && !error && !hasCoreData ? (

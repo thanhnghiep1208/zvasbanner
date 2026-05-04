@@ -38,7 +38,7 @@ Cùng một repo Next.js, nhưng **biến môi trường và ranh giới thực 
 
 ## Cấu hình file `.env.local`
 
-Tạo file `**.env.local**` ở thư mục gốc project. **Không** commit (đã có trong `.gitignore`).
+Tạo file `**.env.local`** ở thư mục gốc project. **Không** commit (đã có trong `.gitignore`).
 
 ### Biến bắt buộc (tạo ảnh / cải thiện prompt / chỉnh sửa ảnh)
 

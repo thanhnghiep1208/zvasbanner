@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { AnalyticsEventName } from "@/lib/analytics-events";
-import { getDbPool } from "@/lib/db";
+import { ensureAnalyticsSchemaReady, getDbPool } from "@/lib/db";
 import { requireUserJson } from "@/lib/require-user";
 
 type TrackRequestBody = {
@@ -22,6 +22,10 @@ type BannerEventInsert = {
   regenerate_count: number | null;
   exported: boolean | null;
   cost_usd: number | null;
+  generation_success: boolean | null;
+  prompt_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
 };
 
 const ANALYTICS_EVENTS: AnalyticsEventName[] = [
@@ -87,6 +91,10 @@ function mapToInsertRow(body: TrackRequestBody, userId: string): BannerEventInse
     regenerate_count: toOptionalNumber(body.regenerate_count),
     exported: toOptionalBoolean(body.exported),
     cost_usd: toOptionalNumber(body.cost_usd),
+    generation_success: toOptionalBoolean(body.success),
+    prompt_tokens: toOptionalNumber(body.prompt_tokens),
+    output_tokens: toOptionalNumber(body.output_tokens),
+    total_tokens: toOptionalNumber(body.total_tokens),
   };
 }
 
@@ -116,6 +124,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    await ensureAnalyticsSchemaReady();
     const row = mapToInsertRow(parsed, userId);
     const pool = getDbPool();
     await pool.query(
@@ -131,9 +140,13 @@ export async function POST(req: Request) {
           generation_time_ms,
           regenerate_count,
           exported,
-          cost_usd
+          cost_usd,
+          generation_success,
+          prompt_tokens,
+          output_tokens,
+          total_tokens
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
       `,
       [
         row.event_name,
@@ -147,6 +160,10 @@ export async function POST(req: Request) {
         row.regenerate_count,
         row.exported,
         row.cost_usd,
+        row.generation_success,
+        row.prompt_tokens,
+        row.output_tokens,
+        row.total_tokens,
       ]
     );
   } catch (error) {
