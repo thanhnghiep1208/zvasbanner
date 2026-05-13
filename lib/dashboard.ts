@@ -17,9 +17,14 @@ export type DashboardData = {
   cost_per_gen_user: number;
   cost_per_success_image: number;
   cost_per_export_image: number;
+  /** Counts of `generate_banner` keyed by `image_model` slug or `unknown`. */
+  generations_by_model: Record<string, number>;
 };
 
 export const DASHBOARD_RANGE_STORAGE_KEY = "dashboard:range";
+
+/** Auto-refresh interval for aggregate metrics (client polling). Keep conservative to reduce DB load. */
+export const DASHBOARD_AGGREGATE_POLL_MS = 4 * 60 * 60 * 1000;
 
 export const EMPTY_DASHBOARD_DATA: DashboardData = {
   total_generated: 0,
@@ -37,6 +42,7 @@ export const EMPTY_DASHBOARD_DATA: DashboardData = {
   cost_per_gen_user: 0,
   cost_per_success_image: 0,
   cost_per_export_image: 0,
+  generations_by_model: {},
 };
 
 export function formatDashboardNumber(n: number): string {
@@ -70,6 +76,14 @@ export function dashboardRangeLabel(range: DashboardRange): string {
   if (range === "today") return "Showing today";
   if (range === "30d") return "Showing last 30 days";
   return "Showing last 7 days";
+}
+
+/** Human label for stored `image_model` router slug (dashboard + tables). */
+export function labelImageModelSlug(slug: string): string {
+  if (slug === "nano-banana-pro") return "Nano Banana Pro";
+  if (slug === "nano-banana-2") return "Nano Banana 2";
+  if (slug === "unknown") return "Chưa ghi nhận model";
+  return slug;
 }
 
 /** Shared by `/api/dashboard` and `/api/dashboard/users` — keep window logic identical. */
