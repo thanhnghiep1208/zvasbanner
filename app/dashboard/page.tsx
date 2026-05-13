@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useAuth } from "@clerk/nextjs";
+import { SignInButton } from "@clerk/nextjs";
 import { Loader2, TriangleAlert } from "lucide-react";
 
 import {
@@ -9,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   TimeRangeFilter,
 } from "@/components/dashboard/TimeRangeFilter";
@@ -16,6 +19,7 @@ import { UserAnalyticsTable } from "@/components/dashboard/UserAnalyticsTable";
 import {
   buildCostComparisonText,
   buildDashboardAlerts,
+  DASHBOARD_AGGREGATE_POLL_MS,
   DASHBOARD_RANGE_STORAGE_KEY,
   dashboardRangeLabel,
   EMPTY_DASHBOARD_DATA,
@@ -23,12 +27,15 @@ import {
   formatDashboardNumber,
   formatDashboardPercent,
   formatDashboardUsd,
+  labelImageModelSlug,
   safeRatio,
   type DashboardData,
   type DashboardRange,
 } from "@/lib/dashboard";
 
 export default function DashboardPage() {
+  const { isSignedIn } = useAuth();
+  const [hydrated, setHydrated] = React.useState(false);
   const [data, setData] = React.useState<DashboardData>(EMPTY_DASHBOARD_DATA);
   const [range, setRange] = React.useState<DashboardRange>("7d");
   const [loading, setLoading] = React.useState(true);
@@ -36,6 +43,11 @@ export default function DashboardPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = React.useState<number | null>(null);
   const hasLoadedOnceRef = React.useRef(false);
+  const cancelledRef = React.useRef(false);
+
+  React.useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   React.useEffect(() => {
     try {
@@ -56,10 +68,8 @@ export default function DashboardPage() {
     }
   }, [range]);
 
-  React.useEffect(() => {
-    let cancelled = false;
-
-    async function loadDashboard(options?: { initial?: boolean }) {
+  const loadDashboard = React.useCallback(
+    async (options?: { initial?: boolean }) => {
       const isInitial = options?.initial ?? false;
       if (isInitial) {
         setLoading(true);
@@ -77,7 +87,7 @@ export default function DashboardPage() {
         if (!res.ok) {
           throw new Error(json.error ?? `HTTP ${res.status}`);
         }
-        if (cancelled) return;
+        if (cancelledRef.current) return;
         setData((prev) => ({
           ...prev,
           total_generated: Number(json.total_generated ?? 0),
@@ -95,11 +105,23 @@ export default function DashboardPage() {
           cost_per_gen_user: Number(json.cost_per_gen_user ?? 0),
           cost_per_success_image: Number(json.cost_per_success_image ?? 0),
           cost_per_export_image: Number(json.cost_per_export_image ?? 0),
+          generations_by_model: (() => {
+            const raw = json.generations_by_model;
+            if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+              return {};
+            }
+            return Object.fromEntries(
+              Object.entries(raw as Record<string, unknown>).map(([k, v]) => [
+                k,
+                typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0,
+              ])
+            );
+          })(),
         }));
         setError(null);
         setLastUpdatedAt(Date.now());
       } catch (e) {
-        if (cancelled) return;
+        if (cancelledRef.current) return;
         const msg = e instanceof Error ? e.message : "Không thể tải dashboard.";
         setError(
           `Không thể tải dữ liệu dashboard. ${msg} Vui lòng thử đổi range hoặc tải lại trang.`
@@ -113,20 +135,31 @@ export default function DashboardPage() {
           setRefreshing(false);
         }
       }
-    }
+    },
+    [range]
+  );
 
+  React.useEffect(() => {
+    if (!isSignedIn) {
+      setLoading(false);
+      setRefreshing(false);
+      setError(null);
+      setData(EMPTY_DASHBOARD_DATA);
+      return;
+    }
+    cancelledRef.current = false;
     const isInitial = !hasLoadedOnceRef.current;
     hasLoadedOnceRef.current = true;
     void loadDashboard({ initial: isInitial });
     const id = window.setInterval(() => {
       void loadDashboard();
-    }, 10 * 60 * 1000);
+    }, DASHBOARD_AGGREGATE_POLL_MS);
 
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       window.clearInterval(id);
     };
-  }, [range]);
+  }, [range, isSignedIn, loadDashboard]);
 
   const alerts = React.useMemo(() => buildDashboardAlerts(data), [data]);
   const costComparison = React.useMemo(
@@ -138,16 +171,65 @@ export default function DashboardPage() {
     [data.total_generated, data.total_exported, data.total_cost]
   );
 
+  const generationsByModelRows = React.useMemo(
+    () =>
+      Object.entries(data.generations_by_model)
+        .filter(([, n]) => n > 0)
+        .sort((a, b) => b[1] - a[1]),
+    [data.generations_by_model]
+  );
+
+  if (!hydrated) {
+    return (
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
+        <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 shadow-sm">
+          Đang tải dashboard...
+        </div>
+      </main>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
+        <section className="flex min-h-[52vh] items-center justify-center rounded-2xl bg-gradient-to-br from-amber-50 to-white p-8">
+          <div className="max-w-lg text-center">
+            <div className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+              <TriangleAlert className="size-5" aria-hidden />
+            </div>
+            <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+              Cần đăng nhập để xem Dashboard
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+              Dashboard chứa dữ liệu phân tích nội bộ theo vai trò. Vui lòng đăng nhập
+              bằng tài khoản được cấp quyền để truy cập.
+            </p>
+            <div className="mt-5 flex items-center justify-center">
+              <SignInButton mode="modal">
+                <Button
+                  type="button"
+                  className="h-9 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                >
+                  Login để tiếp tục
+                </Button>
+              </SignInButton>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
-      <div className="mb-6">
+    <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 lg:px-6">
+      <section className="rounded-2xl bg-white/90 p-4 shadow-sm backdrop-blur-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
               Dashboard
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Analytics overview for banner generation performance.
+              Theo dõi hiệu suất tạo banner, chi phí và hành vi người dùng theo thời gian.
             </p>
             <p
               className="mt-1 text-xs text-indigo-600 transition-all duration-300 ease-out"
@@ -157,31 +239,41 @@ export default function DashboardPage() {
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               {lastUpdatedAt
-                ? `Updated ${new Date(lastUpdatedAt).toLocaleTimeString()}`
-                : "Waiting for first data..."}
+                ? `Cập nhật lúc ${new Date(lastUpdatedAt).toLocaleString()}. Tự làm mới tối đa mỗi ${DASHBOARD_AGGREGATE_POLL_MS / (60 * 60 * 1000)} giờ — bấm Làm mới nếu cần số liệu ngay.`
+                : "Đang chờ dữ liệu đầu tiên..."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl bg-zinc-50/80 p-2">
             {refreshing ? (
               <Loader2 className="size-4 animate-spin text-zinc-500" aria-hidden />
             ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 shrink-0 rounded-lg border-zinc-200 bg-white text-xs font-medium text-zinc-800 hover:bg-zinc-50"
+              disabled={loading || refreshing}
+              onClick={() => void loadDashboard()}
+            >
+              Làm mới
+            </Button>
             <TimeRangeFilter value={range} onChange={setRange} />
           </div>
         </div>
-      </div>
+      </section>
 
       {error ? (
         <div
-          className="mb-4 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           role="alert"
         >
-          Failed to load dashboard: {error}
+          Không thể tải dashboard: {error}
         </div>
       ) : null}
 
       {!loading && alerts.length > 0 ? (
         <section
-          className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3"
+          className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3"
           role="alert"
           aria-live="polite"
         >
@@ -237,6 +329,44 @@ export default function DashboardPage() {
               {!loading && costComparison ? (
                 <p className="mt-1 text-xs text-zinc-500">{costComparison}</p>
               ) : null}
+            </CardContent>
+          </Card>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">
+            Ảnh tạo theo model
+          </h2>
+          <Card>
+            <CardHeader>
+              <CardTitle>Số lần generate theo preset model</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <p className="text-sm text-zinc-500">...</p>
+              ) : generationsByModelRows.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  {data.total_generated > 0
+                    ? "Chưa phân tách được theo model: thiếu cột image_model trên DB hoặc các event generate trước khi bổ sung trường này."
+                    : "Chưa có sự kiện generate trong khoảng thời gian này."}
+                </p>
+              ) : (
+                <ul className="divide-y divide-zinc-100">
+                  {generationsByModelRows.map(([slug, count]) => (
+                    <li
+                      key={slug}
+                      className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0"
+                    >
+                      <span className="text-sm font-medium text-zinc-800">
+                        {labelImageModelSlug(slug)}
+                      </span>
+                      <span className="text-sm tabular-nums text-zinc-600">
+                        {formatDashboardNumber(count)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </section>
@@ -329,7 +459,7 @@ export default function DashboardPage() {
 
         {!loading && !error && !hasCoreData ? (
           <section
-            className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700"
+            className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700"
             role="status"
             aria-live="polite"
           >
@@ -349,7 +479,7 @@ export default function DashboardPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">
           Funnel
         </h2>
-        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl bg-zinc-50/60 p-4">
           {([
             { key: "generate", label: "Generate Banner", value: data.total_generated },
             { key: "preview", label: "Preview Banner", value: data.total_previewed },
