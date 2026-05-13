@@ -133,7 +133,8 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
         setTotalUsers(0);
         setTotalPages(0);
       } finally {
-        if (!cancelled) setLoading(false);
+        // Always clear loading (Strict Mode / fast navigation can cancel mid-flight).
+        setLoading(false);
       }
     }
 
