@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireUserJson } from "@/lib/require-user";
+import { requirePermissionJson } from "@/lib/require-user";
 import {
   geminiGenerateOneImage,
   getGeminiApiKey,
@@ -102,8 +102,10 @@ function classifyEditError(message: string): { errorCode: string; userMessage: s
 }
 
 export async function POST(req: Request) {
-  const authGate = await requireUserJson({
+  const authGate = await requirePermissionJson({
     error: "Cần đăng nhập để chỉnh sửa ảnh.",
+    forbiddenError: "Bạn không có quyền chỉnh sửa/tạo ảnh.",
+    permission: "generate_image",
   });
   if (authGate instanceof NextResponse) return authGate;
 

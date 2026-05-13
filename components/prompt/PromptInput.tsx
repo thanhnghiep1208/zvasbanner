@@ -4,7 +4,7 @@
 
 "use client";
 
-import { Loader2, PencilLine } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,17 +35,12 @@ export function PromptInput({ className }: { className?: string }) {
     imageModel,
     setImageModel,
     isGenerating,
-    generatedImage,
     generationStats,
     isEnhancing,
-    isEditingImage,
-    editPrompt,
-    setEditPrompt,
     enhanceError,
     handleEnhance,
     handleGenerate,
     handleCancelGenerate,
-    handleEditGeneratedImage,
     disableEnhance,
     disableGenerate,
     len,
@@ -53,7 +48,12 @@ export function PromptInput({ className }: { className?: string }) {
   } = usePromptInputActions();
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div
+      className={cn(
+        "space-y-3 rounded-xl bg-white/90 p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-zinc-900/[0.04] backdrop-blur-sm",
+        className
+      )}
+    >
       <div className="relative">
         <div className="mb-2 grid grid-cols-1 gap-2">
           <Input
@@ -102,7 +102,7 @@ export function PromptInput({ className }: { className?: string }) {
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 pb-3 shadow-[inset_0_-1px_0_0_rgba(24,24,27,0.07)]">
         <Button
           type="button"
           variant="secondary"
@@ -124,7 +124,7 @@ export function PromptInput({ className }: { className?: string }) {
           variant="default"
           disabled={disableGenerate}
           onClick={() => void handleGenerate()}
-          className="min-w-[9rem]"
+          className="min-w-[9rem] bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm hover:from-violet-500 hover:to-indigo-500"
           title={!isSignedIn ? "Cần sign in để tạo banner" : undefined}
         >
           {isGenerating ? (
@@ -143,8 +143,13 @@ export function PromptInput({ className }: { className?: string }) {
         ) : null}
       </div>
 
-      <div className="space-y-1.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2">
-        <p className="text-xs font-semibold text-zinc-700">Model tạo ảnh</p>
+      <div className="space-y-1.5 rounded-lg bg-zinc-50/90 px-3 py-2.5 shadow-inner ring-1 ring-zinc-900/[0.05]">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-zinc-700">Model tạo ảnh</p>
+          <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+            Premium Router
+          </Badge>
+        </div>
         <div className="grid gap-2">
           {(
             [
@@ -167,10 +172,10 @@ export function PromptInput({ className }: { className?: string }) {
               <label
                 key={item.value}
                 className={cn(
-                  "flex cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2",
+                  "flex cursor-pointer items-start gap-2 rounded-lg px-2.5 py-2 shadow-sm transition-all ring-1",
                   checked
-                    ? "border-primary/40 bg-primary/[0.06]"
-                    : "border-zinc-200 bg-white"
+                    ? "bg-violet-50/90 ring-violet-400/45 shadow-md"
+                    : "bg-white/90 ring-zinc-900/[0.06] hover:bg-zinc-50/95 hover:ring-zinc-900/10"
                 )}
               >
                 <input
@@ -193,12 +198,12 @@ export function PromptInput({ className }: { className?: string }) {
 
       <label
         htmlFor="strict-preserve-mode-prompt"
-        className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2"
+        className="flex cursor-pointer items-start gap-2.5 rounded-lg bg-zinc-50/90 px-3 py-2.5 shadow-sm ring-1 ring-zinc-900/[0.05]"
       >
         <input
           id="strict-preserve-mode-prompt"
           type="checkbox"
-          className="mt-0.5 size-4 rounded border-zinc-300"
+          className="mt-0.5 size-4 rounded border border-zinc-200/50"
           checked={styleControls.strictPreserveMode}
           onChange={(e) =>
             setStyleControls({ strictPreserveMode: e.target.checked })
@@ -217,7 +222,7 @@ export function PromptInput({ className }: { className?: string }) {
       </label>
 
       {generationStats ? (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2 text-xs text-zinc-700">
+        <div className="rounded-lg bg-zinc-50/90 px-3 py-2 text-xs text-zinc-700 shadow-inner ring-1 ring-zinc-900/[0.05]">
           <p>
             Model: <span className="font-medium">{generationStats.model}</span>
           </p>
@@ -245,73 +250,6 @@ export function PromptInput({ className }: { className?: string }) {
                 : "-"}
             </span>
           </p>
-        </div>
-      ) : null}
-
-      {generatedImage ? (
-        <div
-          className="space-y-3 rounded-xl border-2 border-primary/25 bg-gradient-to-br from-primary/[0.08] via-background to-violet-500/[0.06] p-4 shadow-md ring-1 ring-primary/15 dark:border-primary/35 dark:from-primary/[0.12] dark:ring-primary/25"
-          role="region"
-          aria-label="Chỉnh sửa ảnh đã tạo"
-        >
-          <div className="flex gap-3">
-            <div
-              className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm"
-              aria-hidden
-            >
-              <PencilLine className="size-5" strokeWidth={2} />
-            </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-semibold leading-tight text-foreground">
-                  Chỉnh sửa ảnh vừa tạo
-                </h3>
-                <Badge
-                  variant="default"
-                  className="h-5 px-2 text-[10px] font-semibold uppercase tracking-wide"
-                >
-                  Có sẵn
-                </Badge>
-              </div>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                Giữ nguyên bố cục và chủ thể. Mô tả thay đổi nhẹ: dịch vị trí, xoay,
-                sáng/tối, màu nền hoặc tone — không tạo banner mới từ đầu.
-              </p>
-            </div>
-          </div>
-          <Textarea
-            value={editPrompt}
-            onChange={(e) => setEditPrompt(e.target.value)}
-            placeholder="Ví dụ: Dời sản phẩm sang trái một chút, xoay nhẹ 8°, ấm màu hơn"
-            rows={3}
-            disabled={isEditingImage || isGenerating}
-            aria-label="Prompt chỉnh sửa ảnh đã tạo"
-            className="min-h-[5rem] resize-none border-primary/20 bg-background/80 focus-visible:border-primary/40"
-          />
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="default"
-              size="default"
-              className="min-w-[11rem] gap-2 font-semibold shadow-sm"
-              disabled={
-                isEditingImage || isGenerating || editPrompt.trim().length < 3
-              }
-              onClick={() => void handleEditGeneratedImage()}
-            >
-              {isEditingImage ? (
-                <>
-                  <Loader2 className="size-4 animate-spin shrink-0" aria-hidden />
-                  Đang chỉnh sửa...
-                </>
-              ) : (
-                <>
-                  <PencilLine className="size-4 shrink-0" aria-hidden />
-                  Áp dụng chỉnh sửa
-                </>
-              )}
-            </Button>
-          </div>
         </div>
       ) : null}
     </div>

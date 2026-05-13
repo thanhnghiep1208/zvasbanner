@@ -44,8 +44,8 @@ export function StyleControls({ className }: { className?: string }) {
   return (
     <details
       className={cn(
-        "w-full min-w-0 rounded-xl border border-zinc-200 bg-zinc-50/80 shadow-sm dark:border-border dark:bg-card/30",
-        "[&[open]>summary]:border-b [&[open]>summary]:border-zinc-200 dark:[&[open]>summary]:border-border",
+        "w-full min-w-0 rounded-xl bg-zinc-50/85 shadow-md shadow-zinc-900/[0.05] ring-1 ring-zinc-900/[0.04] dark:bg-card/30 dark:ring-border/40",
+        "[&[open]>summary]:shadow-[inset_0_-1px_0_0_rgba(24,24,27,0.07)] dark:[&[open]>summary]:shadow-[inset_0_-1px_0_0_rgba(255,255,255,0.06)]",
         "[&[open]_summary_svg]:rotate-180",
         className
       )}
@@ -184,7 +184,7 @@ export function StyleControls({ className }: { className?: string }) {
           </div>
         </div>
 
-        <div className="min-w-0 space-y-2 rounded-lg border border-zinc-200 bg-white/70 p-3">
+        <div className="min-w-0 space-y-2 rounded-lg bg-white/75 p-3 shadow-sm ring-1 ring-zinc-900/[0.05] dark:bg-card/40 dark:ring-border/30">
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
             Cau hinh background
           </p>
@@ -197,7 +197,7 @@ export function StyleControls({ className }: { className?: string }) {
               <label key={opt.value} className="flex items-start gap-2 text-xs">
                 <input
                   type="checkbox"
-                  className="mt-0.5 size-3.5 rounded border-zinc-300"
+                  className="mt-0.5 size-3.5 rounded border border-zinc-200/50"
                   checked={bg.tones.includes(opt.value)}
                   onChange={() =>
                     setStyleControls({
@@ -224,7 +224,7 @@ export function StyleControls({ className }: { className?: string }) {
               <label key={opt.value} className="flex items-start gap-2 text-xs">
                 <input
                   type="checkbox"
-                  className="mt-0.5 size-3.5 rounded border-zinc-300"
+                  className="mt-0.5 size-3.5 rounded border border-zinc-200/50"
                   checked={bg.grains.includes(opt.value)}
                   onChange={() =>
                     setStyleControls({
@@ -251,7 +251,7 @@ export function StyleControls({ className }: { className?: string }) {
               <label key={opt.value} className="flex items-start gap-2 text-xs">
                 <input
                   type="checkbox"
-                  className="mt-0.5 size-3.5 rounded border-zinc-300"
+                  className="mt-0.5 size-3.5 rounded border border-zinc-200/50"
                   checked={bg.shapes.includes(opt.value)}
                   onChange={() =>
                     setStyleControls({
@@ -278,7 +278,7 @@ export function StyleControls({ className }: { className?: string }) {
               <label key={opt.value} className="flex items-start gap-2 text-xs">
                 <input
                   type="checkbox"
-                  className="mt-0.5 size-3.5 rounded border-zinc-300"
+                  className="mt-0.5 size-3.5 rounded border border-zinc-200/50"
                   checked={bg.effects.includes(opt.value)}
                   onChange={() =>
                     setStyleControls({

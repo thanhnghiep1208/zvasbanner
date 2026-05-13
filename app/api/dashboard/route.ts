@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requirePermissionJson } from "@/lib/require-user";
 import { ensureAnalyticsSchemaReady, getDbPool } from "@/lib/db";
 import {
   parseDashboardRange,
@@ -44,6 +45,33 @@ function isMissingColumnError(error: unknown): boolean {
   return pgErr?.code === "42703";
 }
 
+type ModelCountRow = { k: string; n: string | number | null };
+
+async function fetchGenerationsByModel(
+  pool: ReturnType<typeof getDbPool>,
+  startMs: number
+): Promise<Record<string, number>> {
+  try {
+    const r = await pool.query<ModelCountRow>(
+      `
+      SELECT COALESCE(NULLIF(TRIM(image_model), ''), 'unknown') AS k, COUNT(*) AS n
+      FROM banner_events
+      WHERE event_name = 'generate_banner' AND timestamp >= $1
+      GROUP BY 1
+    `,
+      [startMs]
+    );
+    const out: Record<string, number> = {};
+    for (const row of r.rows) {
+      out[row.k] = Math.round(toNumber(row.n));
+    }
+    return out;
+  } catch (error) {
+    if (isMissingColumnError(error)) return {};
+    throw error;
+  }
+}
+
 function toDashboardJson(row?: DashboardRow) {
   if (!row) {
     return {
@@ -62,6 +90,7 @@ function toDashboardJson(row?: DashboardRow) {
       cost_per_gen_user: 0,
       cost_per_success_image: 0,
       cost_per_export_image: 0,
+      generations_by_model: {} as Record<string, number>,
     };
   }
 
@@ -81,10 +110,18 @@ function toDashboardJson(row?: DashboardRow) {
     cost_per_gen_user: toNumber(row.cost_per_gen_user),
     cost_per_success_image: toNumber(row.cost_per_success_image),
     cost_per_export_image: toNumber(row.cost_per_export_image),
+    generations_by_model: {} as Record<string, number>,
   };
 }
 
 export async function GET(req: Request) {
+  const authGate = await requirePermissionJson({
+    error: "Cần đăng nhập để xem dashboard.",
+    forbiddenError: "Bạn không có quyền xem dashboard.",
+    permission: "view_dashboard",
+  });
+  if (authGate instanceof NextResponse) return authGate;
+
   try {
     try {
       await ensureAnalyticsSchemaReady();
@@ -251,7 +288,13 @@ export async function GET(req: Request) {
       rows = legacyResult.rows;
     }
 
-    return NextResponse.json(toDashboardJson(rows[0]), { status: 200 });
+    return NextResponse.json(
+      {
+        ...toDashboardJson(rows[0]),
+        generations_by_model: await fetchGenerationsByModel(pool, startMs),
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("[dashboard] aggregate query failed", error);
     return NextResponse.json(

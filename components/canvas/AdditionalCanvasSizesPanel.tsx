@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { track } from "@/lib/analytics";
@@ -187,6 +188,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
               user_id: userId,
               source: "placeholder",
               success: false,
+              image_model: gen.meta?.model ?? "nano-banana-2",
               has_asset: assets.length > 0,
               generation_time_ms:
                 gen.meta?.elapsedMs ?? Math.round(performance.now() - t0),
@@ -223,6 +225,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
             user_id: userId,
             source: gen.source,
             success: true,
+            image_model: gen.meta?.model ?? "nano-banana-2",
             has_asset: assets.length > 0,
             generation_time_ms:
               gen.meta?.elapsedMs ?? Math.round(performance.now() - t0),
@@ -316,14 +319,19 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
   return (
     <section
       className={cn(
-        "w-full max-w-2xl rounded-lg border border-zinc-200 bg-zinc-50/90 p-3 shadow-sm",
+        "w-full max-w-2xl rounded-xl bg-white/92 p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-zinc-900/[0.04] backdrop-blur-sm",
         className
       )}
       aria-label="Biến thể kích thước"
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-        Biến thể kích thước
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          Biến thể kích thước
+        </p>
+        <Badge variant="secondary" className="h-5 px-2 text-[10px]">
+          Fast Batch
+        </Badge>
+      </div>
       <p className="mt-1 text-[11px] leading-snug text-zinc-500">
         Tạo bản xem trước theo từng preset — AI bám sát banner gốc (bố cục, màu, nội
         dung chính), chỉ điều chỉnh tối thiểu cho khung mới. Chỉ tải khi bạn nhấn
@@ -337,7 +345,11 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
             type="button"
             size="sm"
             variant={format === "png" ? "default" : "outline"}
-            className="h-7 border-zinc-200 px-2 text-xs"
+            className={cn(
+              "h-7 px-2 text-xs",
+              format !== "png" &&
+                "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
+            )}
             onClick={() => setFormat("png")}
             disabled={previewBusy}
           >
@@ -347,7 +359,11 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
             type="button"
             size="sm"
             variant={format === "jpg" ? "default" : "outline"}
-            className="h-7 border-zinc-200 px-2 text-xs"
+            className={cn(
+              "h-7 px-2 text-xs",
+              format !== "jpg" &&
+                "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
+            )}
             onClick={() => setFormat("jpg")}
             disabled={previewBusy}
           >
@@ -379,7 +395,11 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
             type="button"
             size="sm"
             variant={scale === 1 ? "default" : "outline"}
-            className="h-7 border-zinc-200 px-2 text-xs"
+            className={cn(
+              "h-7 px-2 text-xs",
+              scale !== 1 &&
+                "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
+            )}
             onClick={() => setScale(1)}
             disabled={previewBusy}
           >
@@ -389,7 +409,11 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
             type="button"
             size="sm"
             variant={scale === 2 ? "default" : "outline"}
-            className="h-7 border-zinc-200 px-2 text-xs"
+            className={cn(
+              "h-7 px-2 text-xs",
+              scale !== 2 &&
+                "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
+            )}
             onClick={() => setScale(2)}
             disabled={previewBusy}
           >
@@ -399,7 +423,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
       </div>
 
       <ul
-        className="mt-2 max-h-36 space-y-1 overflow-y-auto rounded-md border border-zinc-100 bg-white p-2"
+        className="mt-2 max-h-36 space-y-1 overflow-y-auto rounded-md bg-white p-2 shadow-inner ring-1 ring-zinc-900/[0.05]"
         aria-label="Chọn preset biến thể"
       >
         {otherPresets.map((p) => {
@@ -409,7 +433,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
               <label className="flex cursor-pointer items-start gap-2 text-xs text-zinc-800">
                 <input
                   type="checkbox"
-                  className="mt-0.5 size-3.5 shrink-0 rounded border-zinc-300"
+                  className="mt-0.5 size-3.5 shrink-0 rounded border border-zinc-200/50"
                   checked={checked}
                   disabled={previewBusy}
                   onChange={() => toggleExtraPreset(p.id)}
@@ -432,7 +456,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
           type="button"
           variant="default"
           size="sm"
-          className="flex-1 min-w-[10rem]"
+          className="flex-1 min-w-[10rem] bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm hover:from-violet-500 hover:to-indigo-500"
           disabled={previewBusy || extraPresetIds.size === 0}
           onClick={() => void handleCreatePreviews()}
         >
@@ -450,7 +474,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
             type="button"
             variant="outline"
             size="sm"
-            className="border-zinc-200"
+            className="border-0 bg-zinc-100/70 shadow-sm ring-1 ring-zinc-900/[0.06]"
             disabled={previewBusy}
             onClick={handleClearPreviews}
           >
@@ -464,7 +488,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
           {previewRows.map((row) => (
             <div
               key={row.presetId}
-              className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-white p-2 shadow-sm"
+              className="flex flex-col gap-2 rounded-lg bg-white p-2 shadow-md ring-1 ring-zinc-900/[0.06]"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
@@ -474,7 +498,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
                   </p>
                 </div>
               </div>
-              <div className="relative aspect-video w-full overflow-hidden rounded border border-zinc-100 bg-zinc-100">
+              <div className="relative aspect-video w-full overflow-hidden rounded-md bg-zinc-100 shadow-inner ring-1 ring-zinc-900/[0.05]">
                 {row.status === "loading" ? (
                   <div className="flex size-full items-center justify-center gap-2 text-xs text-zinc-500">
                     <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -501,7 +525,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
                 type="button"
                 variant="outline"
                 size="sm"
-                className="w-full border-zinc-200"
+                className="w-full border-0 bg-zinc-50/90 shadow-sm ring-1 ring-zinc-900/[0.06]"
                 disabled={
                   row.status !== "ready" ||
                   row.source !== "gemini" ||

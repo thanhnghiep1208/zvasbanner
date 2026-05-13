@@ -36,10 +36,15 @@ export function TimeRangeFilter({
             key={option.value}
             type="button"
             size="sm"
-            variant={active ? "default" : "outline"}
+            variant={active ? "default" : "ghost"}
             role="tab"
             aria-selected={active}
-            className={cn("min-w-20", active && "shadow-sm")}
+            className={cn(
+              "min-w-20 rounded-lg border border-transparent",
+              active
+                ? "bg-zinc-900 text-white shadow-sm hover:bg-zinc-800"
+                : "bg-white text-zinc-700 hover:border-zinc-200 hover:bg-zinc-50"
+            )}
             onClick={() => onChange(option.value)}
           >
             {option.label}

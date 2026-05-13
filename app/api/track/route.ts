@@ -26,6 +26,7 @@ type BannerEventInsert = {
   prompt_tokens: number | null;
   output_tokens: number | null;
   total_tokens: number | null;
+  image_model: string | null;
 };
 
 type PgLikeError = {
@@ -99,6 +100,7 @@ function mapToInsertRow(body: TrackRequestBody, userId: string): BannerEventInse
     prompt_tokens: toOptionalNumber(body.prompt_tokens),
     output_tokens: toOptionalNumber(body.output_tokens),
     total_tokens: toOptionalNumber(body.total_tokens),
+    image_model: toOptionalString(body.image_model),
   };
 }
 
@@ -154,9 +156,10 @@ export async function POST(req: Request) {
           generation_success,
           prompt_tokens,
           output_tokens,
-          total_tokens
+          total_tokens,
+          image_model
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
       `,
       [
         row.event_name,
@@ -174,6 +177,7 @@ export async function POST(req: Request) {
         row.prompt_tokens,
         row.output_tokens,
         row.total_tokens,
+        row.image_model,
       ]
     );
     } catch (error) {
@@ -181,8 +185,53 @@ export async function POST(req: Request) {
       if (pgError?.code !== "42703") {
         throw error;
       }
-      await pool.query(
-        `
+      try {
+        await pool.query(
+          `
+        INSERT INTO banner_events (
+          event_name,
+          user_id,
+          banner_id,
+          timestamp,
+          style,
+          canvas_size,
+          has_asset,
+          generation_time_ms,
+          regenerate_count,
+          exported,
+          cost_usd,
+          generation_success,
+          prompt_tokens,
+          output_tokens,
+          total_tokens
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+      `,
+          [
+            row.event_name,
+            row.user_id,
+            row.banner_id,
+            row.timestamp,
+            row.style,
+            row.canvas_size,
+            row.has_asset,
+            row.generation_time_ms,
+            row.regenerate_count,
+            row.exported,
+            row.cost_usd,
+            row.generation_success,
+            row.prompt_tokens,
+            row.output_tokens,
+            row.total_tokens,
+          ]
+        );
+      } catch (error2) {
+        const pg2 = error2 as PgLikeError;
+        if (pg2?.code !== "42703") {
+          throw error2;
+        }
+        await pool.query(
+          `
         INSERT INTO banner_events (
           event_name,
           user_id,
@@ -198,20 +247,21 @@ export async function POST(req: Request) {
         )
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       `,
-        [
-          row.event_name,
-          row.user_id,
-          row.banner_id,
-          row.timestamp,
-          row.style,
-          row.canvas_size,
-          row.has_asset,
-          row.generation_time_ms,
-          row.regenerate_count,
-          row.exported,
-          row.cost_usd,
-        ]
-      );
+          [
+            row.event_name,
+            row.user_id,
+            row.banner_id,
+            row.timestamp,
+            row.style,
+            row.canvas_size,
+            row.has_asset,
+            row.generation_time_ms,
+            row.regenerate_count,
+            row.exported,
+            row.cost_usd,
+          ]
+        );
+      }
     }
   } catch (error) {
     console.error("[analytics.track] insert failed", error);

@@ -25,15 +25,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
-.env*.local
+# env files (never commit secrets) — keep *.example in repo
+.env
+.env.*
+!.env*.example
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+
+# Graphify CLI output (local cache / AST graph; not source)
+/graphify-out/
 
 # clerk configuration (can include secrets)
 /.clerk/

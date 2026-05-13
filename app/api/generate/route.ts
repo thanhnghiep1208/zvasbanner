@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireUserJson } from "@/lib/require-user";
+import { requirePermissionJson } from "@/lib/require-user";
 import {
   buildPlaceholderDataUrl,
   geminiGenerateOneImage,
@@ -155,8 +155,10 @@ async function generateOneVariation(
 }
 
 export async function POST(req: Request) {
-  const authGate = await requireUserJson({
+  const authGate = await requirePermissionJson({
     error: "Cần đăng nhập để tạo banner.",
+    forbiddenError: "Bạn không có quyền tạo ảnh.",
+    permission: "generate_image",
   });
   if (authGate instanceof NextResponse) return authGate;
 

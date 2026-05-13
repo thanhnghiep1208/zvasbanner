@@ -6,10 +6,11 @@ import {
   SignUpButton,
   UserButton,
 } from "@clerk/nextjs";
-import { PanelLeft, PanelRight, Settings } from "lucide-react";
+import Link from "next/link";
+import { LayoutDashboard, PanelLeft, PanelRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ExportPopover } from "./ExportPopover";
 import { useEditorStore } from "@/store/editor";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,7 @@ export function EditorToolbar({
   return (
     <header
       className={cn(
-        "relative grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-zinc-200 bg-white px-3 shadow-sm lg:px-4",
+        "relative grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 bg-white/75 px-3 shadow-sm shadow-zinc-900/[0.04] backdrop-blur-md supports-[backdrop-filter]:bg-white/60 lg:px-4",
         className
       )}
     >
@@ -57,7 +58,7 @@ export function EditorToolbar({
           type="button"
           variant="outline"
           size="icon-sm"
-          className="shrink-0 border-zinc-200 text-zinc-700 lg:hidden"
+          className="shrink-0 border-0 bg-zinc-100/70 text-zinc-700 shadow-sm shadow-zinc-900/5 hover:bg-zinc-100 lg:hidden"
           aria-label="Mở bảng canvas và tài sản"
           onClick={onOpenLeftDrawer}
         >
@@ -70,8 +71,8 @@ export function EditorToolbar({
 
       <div className="max-w-[min(100vw-10rem,24rem)] min-w-0 justify-self-center px-1">
         <Badge
-          variant="outline"
-          className="max-w-full truncate border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-medium text-zinc-800 shadow-none"
+          variant="secondary"
+          className="max-w-full truncate bg-zinc-100/90 px-3 py-1 text-xs font-medium text-zinc-800 shadow-inner ring-0"
           title={`${canvasConfig.name} — ${canvasConfig.width}×${canvasConfig.height}px`}
         >
           <span className="truncate">
@@ -97,20 +98,21 @@ export function EditorToolbar({
         <Show when="signed-in">
           <UserButton />
         </Show>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="text-zinc-600"
-          aria-label="Cài đặt"
+        <Link
+          href="/dashboard"
+          aria-label="Mở dashboard"
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "icon-sm" }),
+            "text-zinc-600"
+          )}
         >
-          <Settings className="size-4" />
-        </Button>
+          <LayoutDashboard className="size-4" />
+        </Link>
         <Button
           type="button"
           variant="outline"
           size="icon-sm"
-          className="shrink-0 border-zinc-200 text-zinc-700 lg:hidden"
+          className="shrink-0 border-0 bg-zinc-100/70 text-zinc-700 shadow-sm shadow-zinc-900/5 hover:bg-zinc-100 lg:hidden"
           aria-label="Mở prompt và phong cách"
           onClick={onOpenRightDrawer}
         >

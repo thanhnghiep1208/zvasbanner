@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireUserJson } from "@/lib/require-user";
+import { requirePermissionJson } from "@/lib/require-user";
 import {
   buildEnhanceMetaPrompt,
   getGeminiApiKey,
@@ -53,8 +53,10 @@ function normalizeEnhanceError(raw: string): { message: string; status: number }
 }
 
 export async function POST(request: Request) {
-  const authGate = await requireUserJson({
+  const authGate = await requirePermissionJson({
     error: "Cần đăng nhập để cải thiện prompt.",
+    forbiddenError: "Bạn không có quyền dùng tính năng tạo ảnh.",
+    permission: "generate_image",
   });
   if (authGate instanceof NextResponse) return authGate;
 

@@ -9,6 +9,7 @@ import * as React from "react";
 import { useAuth } from "@clerk/nextjs";
 
 import { AdditionalCanvasSizesPanel } from "@/components/canvas/AdditionalCanvasSizesPanel";
+import { GeneratedImageEditBar } from "@/components/canvas/GeneratedImageEditBar";
 import { Badge } from "@/components/ui/badge";
 import {
   Tabs,
@@ -95,7 +96,7 @@ export function CanvasArea({ className }: { className?: string }) {
   }, [isSignedIn, userId, generatedImage, currentBannerId]);
 
   const canvasPreview = (
-    <div className="grid min-h-0 min-w-0 w-full max-w-full flex-1 grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-1.5">
+    <div className="grid min-h-0 min-w-0 w-full max-w-full flex-1 grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-2 rounded-xl bg-white/80 p-2 shadow-lg shadow-zinc-900/[0.06] ring-1 ring-zinc-900/[0.04] backdrop-blur-sm">
       <div
         className="flex min-h-[4rem] items-center justify-center self-stretch"
         aria-hidden
@@ -110,7 +111,7 @@ export function CanvasArea({ className }: { className?: string }) {
 
       <div className="relative flex min-h-0 min-w-0 items-center justify-center">
         <div
-          className="relative overflow-hidden rounded-md border border-border shadow-sm"
+          className="relative overflow-hidden rounded-lg bg-zinc-50/30 shadow-md ring-1 ring-zinc-900/[0.06]"
           style={{
             aspectRatio,
             width: isLandscape ? "100%" : "auto",
@@ -148,7 +149,7 @@ export function CanvasArea({ className }: { className?: string }) {
             </div>
           ) : (
             <div
-              className="relative z-10 flex size-full min-h-[8rem] flex-col items-center justify-center gap-2 border-2 border-dashed border-muted-foreground/35 bg-transparent px-4 py-8 text-center"
+              className="relative z-10 flex size-full min-h-[8rem] flex-col items-center justify-center gap-2 rounded-md bg-transparent px-4 py-8 text-center ring-2 ring-dashed ring-muted-foreground/25"
               role="status"
               aria-label="Vùng xem trước banner"
             >
@@ -188,37 +189,46 @@ export function CanvasArea({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex h-full w-full max-w-full flex-col gap-3 overflow-y-auto overflow-x-hidden",
+        "flex h-full min-h-0 w-full max-w-full flex-col",
         className
       )}
       data-slot="canvas-area"
     >
-      {previewUrl ? (
-        <Tabs defaultValue="preview" className="h-full">
-          <div className="flex items-center justify-between gap-2">
-            <TabsList variant="line" className="w-full justify-start">
-              <TabsTrigger value="preview">Xem trước</TabsTrigger>
-              <TabsTrigger value="variants">Biến thể kích thước</TabsTrigger>
-            </TabsList>
-            {modelBadgeLabel ? (
-              <Badge
-                variant="secondary"
-                className="shrink-0 border border-zinc-200 bg-white/90 text-[10px] font-semibold text-zinc-700"
-              >
-                {modelBadgeLabel}
-              </Badge>
-            ) : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overflow-x-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+          {previewUrl ? (
+            <Tabs defaultValue="preview" className="h-full min-h-0">
+              <div className="flex items-center justify-between gap-2">
+                <TabsList variant="line" className="w-full justify-start">
+                  <TabsTrigger value="preview">Xem trước</TabsTrigger>
+                  <TabsTrigger value="variants">Biến thể kích thước</TabsTrigger>
+                </TabsList>
+                {modelBadgeLabel ? (
+                  <Badge
+                    variant="secondary"
+                    className="shrink-0 bg-white/95 text-[10px] font-semibold text-zinc-700 shadow-sm ring-1 ring-zinc-900/[0.06]"
+                  >
+                    {modelBadgeLabel}
+                  </Badge>
+                ) : null}
+              </div>
+              <TabsContent value="preview" className="mt-1 min-h-0 flex-1">
+                {canvasPreview}
+              </TabsContent>
+              <TabsContent value="variants" className="mt-1 min-h-0 flex-1">
+                <AdditionalCanvasSizesPanel className="mx-auto shrink-0" />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            canvasPreview
+          )}
+        </div>
+        {generatedImage ? (
+          <div className="sticky bottom-0 z-10 shrink-0 pt-1">
+            <GeneratedImageEditBar className="rounded-md" />
           </div>
-          <TabsContent value="preview" className="mt-1 h-full">
-            {canvasPreview}
-          </TabsContent>
-          <TabsContent value="variants" className="mt-1 h-full">
-            <AdditionalCanvasSizesPanel className="mx-auto shrink-0" />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        canvasPreview
-      )}
+        ) : null}
+      </div>
     </div>
   );
 }
