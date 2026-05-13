@@ -43,7 +43,7 @@ export function EditorWorkspace() {
   const { isSignedIn } = useAuth();
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-100 text-zinc-900">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-50 text-zinc-900 [background-image:linear-gradient(180deg,oklch(0.995_0.01_270)_0%,oklch(0.985_0.004_260)_55%,oklch(0.98_0.002_250)_100%)]">
       <EditorToolbar
         onOpenLeftDrawer={() => setLeftOpen(true)}
         onOpenRightDrawer={() => setRightOpen(true)}
@@ -52,16 +52,16 @@ export function EditorWorkspace() {
       <div className="flex min-h-0 min-w-0 flex-1">
         {/* Left column — desktop */}
         <aside
-          className="hidden w-[280px] shrink-0 flex-col overflow-y-auto overflow-x-hidden border-r border-zinc-200 bg-zinc-50 lg:flex"
+          className="relative hidden w-[280px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-white/55 backdrop-blur-xl lg:flex lg:shadow-[8px_0_40px_-24px_rgba(15,23,42,0.07)]"
           aria-label="Canvas và tài sản"
         >
-          <div className="flex flex-col gap-4 p-3">
+          <div className="flex flex-col gap-4 p-3.5">
             <LeftSidebarBody />
           </div>
         </aside>
 
         {/* Center */}
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-transparent">
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden p-3 lg:p-4">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch">
               <div className="flex min-h-[12rem] min-w-0 flex-1 flex-col items-center justify-center">
@@ -69,7 +69,7 @@ export function EditorWorkspace() {
                   <CanvasArea className="w-full max-w-full" />
                 ) : (
                   <div
-                    className="flex h-full w-full items-center justify-center rounded-lg border-2 border-amber-300 bg-amber-50 px-6 py-10 text-center shadow-sm"
+                    className="flex h-full w-full items-center justify-center rounded-2xl bg-amber-50/90 px-6 py-10 text-center shadow-lg shadow-amber-900/5 ring-1 ring-amber-400/20"
                     role="status"
                     aria-live="polite"
                   >
@@ -94,10 +94,10 @@ export function EditorWorkspace() {
 
         {/* Right column — desktop */}
         <aside
-          className="hidden w-[300px] shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-zinc-200 bg-zinc-50 lg:flex"
+          className="relative hidden w-[300px] shrink-0 flex-col overflow-y-auto overflow-x-hidden bg-white/55 backdrop-blur-xl lg:flex lg:shadow-[-8px_0_40px_-24px_rgba(15,23,42,0.07)]"
           aria-label="Prompt và phong cách"
         >
-          <div className="flex flex-col gap-3 p-3">
+          <div className="flex flex-col gap-3.5 p-3.5">
             <RightSidebarBody />
           </div>
         </aside>
@@ -108,9 +108,9 @@ export function EditorWorkspace() {
         <SheetContent
           side="left"
           showCloseButton
-          className="h-full w-[280px] max-w-[min(100vw,280px)] gap-0 border-zinc-200 bg-zinc-50 p-0 sm:max-w-[280px] [&]:flex [&]:h-full [&]:max-h-[100dvh] [&]:flex-col"
+          className="h-full w-[280px] max-w-[min(100vw,280px)] gap-0 border-0 bg-zinc-50/95 p-0 shadow-2xl shadow-zinc-900/10 sm:max-w-[280px] [&]:flex [&]:h-full [&]:max-h-[100dvh] [&]:flex-col"
         >
-          <SheetHeader className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-4 py-3">
+          <SheetHeader className="shrink-0 bg-gradient-to-b from-white/90 to-zinc-50/80 px-4 py-3 shadow-sm shadow-zinc-900/5">
             <SheetTitle className="text-left text-sm font-semibold text-zinc-900">
               Canvas &amp; tài sản
             </SheetTitle>
@@ -125,9 +125,9 @@ export function EditorWorkspace() {
         <SheetContent
           side="right"
           showCloseButton
-          className="h-full w-[300px] max-w-[min(100vw,300px)] gap-0 border-zinc-200 bg-zinc-50 p-0 sm:max-w-[300px] [&]:flex [&]:h-full [&]:max-h-[100dvh] [&]:flex-col"
+          className="h-full w-[300px] max-w-[min(100vw,300px)] gap-0 border-0 bg-zinc-50/95 p-0 shadow-2xl shadow-zinc-900/10 sm:max-w-[300px] [&]:flex [&]:h-full [&]:max-h-[100dvh] [&]:flex-col"
         >
-          <SheetHeader className="shrink-0 border-b border-zinc-200 bg-zinc-50 px-4 py-3">
+          <SheetHeader className="shrink-0 bg-gradient-to-b from-white/90 to-zinc-50/80 px-4 py-3 shadow-sm shadow-zinc-900/5">
             <SheetTitle className="text-left text-sm font-semibold text-zinc-900">
               Prompt &amp; phong cách
             </SheetTitle>

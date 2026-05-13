@@ -97,7 +97,7 @@ export function ExportPopover() {
           size="sm"
           disabled
           aria-label="Xuất banner"
-          className="pointer-events-none border-zinc-200 bg-zinc-100 text-zinc-600"
+          className="pointer-events-none border-0 bg-zinc-100/90 text-zinc-600 shadow-sm ring-1 ring-zinc-900/[0.06]"
         >
           Xuất
         </Button>
@@ -118,14 +118,14 @@ export function ExportPopover() {
         aria-label="Xuất banner"
         className={cn(
           buttonVariants({ variant: "secondary", size: "sm" }),
-          "border-zinc-200"
+          "border-0 shadow-sm ring-1 ring-zinc-900/[0.06]"
         )}
       >
         Xuất
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="flex max-h-[min(32rem,calc(100vh-4rem))] w-[min(22rem,calc(100vw-2rem))] flex-col gap-3 overflow-y-auto p-3"
+        className="flex max-h-[min(32rem,calc(100vh-4rem))] w-[min(22rem,calc(100vw-2rem))] flex-col gap-3 overflow-y-auto p-3 shadow-lg shadow-zinc-900/[0.08] ring-1 ring-zinc-900/[0.06]"
         sideOffset={8}
       >
         <PopoverTitle className="text-sm font-semibold text-zinc-900">
@@ -139,7 +139,11 @@ export function ExportPopover() {
               type="button"
               size="sm"
               variant={format === "png" ? "default" : "outline"}
-              className="flex-1 border-zinc-200"
+              className={cn(
+                "flex-1",
+                format !== "png" &&
+                  "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
+              )}
               onClick={() => setFormat("png")}
             >
               PNG
@@ -148,7 +152,11 @@ export function ExportPopover() {
               type="button"
               size="sm"
               variant={format === "jpg" ? "default" : "outline"}
-              className="flex-1 border-zinc-200"
+              className={cn(
+                "flex-1",
+                format !== "jpg" &&
+                  "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
+              )}
               onClick={() => setFormat("jpg")}
             >
               JPG
@@ -183,7 +191,11 @@ export function ExportPopover() {
               type="button"
               size="sm"
               variant={scale === 1 ? "default" : "outline"}
-              className="flex-1 border-zinc-200"
+              className={cn(
+                "flex-1",
+                scale !== 1 &&
+                  "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
+              )}
               onClick={() => setScale(1)}
             >
               @1x
@@ -192,7 +204,11 @@ export function ExportPopover() {
               type="button"
               size="sm"
               variant={scale === 2 ? "default" : "outline"}
-              className="flex-1 border-zinc-200"
+              className={cn(
+                "flex-1",
+                scale !== 2 &&
+                  "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
+              )}
               onClick={() => setScale(2)}
             >
               @2x

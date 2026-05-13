@@ -18,27 +18,15 @@ export const CUSTOM_PRESET_ID = "custom" as const;
 
 export const CANVAS_PRESET_GROUPS: CanvasPresetGroup[] = [
   {
-    label: "Presets",
+    label: "Zalo",
     presets: [
       {
         id: "social-zalo-oa-img",
         name: "Zalo OA Img",
         width: 1075,
         height: 645,
-        category: "Social Media",
+        category: "Zalo",
       },
-      {
-        id: "mp3-home",
-        name: "MP3 Home",
-        width: 1071,
-        height: 357,
-        category: "Social Media",
-      },
-    ],
-  },
-  {
-    label: "Zalo",
-    presets: [
       {
         id: "zalo-app-feed",
         name: "Zalo App Feed",
@@ -59,6 +47,18 @@ export const CANVAS_PRESET_GROUPS: CanvasPresetGroup[] = [
         width: 1032,
         height: 810,
         category: "Zalo",
+      },
+    ],
+  },
+  {
+    label: "MP3",
+    presets: [
+      {
+        id: "mp3-home",
+        name: "MP3 Home",
+        width: 1071,
+        height: 357,
+        category: "MP3",
       },
     ],
   },

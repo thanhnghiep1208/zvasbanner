@@ -19,12 +19,15 @@ type UserAnalyticsRow = {
   user_id: string;
   user_name: string;
   email: string;
+  role: "admin" | "mod" | "editor";
+  blocked: boolean;
   total_generate: number;
   total_export: number;
 };
 
 type UsersApiResponse = {
   users?: UserAnalyticsRow[];
+  requesterRole?: "admin" | "mod" | "editor";
   pagination?: {
     page: number;
     pageSize: number;
@@ -90,6 +93,16 @@ function buildInsights(rows: UserAnalyticsRow[]): string[] {
   return insights.slice(0, 2);
 }
 
+function roleBadgeClass(role: UserAnalyticsRow["role"]): string {
+  if (role === "admin") {
+    return "border-rose-200 bg-rose-50 text-rose-700";
+  }
+  if (role === "mod") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+  return "border-indigo-200 bg-indigo-50 text-indigo-700";
+}
+
 export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
   const [rows, setRows] = React.useState<UserAnalyticsRow[]>([]);
   const [page, setPage] = React.useState(1);
@@ -98,6 +111,14 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [requesterRole, setRequesterRole] = React.useState<
+    "admin" | "mod" | "editor"
+  >("editor");
+  const [actionBusyUserId, setActionBusyUserId] = React.useState<string | null>(
+    null
+  );
+  const [confirmDeleteUser, setConfirmDeleteUser] =
+    React.useState<UserAnalyticsRow | null>(null);
 
   React.useEffect(() => {
     setPage(1);
@@ -119,6 +140,7 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
         }
         if (cancelled) return;
         setRows(Array.isArray(json.users) ? json.users : []);
+        setRequesterRole(json.requesterRole ?? "editor");
         setTotalUsers(Number(json.pagination?.totalUsers ?? 0));
         setTotalPages(Number(json.pagination?.totalPages ?? 0));
         setError(null);
@@ -163,6 +185,69 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
     [filteredRows]
   );
 
+  const canManageRoles = requesterRole === "admin" || requesterRole === "mod";
+  const canBlockOrDelete = requesterRole === "admin";
+
+  const updateRole = async (
+    targetUserId: string,
+    role: "admin" | "mod" | "editor"
+  ) => {
+    setActionBusyUserId(targetUserId);
+    try {
+      const res = await fetch("/api/dashboard/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId, role }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Không thể đổi role.");
+      setRows((prev) =>
+        prev.map((r) => (r.user_id === targetUserId ? { ...r, role } : r))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không thể đổi role.");
+    } finally {
+      setActionBusyUserId(null);
+    }
+  };
+
+  const setBlocked = async (targetUserId: string, blocked: boolean) => {
+    setActionBusyUserId(targetUserId);
+    try {
+      const res = await fetch("/api/dashboard/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId, blocked }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Không thể block user.");
+      setRows((prev) =>
+        prev.map((r) => (r.user_id === targetUserId ? { ...r, blocked } : r))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không thể block user.");
+    } finally {
+      setActionBusyUserId(null);
+    }
+  };
+
+  const deleteUser = async (targetUserId: string) => {
+    setActionBusyUserId(targetUserId);
+    try {
+      const res = await fetch(
+        `/api/dashboard/users?targetUserId=${encodeURIComponent(targetUserId)}`,
+        { method: "DELETE" }
+      );
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Không thể xóa user.");
+      setRows((prev) => prev.filter((r) => r.user_id !== targetUserId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Không thể xóa user.");
+    } finally {
+      setActionBusyUserId(null);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {!loading && !error && insights.length > 0 ? (
@@ -182,33 +267,33 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
         </div>
       ) : null}
 
-      <div className="rounded-xl border border-zinc-200 bg-white shadow-sm">
-      <div className="border-b border-zinc-200 p-3">
+      <div className="overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-sm">
+      <div className="border-b border-zinc-200 bg-zinc-50/60 p-3">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search user id, name, email..."
+          placeholder="Tìm theo user id, tên hoặc email..."
           aria-label="Search by user id, name, or email"
-          className="h-9 w-full max-w-xs rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-800 outline-none transition focus:border-zinc-400 focus:ring-2 focus:ring-zinc-200"
+          className="h-9 w-full max-w-xs rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
         />
       </div>
 
       <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="hidden xl:table-cell">User ID</TableHead>
               <TableHead>User Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead className="text-right">Total Generate</TableHead>
               <TableHead className="text-right">Total Export</TableHead>
+              <TableHead>Role / Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-8 text-center text-zinc-500">
-                  Loading...
+                  Đang tải...
                 </TableCell>
               </TableRow>
             ) : error ? (
@@ -217,13 +302,13 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
                   colSpan={5}
                   className="py-8 text-center text-sm text-destructive"
                 >
-                  Failed to load user analytics: {error}
+                  Không thể tải dữ liệu người dùng: {error}
                 </TableCell>
               </TableRow>
             ) : filteredRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-8 text-center text-zinc-500">
-                  No data
+                  Không có dữ liệu
                 </TableCell>
               </TableRow>
             ) : (
@@ -236,18 +321,20 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
 
                 return (
                   <TableRow key={row.user_id}>
-                    <TableCell className="hidden font-mono text-xs text-zinc-700 xl:table-cell">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>{row.user_id}</span>
+                    <TableCell className="max-w-56">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-zinc-900">
+                          {row.user_name || "-"}
+                        </span>
                         {isPowerUser ? (
-                          <Badge variant="secondary" className="text-[10px]">
-                            Power User
+                          <Badge variant="secondary" className="shrink-0 text-[10px]">
+                            Active
                           </Badge>
                         ) : null}
                       </div>
-                    </TableCell>
-                    <TableCell className="max-w-44 truncate text-zinc-800">
-                      {row.user_name || "-"}
+                      <p className="mt-0.5 truncate font-mono text-[11px] text-zinc-500">
+                        {row.user_id}
+                      </p>
                     </TableCell>
                     <TableCell className="max-w-56 truncate text-zinc-700">
                       {row.email || "-"}
@@ -263,6 +350,62 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
                     <TableCell className="text-right tabular-nums text-zinc-700">
                       {formatNumber(row.total_export)}
                     </TableCell>
+                    <TableCell className="min-w-[11rem]">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[10px]", roleBadgeClass(row.role))}
+                        >
+                          {row.role}
+                        </Badge>
+                        {row.blocked ? (
+                          <Badge variant="destructive" className="text-[10px]">
+                            blocked
+                          </Badge>
+                        ) : null}
+                        {canManageRoles ? (
+                          <select
+                            value={row.role}
+                            disabled={actionBusyUserId === row.user_id}
+                            className="h-7 rounded border border-zinc-200 bg-white px-1 text-[11px]"
+                            onChange={(e) =>
+                              void updateRole(
+                                row.user_id,
+                                e.target.value as "admin" | "mod" | "editor"
+                              )
+                            }
+                          >
+                            <option value="editor">editor</option>
+                            <option value="mod">mod</option>
+                            {requesterRole === "admin" ? (
+                              <option value="admin">admin</option>
+                            ) : null}
+                          </select>
+                        ) : null}
+                        {canBlockOrDelete ? (
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={actionBusyUserId === row.user_id}
+                              onClick={() => void setBlocked(row.user_id, !row.blocked)}
+                            >
+                              {row.blocked ? "Unblock" : "Block"}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              disabled={actionBusyUserId === row.user_id}
+                              onClick={() => setConfirmDeleteUser(row)}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -271,7 +414,7 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
         </Table>
         <div className="flex items-center justify-between border-t border-zinc-200 px-3 py-2 text-xs text-zinc-600">
           <span>
-            Page {totalPages === 0 ? 0 : page}/{Math.max(totalPages, 1)} - {totalUsers} users
+            Trang {totalPages === 0 ? 0 : page}/{Math.max(totalPages, 1)} - {totalUsers} người dùng
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -281,7 +424,7 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
               disabled={loading || page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              Prev
+              Trước
             </Button>
             <Button
               type="button"
@@ -290,11 +433,54 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
               disabled={loading || totalPages === 0 || page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
             >
-              Next
+              Sau
             </Button>
           </div>
         </div>
       </div>
+
+      {confirmDeleteUser ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Xác nhận xóa user"
+        >
+          <div className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-4 shadow-xl">
+            <h3 className="text-base font-semibold text-zinc-900">
+              Xác nhận xóa user
+            </h3>
+            <p className="mt-2 text-sm text-zinc-600">
+              Bạn có chắc muốn xóa user{" "}
+              <span className="font-medium text-zinc-900">
+                {confirmDeleteUser.user_name || confirmDeleteUser.email}
+              </span>
+              ? Hành động này không thể hoàn tác.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmDeleteUser(null)}
+              >
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={actionBusyUserId === confirmDeleteUser.user_id}
+                onClick={async () => {
+                  const target = confirmDeleteUser.user_id;
+                  setConfirmDeleteUser(null);
+                  await deleteUser(target);
+                }}
+              >
+                Xóa user
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

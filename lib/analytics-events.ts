@@ -38,6 +38,8 @@ export type AnalyticsEventPayloadMap = {
   generate_banner: AnalyticsBasePayload & {
     source: "gemini" | "placeholder";
     success: boolean;
+    /** Router preset slug, e.g. `nano-banana-pro` / `nano-banana-2` (matches `ImageGenerationModel`). */
+    image_model?: string;
     has_asset?: boolean;
     generation_time_ms?: number;
     regenerate_count?: number;

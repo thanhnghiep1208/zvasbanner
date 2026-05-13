@@ -28,7 +28,8 @@ async function ensureBannerEventsSchema(): Promise<void> {
       ADD COLUMN IF NOT EXISTS generation_success BOOLEAN,
       ADD COLUMN IF NOT EXISTS prompt_tokens INTEGER,
       ADD COLUMN IF NOT EXISTS output_tokens INTEGER,
-      ADD COLUMN IF NOT EXISTS total_tokens INTEGER
+      ADD COLUMN IF NOT EXISTS total_tokens INTEGER,
+      ADD COLUMN IF NOT EXISTS image_model TEXT
   `);
 }
 

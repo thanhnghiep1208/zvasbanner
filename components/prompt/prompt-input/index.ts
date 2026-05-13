@@ -4,4 +4,5 @@ export {
 } from "./constants";
 export { explainEnhanceHttpError, mapEnhanceErrorCode } from "./enhance-errors";
 export { GenerateSpinnerIcon } from "./GenerateSpinnerIcon";
+export { useGeneratedImageEdit } from "./use-generated-image-edit";
 export { usePromptInputActions } from "./use-prompt-input-actions";

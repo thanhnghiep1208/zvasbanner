@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS banner_events (
   generation_success BOOLEAN,
   prompt_tokens INTEGER,
   output_tokens INTEGER,
-  total_tokens INTEGER
+  total_tokens INTEGER,
+  image_model TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_banner_events_event_name

@@ -41,13 +41,10 @@ export function usePromptInputActions() {
   const resetGenerationProgress = useEditorStore((s) => s.resetGenerationProgress);
   const generationStats = useEditorStore((s) => s.generationStats);
   const setGenerationStats = useEditorStore((s) => s.setGenerationStats);
-  const generatedImage = useEditorStore((s) => s.generatedImage);
 
   const { isSignedIn, userId } = useAuth();
 
   const [isEnhancing, setIsEnhancing] = React.useState(false);
-  const [isEditingImage, setIsEditingImage] = React.useState(false);
-  const [editPrompt, setEditPrompt] = React.useState("");
   const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
   const generationAbortRef = React.useRef<AbortController | null>(null);
 
@@ -170,6 +167,7 @@ export function usePromptInputActions() {
         user_id: userId ?? "unknown",
         source: result.source,
         success: result.source === "gemini",
+        image_model: result.meta?.model,
         has_asset: assets.length > 0,
         generation_time_ms: result.meta?.elapsedMs ?? undefined,
         regenerate_count: 0,
@@ -200,81 +198,6 @@ export function usePromptInputActions() {
     generationAbortRef.current = null;
   };
 
-  const handleEditGeneratedImage = async () => {
-    if (!generatedImage) {
-      toast.error("Chưa có ảnh để chỉnh sửa.");
-      return;
-    }
-    if (!isSignedIn) {
-      toast.error("Cần sign in để chỉnh sửa ảnh.");
-      return;
-    }
-    const trimmed = editPrompt.trim();
-    if (trimmed.length < 3) {
-      toast.error("Nhập prompt chỉnh sửa tối thiểu 3 ký tự.");
-      return;
-    }
-
-    setIsEditingImage(true);
-    try {
-      const res = await fetch("/api/edit-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageDataUrl: generatedImage,
-          editPrompt: trimmed,
-          canvasConfig,
-        }),
-      });
-
-      const contentType = res.headers.get("content-type") ?? "";
-      let payload: { image?: unknown; error?: unknown; meta?: unknown } | null = null;
-      let textError: string | null = null;
-      if (contentType.includes("application/json")) {
-        try {
-          payload = (await res.json()) as {
-            image?: unknown;
-            error?: unknown;
-            meta?: unknown;
-          };
-        } catch {
-          payload = null;
-        }
-      } else {
-        textError = await res.text().catch(() => null);
-      }
-
-      if (!res.ok || typeof payload?.image !== "string") {
-        const msg =
-          typeof payload?.error === "string"
-            ? payload.error
-            : textError || `Chỉnh sửa ảnh thất bại (HTTP ${res.status}).`;
-        throw new Error(msg);
-      }
-
-      setGeneratedImage(payload.image);
-      setGenerationStats(
-        payload.meta && typeof payload.meta === "object"
-          ? (payload.meta as {
-              model: string;
-              elapsedMs: number;
-              promptTokens?: number;
-              outputTokens?: number;
-              totalTokens?: number;
-              costUsd?: number;
-            })
-          : null
-      );
-      toast.success("Đã chỉnh sửa ảnh theo prompt.");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Chỉnh sửa ảnh thất bại.";
-      toast.error(msg);
-      setGenerationError(msg);
-    } finally {
-      setIsEditingImage(false);
-    }
-  };
-
   const len = userPrompt.length;
   const disableEnhance = isEnhancing || isGenerating || len === 0;
   const disableGenerate = isGenerating || isEnhancing || !isSignedIn;
@@ -293,17 +216,12 @@ export function usePromptInputActions() {
     imageModel,
     setImageModel,
     isGenerating,
-    generatedImage,
     generationStats,
     isEnhancing,
-    isEditingImage,
-    editPrompt,
-    setEditPrompt,
     enhanceError,
     handleEnhance,
     handleGenerate,
     handleCancelGenerate,
-    handleEditGeneratedImage,
     disableEnhance,
     disableGenerate,
     len,

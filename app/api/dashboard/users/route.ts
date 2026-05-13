@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getDbPool } from "@/lib/db";
+import { requirePermissionJson } from "@/lib/require-user";
+import type { UserRole } from "@/lib/authz";
 import {
   parseDashboardRange,
   resolveDashboardRangeStartMs,
@@ -17,9 +19,57 @@ type DashboardUser = {
   user_id: string;
   user_name: string;
   email: string;
+  role: UserRole;
+  blocked: boolean;
   total_generate: number;
   total_export: number;
 };
+
+const DEFAULT_ADMIN_EMAIL = "thanhnghiep1208@gmail.com";
+
+async function logAuditEvent(params: {
+  actorUserId: string;
+  action: "role_change" | "block_toggle" | "delete_user";
+  targetUserId: string;
+  detail: string;
+}) {
+  try {
+    const pool = getDbPool();
+    await pool.query(
+      `
+      INSERT INTO banner_events (
+        event_name,
+        user_id,
+        banner_id,
+        timestamp,
+        style,
+        canvas_size,
+        has_asset,
+        generation_time_ms,
+        regenerate_count,
+        exported,
+        cost_usd
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      `,
+      [
+        "admin_audit",
+        params.actorUserId,
+        `user-${params.targetUserId}`,
+        Date.now(),
+        params.action,
+        params.detail,
+        null,
+        null,
+        null,
+        null,
+        null,
+      ]
+    );
+  } catch (error) {
+    console.error("[dashboard.users] audit log failed", error);
+  }
+}
 
 function toNumber(value: string | number | null): number {
   if (value == null) return 0;
@@ -36,6 +86,13 @@ function parsePage(input: string | null): number {
 }
 
 export async function GET(req: Request) {
+  const authGate = await requirePermissionJson({
+    error: "Cần đăng nhập để xem dashboard users.",
+    forbiddenError: "Bạn không có quyền xem dashboard users.",
+    permission: "view_dashboard",
+  });
+  if (authGate instanceof NextResponse) return authGate;
+
   try {
     const pool = getDbPool();
     const url = new URL(req.url);
@@ -80,6 +137,7 @@ export async function GET(req: Request) {
       return NextResponse.json(
         {
           users: [] as DashboardUser[],
+          requesterRole: authGate.role,
           pagination: {
             page,
             pageSize: PAGE_SIZE,
@@ -97,7 +155,7 @@ export async function GET(req: Request) {
 
     const identityByUserId = new Map<
       string,
-      { user_name: string; email: string }
+      { user_name: string; email: string; role: UserRole; blocked: boolean }
     >();
 
     if (ids.length > 0) {
@@ -121,6 +179,23 @@ export async function GET(req: Request) {
           identityByUserId.set(user.id, {
             user_name: fullName || user.username || "Unknown user",
             email: primaryEmail ?? "-",
+            role: primaryEmail?.toLowerCase() === DEFAULT_ADMIN_EMAIL
+              ? "admin"
+              : user.privateMetadata?.role === "admin" ||
+              user.privateMetadata?.role === "mod" ||
+              user.privateMetadata?.role === "editor"
+                ? (user.privateMetadata.role as UserRole)
+                : user.publicMetadata?.role === "admin" ||
+                    user.publicMetadata?.role === "mod" ||
+                    user.publicMetadata?.role === "editor"
+                  ? (user.publicMetadata.role as UserRole)
+                  : "editor",
+            blocked:
+              typeof user.privateMetadata?.blocked === "boolean"
+                ? user.privateMetadata.blocked
+                : typeof user.publicMetadata?.blocked === "boolean"
+                  ? user.publicMetadata.blocked
+                  : false,
           });
         }
       } catch (error) {
@@ -135,6 +210,8 @@ export async function GET(req: Request) {
         user_id: userId,
         user_name: identity?.user_name ?? userId,
         email: identity?.email ?? "-",
+        role: identity?.role ?? "editor",
+        blocked: identity?.blocked ?? false,
         total_generate: Math.round(toNumber(row.total_generate)),
         total_export: Math.round(toNumber(row.total_export)),
       };
@@ -146,6 +223,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         users,
+        requesterRole: authGate.role,
         pagination: {
           page,
           pageSize: PAGE_SIZE,
@@ -161,5 +239,132 @@ export async function GET(req: Request) {
       { error: "Failed to aggregate dashboard users metrics" },
       { status: 500 }
     );
+  }
+}
+
+type PatchRoleBody = {
+  targetUserId: string;
+  role: UserRole;
+};
+
+function isPatchRoleBody(v: unknown): v is PatchRoleBody {
+  if (!v || typeof v !== "object") return false;
+  const r = v as Record<string, unknown>;
+  return (
+    typeof r.targetUserId === "string" &&
+    (r.role === "admin" || r.role === "mod" || r.role === "editor")
+  );
+}
+
+export async function PATCH(req: Request) {
+  const authGate = await requirePermissionJson({
+    error: "Cần đăng nhập để chỉnh quyền user.",
+    forbiddenError: "Bạn không có quyền chỉnh quyền user.",
+    permission: "manage_roles",
+  });
+  if (authGate instanceof NextResponse) return authGate;
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Body JSON không hợp lệ." }, { status: 400 });
+  }
+  if (!isPatchRoleBody(body)) {
+    return NextResponse.json({ error: "Dữ liệu đổi role không hợp lệ." }, { status: 400 });
+  }
+  if (authGate.role === "mod" && body.role === "admin") {
+    return NextResponse.json(
+      { error: "Mod không được phép promote user lên admin." },
+      { status: 403 }
+    );
+  }
+  try {
+    const client = await clerkClient();
+    await client.users.updateUserMetadata(body.targetUserId, {
+      privateMetadata: { role: body.role },
+    });
+    await logAuditEvent({
+      actorUserId: authGate.userId,
+      action: "role_change",
+      targetUserId: body.targetUserId,
+      detail: `role=${body.role};actorRole=${authGate.role}`,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[dashboard.users] update role failed", error);
+    return NextResponse.json({ error: "Không thể cập nhật role user." }, { status: 500 });
+  }
+}
+
+type BlockBody = { targetUserId: string; blocked: boolean };
+
+function isBlockBody(v: unknown): v is BlockBody {
+  if (!v || typeof v !== "object") return false;
+  const r = v as Record<string, unknown>;
+  return typeof r.targetUserId === "string" && typeof r.blocked === "boolean";
+}
+
+export async function POST(req: Request) {
+  const authGate = await requirePermissionJson({
+    error: "Cần đăng nhập để block user.",
+    forbiddenError: "Bạn không có quyền block user.",
+    permission: "block_user",
+  });
+  if (authGate instanceof NextResponse) return authGate;
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Body JSON không hợp lệ." }, { status: 400 });
+  }
+  if (!isBlockBody(body)) {
+    return NextResponse.json({ error: "Dữ liệu block user không hợp lệ." }, { status: 400 });
+  }
+  try {
+    const client = await clerkClient();
+    await client.users.updateUserMetadata(body.targetUserId, {
+      privateMetadata: { blocked: body.blocked },
+    });
+    await logAuditEvent({
+      actorUserId: authGate.userId,
+      action: "block_toggle",
+      targetUserId: body.targetUserId,
+      detail: `blocked=${body.blocked};actorRole=${authGate.role}`,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[dashboard.users] block user failed", error);
+    return NextResponse.json({ error: "Không thể cập nhật trạng thái block user." }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  const authGate = await requirePermissionJson({
+    error: "Cần đăng nhập để xóa user.",
+    forbiddenError: "Bạn không có quyền xóa user.",
+    permission: "delete_user",
+  });
+  if (authGate instanceof NextResponse) return authGate;
+
+  const url = new URL(req.url);
+  const targetUserId = url.searchParams.get("targetUserId");
+  if (!targetUserId) {
+    return NextResponse.json({ error: "Thiếu targetUserId." }, { status: 400 });
+  }
+  try {
+    const client = await clerkClient();
+    await client.users.deleteUser(targetUserId);
+    await logAuditEvent({
+      actorUserId: authGate.userId,
+      action: "delete_user",
+      targetUserId,
+      detail: `actorRole=${authGate.role}`,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("[dashboard.users] delete user failed", error);
+    return NextResponse.json({ error: "Không thể xóa user." }, { status: 500 });
   }
 }
