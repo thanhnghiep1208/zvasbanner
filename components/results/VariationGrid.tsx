@@ -6,6 +6,7 @@
 
 import { Sparkles } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requestFullGeneration } from "@/lib/client-generation";
 import {
@@ -39,6 +40,8 @@ export function VariationGrid({ className }: { className?: string }) {
   const setGenerationError = useEditorStore((s) => s.setGenerationError);
   const generationProgress = useEditorStore((s) => s.generationProgress);
   const setGenerationProgress = useEditorStore((s) => s.setGenerationProgress);
+  const generationStats = useEditorStore((s) => s.generationStats);
+  const setGenerationStats = useEditorStore((s) => s.setGenerationStats);
 
   const showSkeletons = isGenerating;
   const hasResults = Boolean(generatedImage);
@@ -61,6 +64,7 @@ export function VariationGrid({ className }: { className?: string }) {
 
   const retryFullGeneration = async () => {
     setGenerationError(null);
+    setGenerationStats(null);
     const nextProgress: GenerationProgress = {
       percent: 0,
       status: "pending",
@@ -81,11 +85,19 @@ export function VariationGrid({ className }: { className?: string }) {
     }
     setGeneratedImage(result.image);
     setGenerationError(null);
+    setGenerationStats(result.meta ?? null);
     setGenerationProgress({
       percent: 100,
       status: result.source === "placeholder" ? "fallback" : "done",
     });
   };
+
+  const modelBadgeLabel =
+    generationStats?.model === "gemini-3-pro-image-preview"
+      ? "Nano Banana Pro"
+      : generationStats?.model === "gemini-3.1-flash-image-preview"
+        ? "Nano Banana 2"
+        : null;
 
   return (
     <section
@@ -147,6 +159,14 @@ export function VariationGrid({ className }: { className?: string }) {
         <div className="grid grid-cols-1 gap-3 overflow-visible">
           <div className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-2 shadow-sm">
             <div className="relative aspect-video w-full overflow-hidden rounded-md bg-zinc-100">
+              {modelBadgeLabel ? (
+                <Badge
+                  variant="secondary"
+                  className="absolute top-2 right-2 z-20 border border-zinc-200 bg-white/90 text-[10px] font-semibold text-zinc-700 shadow-sm backdrop-blur"
+                >
+                  {modelBadgeLabel}
+                </Badge>
+              ) : null}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={generatedImage ?? ""}

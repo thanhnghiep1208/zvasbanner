@@ -8,6 +8,14 @@ import type { CSSProperties } from "react";
 import * as React from "react";
 import { useAuth } from "@clerk/nextjs";
 
+import { AdditionalCanvasSizesPanel } from "@/components/canvas/AdditionalCanvasSizesPanel";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { track } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { useEditorStore } from "@/store/editor";
@@ -54,6 +62,7 @@ export function CanvasArea({ className }: { className?: string }) {
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
   const generatedImage = useEditorStore((s) => s.generatedImage);
   const currentBannerId = useEditorStore((s) => s.currentBannerId);
+  const generationStats = useEditorStore((s) => s.generationStats);
   const { isSignedIn, userId } = useAuth();
   const trackedPreviewRef = React.useRef<Set<string>>(new Set());
 
@@ -63,6 +72,12 @@ export function CanvasArea({ className }: { className?: string }) {
   const isLandscape = width >= height;
 
   const previewUrl = generatedImage || null;
+  const modelBadgeLabel =
+    generationStats?.model === "gemini-3-pro-image-preview"
+      ? "Nano Banana Pro"
+      : generationStats?.model === "gemini-3.1-flash-image-preview"
+        ? "Nano Banana 2"
+        : null;
 
   const showSpecEmpty = !generatedImage && !previewUrl;
 
@@ -79,99 +94,131 @@ export function CanvasArea({ className }: { className?: string }) {
     });
   }, [isSignedIn, userId, generatedImage, currentBannerId]);
 
+  const canvasPreview = (
+    <div className="grid min-h-0 min-w-0 w-full max-w-full flex-1 grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-1.5">
+      <div
+        className="flex min-h-[4rem] items-center justify-center self-stretch"
+        aria-hidden
+      >
+        <span
+          className="text-[10px] font-medium tabular-nums tracking-tight text-muted-foreground [text-orientation:mixed] [writing-mode:vertical-rl] rotate-180"
+          title={`${height} px tall`}
+        >
+          {height} px
+        </span>
+      </div>
+
+      <div className="relative flex min-h-0 min-w-0 items-center justify-center">
+        <div
+          className="relative overflow-hidden rounded-md border border-border shadow-sm"
+          style={{
+            aspectRatio,
+            width: isLandscape ? "100%" : "auto",
+            height: isLandscape ? "auto" : "100%",
+            maxWidth: "100%",
+            maxHeight: "100%",
+          }}
+        >
+          <div
+            className="pointer-events-none absolute inset-0 z-0"
+            style={checkerboardStyle}
+            aria-hidden
+          />
+
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- data URLs / arbitrary hosts
+            <img
+              src={previewUrl}
+              alt="Bản xem trước banner đã tạo"
+              className="relative z-10 size-full object-cover"
+              draggable={false}
+            />
+          ) : showSpecEmpty ? (
+            <div
+              className="relative z-10 flex size-full min-h-[8rem] flex-col items-center justify-center gap-3 px-4 py-8 text-center"
+              role="status"
+            >
+              <BannerPlaceholderIcon className="h-12 w-16 shrink-0" />
+              <p className="text-[14px] text-muted-foreground">
+                Banner của bạn sẽ hiện ở đây
+              </p>
+              <p className="text-[12px] text-muted-foreground/60">
+                Nhập prompt và nhấn Tạo banner
+              </p>
+            </div>
+          ) : (
+            <div
+              className="relative z-10 flex size-full min-h-[8rem] flex-col items-center justify-center gap-2 border-2 border-dashed border-muted-foreground/35 bg-transparent px-4 py-8 text-center"
+              role="status"
+              aria-label="Vùng xem trước banner"
+            >
+              <p className="max-w-[14rem] text-sm text-muted-foreground">
+                Banner của bạn sẽ hiện ở đây
+              </p>
+              <p className="text-xs tabular-nums text-muted-foreground/80">
+                {width} × {height} px
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+      <div
+        className="flex min-h-[4rem] items-center justify-center self-stretch"
+        aria-hidden
+      >
+        {/* Mirror ruler column to keep canvas centered */}
+        <span className="invisible text-[10px] font-medium tabular-nums">
+          {height} px
+        </span>
+      </div>
+
+      <div aria-hidden />
+      <div className="flex justify-center">
+        <span
+          className="text-[10px] font-medium tabular-nums text-muted-foreground"
+          title={`${width} px wide`}
+        >
+          {width} px
+        </span>
+      </div>
+      <div aria-hidden />
+    </div>
+  );
+
   return (
     <div
-      className={cn("h-full w-full max-w-full", className)}
+      className={cn(
+        "flex h-full w-full max-w-full flex-col gap-3 overflow-y-auto overflow-x-hidden",
+        className
+      )}
       data-slot="canvas-area"
     >
-      <div className="grid h-full w-full max-w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-x-2 gap-y-1.5">
-        <div
-          className="flex min-h-[4rem] items-center justify-center self-stretch"
-          aria-hidden
-        >
-          <span
-            className="text-[10px] font-medium tabular-nums tracking-tight text-muted-foreground [text-orientation:mixed] [writing-mode:vertical-rl] rotate-180"
-            title={`${height} px tall`}
-          >
-            {height} px
-          </span>
-        </div>
-
-        <div className="relative flex min-h-0 min-w-0 items-center justify-center">
-          <div
-            className="relative overflow-hidden rounded-md border border-border shadow-sm"
-            style={{
-              aspectRatio,
-              width: isLandscape ? "100%" : "auto",
-              height: isLandscape ? "auto" : "100%",
-              maxWidth: "100%",
-              maxHeight: "100%",
-            }}
-          >
-            <div
-              className="pointer-events-none absolute inset-0 z-0"
-              style={checkerboardStyle}
-              aria-hidden
-            />
-
-            {previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- data URLs / arbitrary hosts
-              <img
-                src={previewUrl}
-                alt="Bản xem trước banner đã tạo"
-                className="relative z-10 size-full object-cover"
-                draggable={false}
-              />
-            ) : showSpecEmpty ? (
-              <div
-                className="relative z-10 flex size-full min-h-[8rem] flex-col items-center justify-center gap-3 px-4 py-8 text-center"
-                role="status"
+      {previewUrl ? (
+        <Tabs defaultValue="preview" className="h-full">
+          <div className="flex items-center justify-between gap-2">
+            <TabsList variant="line" className="w-full justify-start">
+              <TabsTrigger value="preview">Xem trước</TabsTrigger>
+              <TabsTrigger value="variants">Biến thể kích thước</TabsTrigger>
+            </TabsList>
+            {modelBadgeLabel ? (
+              <Badge
+                variant="secondary"
+                className="shrink-0 border border-zinc-200 bg-white/90 text-[10px] font-semibold text-zinc-700"
               >
-                <BannerPlaceholderIcon className="h-12 w-16 shrink-0" />
-                <p className="text-[14px] text-muted-foreground">
-                  Banner của bạn sẽ hiện ở đây
-                </p>
-                <p className="text-[12px] text-muted-foreground/60">
-                  Nhập prompt và nhấn Tạo banner
-                </p>
-              </div>
-            ) : (
-              <div
-                className="relative z-10 flex size-full min-h-[8rem] flex-col items-center justify-center gap-2 border-2 border-dashed border-muted-foreground/35 bg-transparent px-4 py-8 text-center"
-                role="status"
-                aria-label="Vùng xem trước banner"
-              >
-                <p className="max-w-[14rem] text-sm text-muted-foreground">
-                  Banner của bạn sẽ hiện ở đây
-                </p>
-                <p className="text-xs tabular-nums text-muted-foreground/80">
-                  {width} × {height} px
-                </p>
-              </div>
-            )}
+                {modelBadgeLabel}
+              </Badge>
+            ) : null}
           </div>
-        </div>
-        <div
-          className="flex min-h-[4rem] items-center justify-center self-stretch"
-          aria-hidden
-        >
-          {/* Mirror ruler column to keep canvas centered */}
-          <span className="invisible text-[10px] font-medium tabular-nums">
-            {height} px
-          </span>
-        </div>
-
-        <div aria-hidden />
-        <div className="flex justify-center">
-          <span
-            className="text-[10px] font-medium tabular-nums text-muted-foreground"
-            title={`${width} px wide`}
-          >
-            {width} px
-          </span>
-        </div>
-        <div aria-hidden />
-      </div>
+          <TabsContent value="preview" className="mt-1 h-full">
+            {canvasPreview}
+          </TabsContent>
+          <TabsContent value="variants" className="mt-1 h-full">
+            <AdditionalCanvasSizesPanel className="mx-auto shrink-0" />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        canvasPreview
+      )}
     </div>
   );
 }

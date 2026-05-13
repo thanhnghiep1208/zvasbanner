@@ -5,9 +5,14 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-import type { CanvasConfig, UploadedAsset } from "@/lib/types";
+import type {
+  CanvasConfig,
+  ImageGenerationModel,
+  UploadedAsset,
+} from "@/lib/types";
 
-export const GEMINI_TIMEOUT_MS = 30_000;
+export const GEMINI_ENHANCE_TIMEOUT_MS = 30_000;
+export const GEMINI_IMAGE_TIMEOUT_MS = 55_000;
 
 const ENHANCE_MODELS = [
   "gemini-3.1-flash-image-preview",
@@ -15,8 +20,10 @@ const ENHANCE_MODELS = [
   "gemini-2.0-flash",
 ] as const;
 
-/** Locked image model. */
-const GEMINI_IMAGE_MODEL = "gemini-3.1-flash-image-preview";
+const IMAGE_MODEL_MAP: Record<ImageGenerationModel, string> = {
+  "nano-banana-pro": "gemini-3-pro-image-preview",
+  "nano-banana-2": "gemini-3.1-flash-image-preview",
+};
 
 export type ImageGenerationMeta = {
   model: string;
@@ -105,7 +112,7 @@ export async function runGeminiEnhance(
   metaPrompt: string
 ): Promise<string> {
   const genAI = new GoogleGenerativeAI(apiKey);
-  const deadline = Date.now() + GEMINI_TIMEOUT_MS;
+  const deadline = Date.now() + GEMINI_ENHANCE_TIMEOUT_MS;
 
   let lastErr: unknown;
   for (const modelName of ENHANCE_MODELS) {
@@ -131,30 +138,55 @@ export async function runGeminiEnhance(
   const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
   if (Date.now() >= deadline) {
     throw new Error(
-      `Gemini enhancement timed out after ${GEMINI_TIMEOUT_MS}ms: ${msg}`
+      `Gemini enhancement timed out after ${GEMINI_ENHANCE_TIMEOUT_MS}ms: ${msg}`
     );
   }
   throw new Error(`Gemini enhancement failed: ${msg}`);
 }
 
 /**
- * Image generation via locked Gemini model.
+ * Image generation via selected Gemini model profile.
  */
 export async function geminiGenerateOneImage(
   apiKey: string,
   prompt: string,
-  assets: UploadedAsset[] = []
+  assets: UploadedAsset[] = [],
+  options?: {
+    referenceOutputBannerDataUrl?: string | null;
+    imageModel?: ImageGenerationModel;
+  }
 ): Promise<{ image: string; meta: ImageGenerationMeta }> {
   const startedAt = Date.now();
   const genAI = new GoogleGenerativeAI(apiKey);
+  const imageModelId = IMAGE_MODEL_MAP[options?.imageModel ?? "nano-banana-pro"];
+  const referenceParts: Array<
+    { text: string } | { inlineData: { mimeType: string; data: string } }
+  > = [];
+  const refUrl = options?.referenceOutputBannerDataUrl;
+  if (refUrl) {
+    const parsedRef = parseDataUrl(refUrl);
+    if (parsedRef) {
+      referenceParts.push({
+        text:
+          "REFERENCE OUTPUT (approved banner to adapt). Match this layout, hierarchy, palette, and typography roles as closely as the requested output dimensions allow. Translate; do not invent a new concept. Preserve major content blocks and CTA/headline hierarchy.",
+      });
+      referenceParts.push({
+        inlineData: {
+          mimeType: parsedRef.mimeType,
+          data: parsedRef.base64,
+        },
+      });
+    }
+  }
   const visualParts = buildAssetInlineParts(assets);
-  const model = genAI.getGenerativeModel({ model: GEMINI_IMAGE_MODEL });
+  const model = genAI.getGenerativeModel({ model: imageModelId });
   const result = await withTimeout(
     model.generateContent({
       contents: [
         {
           role: "user",
           parts: [
+            ...referenceParts,
             {
               text:
                 `${prompt}\n\nOutput requirement: Return one final rendered image result. Prioritize image output.`,
@@ -164,14 +196,14 @@ export async function geminiGenerateOneImage(
         },
       ],
     }),
-    GEMINI_TIMEOUT_MS,
-    `Gemini image ${GEMINI_IMAGE_MODEL}`
+    GEMINI_IMAGE_TIMEOUT_MS,
+    `Gemini image ${imageModelId}`
   );
   const parts = result.response.candidates?.[0]?.content?.parts ?? [];
   const imagePart = parts.find((p) => p.inlineData?.data);
   const b64 = imagePart?.inlineData?.data;
   if (!b64) {
-    throw new Error(`No image data in response from ${GEMINI_IMAGE_MODEL}`);
+    throw new Error(`No image data in response from ${imageModelId}`);
   }
   const mime = imagePart.inlineData?.mimeType ?? "image/png";
   const usage = result.response.usageMetadata as
@@ -184,7 +216,7 @@ export async function geminiGenerateOneImage(
   return {
     image: `data:${mime};base64,${b64}`,
     meta: {
-      model: GEMINI_IMAGE_MODEL,
+      model: imageModelId,
       elapsedMs: Date.now() - startedAt,
       promptTokens: usage?.promptTokenCount,
       outputTokens: usage?.candidatesTokenCount,

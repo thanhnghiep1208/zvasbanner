@@ -85,8 +85,10 @@ export async function exportBanner(options: {
   format: "png" | "jpg";
   quality: number;
   scale: 1 | 2;
+  /** Appended to filename stem so batch exports do not collide in the same millisecond. */
+  filenameStamp?: string;
 }): Promise<void> {
-  const { imageUrl, canvasConfig, format, quality, scale } = options;
+  const { imageUrl, canvasConfig, format, quality, scale, filenameStamp } = options;
   const { width, height, platform } = canvasConfig;
 
   const canvas = document.createElement("canvas");
@@ -109,7 +111,8 @@ export async function exportBanner(options: {
   const ext = format === "png" ? "png" : "jpg";
   const q = Math.min(1, Math.max(0.6, quality));
   const slug = slugPlatform(platform);
-  const filename = `banner-${slug}-${width}x${height}-${Date.now()}.${ext}`;
+  const stamp = filenameStamp ?? String(Date.now());
+  const filename = `banner-${slug}-${width}x${height}-${stamp}.${ext}`;
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

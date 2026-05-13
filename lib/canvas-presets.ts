@@ -36,6 +36,58 @@ export const CANVAS_PRESET_GROUPS: CanvasPresetGroup[] = [
       },
     ],
   },
+  {
+    label: "Zalo",
+    presets: [
+      {
+        id: "zalo-app-feed",
+        name: "Zalo App Feed",
+        width: 1024,
+        height: 533,
+        category: "Zalo",
+      },
+      {
+        id: "zalo-oa-message-template",
+        name: "OA Message Template",
+        width: 984,
+        height: 657,
+        category: "Zalo",
+      },
+      {
+        id: "zalo-banner-miniapp",
+        name: "Banner in Miniapp",
+        width: 1032,
+        height: 810,
+        category: "Zalo",
+      },
+    ],
+  },
+  {
+    label: "Báo Mới",
+    presets: [
+      {
+        id: "baomoi-masthead",
+        name: "Báo Mới Masthead",
+        width: 480,
+        height: 270,
+        category: "Báo Mới",
+      },
+      {
+        id: "baomoi-medium-rectangle",
+        name: "Báo Mới Medium Rectangle",
+        width: 300,
+        height: 250,
+        category: "Báo Mới",
+      },
+      {
+        id: "baomoi-native",
+        name: "Báo Mới Native",
+        width: 500,
+        height: 400,
+        category: "Báo Mới",
+      },
+    ],
+  },
 ];
 
 export function getAllPresets(): CanvasPresetOption[] {

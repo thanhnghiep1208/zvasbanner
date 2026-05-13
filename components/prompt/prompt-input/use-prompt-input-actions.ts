@@ -30,6 +30,8 @@ export function usePromptInputActions() {
   const setCtaText = useEditorStore((s) => s.setCtaText);
   const styleControls = useEditorStore((s) => s.styleControls);
   const setStyleControls = useEditorStore((s) => s.setStyleControls);
+  const imageModel = useEditorStore((s) => s.imageModel);
+  const setImageModel = useEditorStore((s) => s.setImageModel);
   const isGenerating = useEditorStore((s) => s.isGenerating);
   const setIsGenerating = useEditorStore((s) => s.setIsGenerating);
   const setGeneratedImage = useEditorStore((s) => s.setGeneratedImage);
@@ -288,6 +290,8 @@ export function usePromptInputActions() {
     setCtaText,
     styleControls,
     setStyleControls,
+    imageModel,
+    setImageModel,
     isGenerating,
     generatedImage,
     generationStats,

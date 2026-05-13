@@ -13,7 +13,7 @@ import { parseGenerateApiBody } from "@/lib/validate-generation";
 
 export const maxDuration = 60;
 
-const ASSET_PRIORITY_TIMEOUT_MS = 45_000;
+const ASSET_PRIORITY_TIMEOUT_MS = 58_000;
 
 function normalizeGenerationError(raw: string): {
   userMessage: string;
@@ -30,6 +30,19 @@ function normalizeGenerationError(raw: string): {
       errorCode: "GEMINI_AUTH_ERROR",
       userMessage:
         "Không thể xác thực với Gemini API. Vui lòng kiểm tra GEMINI_API_KEY hoặc quyền truy cập model.",
+    };
+  }
+
+  if (
+    msg.includes("503") ||
+    msg.includes("service unavailable") ||
+    msg.includes("high demand") ||
+    msg.includes("spikes in demand")
+  ) {
+    return {
+      errorCode: "GEMINI_HIGH_DEMAND_503",
+      userMessage:
+        "Model Gemini đang quá tải tạm thời (503 - high demand). Vui lòng thử lại sau ít phút hoặc chuyển sang Nano Banana 2 để chạy nhanh hơn.",
     };
   }
 
@@ -116,7 +129,10 @@ async function generateOneVariation(
   const startedAt = Date.now();
   try {
     const generated = await withEarlyTimeout(
-      geminiGenerateOneImage(apiKey, fullPrompt, request.assets),
+      geminiGenerateOneImage(apiKey, fullPrompt, request.assets, {
+        referenceOutputBannerDataUrl: request.layoutAdaptationFromBanner,
+        imageModel: request.imageModel,
+      }),
       ASSET_PRIORITY_TIMEOUT_MS,
       "Gemini image"
     );
@@ -128,7 +144,7 @@ async function generateOneVariation(
       image: buildPlaceholderDataUrl(width, height),
       source: "placeholder",
       meta: {
-        model: "gemini-3.1-flash-image-preview",
+        model: request.imageModel,
         elapsedMs: Date.now() - startedAt,
       },
       failedStep: "gemini-3.1-flash-image-preview",

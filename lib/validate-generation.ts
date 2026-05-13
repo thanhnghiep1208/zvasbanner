@@ -7,6 +7,7 @@ import type {
   BrandKit,
   CanvasConfig,
   GenerationRequest,
+  ImageGenerationModel,
   StyleControls,
   UploadedAsset,
 } from "@/lib/types";
@@ -143,6 +144,11 @@ const BACKGROUND_EFFECTS: BackgroundEffectOption[] = [
   "high-contrast",
 ];
 
+const IMAGE_MODELS: ImageGenerationModel[] = [
+  "nano-banana-pro",
+  "nano-banana-2",
+];
+
 export function parseStyleControls(v: unknown): StyleControls | null {
   if (!isRecord(v)) return null;
   const { style, mood, colorPalette, fontStyle, strictPreserveMode, backgroundConfig } = v;
@@ -191,6 +197,12 @@ export function parseGenerationRequest(v: unknown): GenerationRequest | null {
   const brandKit = parseBrandKit(v.brandKit);
   const styleControls = parseStyleControls(v.styleControls);
   const userPrompt = v.userPrompt;
+  const imageModelRaw = v.imageModel;
+  const imageModel: ImageGenerationModel =
+    typeof imageModelRaw === "string" &&
+    IMAGE_MODELS.includes(imageModelRaw as ImageGenerationModel)
+      ? (imageModelRaw as ImageGenerationModel)
+      : "nano-banana-pro";
   if (!canvasConfig || !brandKit || !styleControls) return null;
   if (typeof userPrompt !== "string") return null;
   if (!Array.isArray(v.assets)) return null;
@@ -200,12 +212,29 @@ export function parseGenerationRequest(v: unknown): GenerationRequest | null {
     if (!a) return null;
     assets.push(a);
   }
+  let layoutAdaptationFromBanner: string | undefined;
+  const lab = v.layoutAdaptationFromBanner;
+  if (lab !== undefined) {
+    if (typeof lab !== "string") return null;
+    if (
+      !lab.startsWith("data:image/") ||
+      !lab.includes(";base64,") ||
+      lab.length > 12_000_000
+    ) {
+      return null;
+    }
+    layoutAdaptationFromBanner = lab;
+  }
   return {
     canvasConfig,
     assets,
     brandKit,
     userPrompt,
     styleControls,
+    imageModel,
+    ...(layoutAdaptationFromBanner !== undefined
+      ? { layoutAdaptationFromBanner }
+      : {}),
   };
 }
 

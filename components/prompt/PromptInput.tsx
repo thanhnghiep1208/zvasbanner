@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import type { ImageGenerationModel } from "@/lib/types";
 
 import {
   GenerateSpinnerIcon,
@@ -31,6 +32,8 @@ export function PromptInput({ className }: { className?: string }) {
     setCtaText,
     styleControls,
     setStyleControls,
+    imageModel,
+    setImageModel,
     isGenerating,
     generatedImage,
     generationStats,
@@ -138,6 +141,54 @@ export function PromptInput({ className }: { className?: string }) {
             Hủy
           </Button>
         ) : null}
+      </div>
+
+      <div className="space-y-1.5 rounded-lg border border-zinc-200 bg-zinc-50/80 px-3 py-2">
+        <p className="text-xs font-semibold text-zinc-700">Model tạo ảnh</p>
+        <div className="grid gap-2">
+          {(
+            [
+              {
+                value: "nano-banana-pro",
+                title: "Thiết kế Banner (Chất lượng cao) - Nano Banana Pro",
+                description:
+                  "Hình ảnh có chiều sâu, tính nghệ thuật và độ chi tiết chuyên nghiệp.",
+              },
+              {
+                value: "nano-banana-2",
+                title: "Tạo banner nhanh/số lượng lớn - Nano Banana 2",
+                description:
+                  "Tốc độ cực nhanh, phù hợp cho việc chạy thử nghiệm (A/B testing) nhiều ý tưởng.",
+              },
+            ] as const
+          ).map((item) => {
+            const checked = imageModel === item.value;
+            return (
+              <label
+                key={item.value}
+                className={cn(
+                  "flex cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2",
+                  checked
+                    ? "border-primary/40 bg-primary/[0.06]"
+                    : "border-zinc-200 bg-white"
+                )}
+              >
+                <input
+                  type="radio"
+                  name="image-model-choice"
+                  className="mt-0.5 size-4"
+                  checked={checked}
+                  disabled={isGenerating}
+                  onChange={() => setImageModel(item.value as ImageGenerationModel)}
+                />
+                <span className="space-y-0.5 text-xs">
+                  <span className="block font-medium text-zinc-800">{item.title}</span>
+                  <span className="block text-zinc-600">{item.description}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
       <label

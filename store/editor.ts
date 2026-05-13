@@ -9,6 +9,7 @@ import type {
   AssetRole,
   BrandKit,
   CanvasConfig,
+  ImageGenerationModel,
   StyleControls,
   UploadedAsset,
 } from "@/lib/types";
@@ -79,6 +80,8 @@ export interface EditorState {
   setCtaText: (value: string) => void;
   styleControls: StyleControls;
   setStyleControls: (partial: Partial<StyleControls>) => void;
+  imageModel: ImageGenerationModel;
+  setImageModel: (value: ImageGenerationModel) => void;
   brandKit: BrandKit;
   setBrandKit: (partial: Partial<BrandKit> | BrandKit) => void;
   /** Last generated image URL / data URL (single result mode). */
@@ -138,6 +141,8 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((s) => ({
       styleControls: { ...s.styleControls, ...partial },
     })),
+  imageModel: "nano-banana-pro",
+  setImageModel: (value) => set({ imageModel: value }),
   brandKit: defaultBrandKit,
   setBrandKit: (partial) =>
     set((s) => ({
