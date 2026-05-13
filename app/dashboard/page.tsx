@@ -105,13 +105,12 @@ export default function DashboardPage() {
           `Không thể tải dữ liệu dashboard. ${msg} Vui lòng thử đổi range hoặc tải lại trang.`
         );
       } finally {
-        if (!cancelled) {
-          if (isInitial) {
-            setLoading(false);
-          }
-          if (!isInitial) {
-            setRefreshing(false);
-          }
+        // Always clear UI flags: Strict Mode re-runs effects and sets cancelled
+        // before the first request finishes; skipping here leaves loading stuck.
+        if (isInitial) {
+          setLoading(false);
+        } else {
+          setRefreshing(false);
         }
       }
     }
