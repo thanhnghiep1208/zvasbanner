@@ -1,9 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import type { DashboardRange } from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
 
-export type DashboardRange = "today" | "7d" | "30d";
+export type { DashboardRange };
 
 type TimeRangeFilterProps = {
   value: DashboardRange;

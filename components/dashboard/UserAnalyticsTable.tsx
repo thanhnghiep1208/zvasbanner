@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import type { DashboardRange } from "@/components/dashboard/TimeRangeFilter";
+import type { DashboardRange } from "@/lib/dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

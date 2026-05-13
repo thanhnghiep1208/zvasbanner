@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { ensureAnalyticsSchemaReady, getDbPool } from "@/lib/db";
-
-type DashboardRange = "today" | "7d" | "30d";
+import {
+  parseDashboardRange,
+  resolveDashboardRangeStartMs,
+} from "@/lib/dashboard";
 
 type DashboardRow = {
   total_generated: string | number | null;
@@ -30,33 +32,6 @@ function toNumber(value: string | number | null): number {
   if (value == null) return 0;
   const n = typeof value === "number" ? value : Number.parseFloat(value);
   return Number.isFinite(n) ? n : 0;
-}
-
-function parseRange(input: string | null): DashboardRange {
-  if (input === "today" || input === "7d" || input === "30d") {
-    return input;
-  }
-  return "7d";
-}
-
-function resolveStartMs(range: DashboardRange, nowMs: number): number {
-  const now = new Date(nowMs);
-
-  if (range === "today") {
-    // Use UTC midnight to avoid server local-time drift.
-    return Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      0,
-      0,
-      0,
-      0
-    );
-  }
-
-  const days = range === "30d" ? 30 : 7;
-  return nowMs - days * 24 * 60 * 60 * 1000;
 }
 
 function resolveMonthStartMs(nowMs: number): number {
@@ -118,9 +93,9 @@ export async function GET(req: Request) {
       console.warn("[dashboard] schema auto-migration skipped", error);
     }
     const pool = getDbPool();
-    const range = parseRange(new URL(req.url).searchParams.get("range"));
+    const range = parseDashboardRange(new URL(req.url).searchParams.get("range"));
     const nowMs = Date.now();
-    const startMs = resolveStartMs(range, nowMs);
+    const startMs = resolveDashboardRangeStartMs(range, nowMs);
     const monthStartMs = resolveMonthStartMs(nowMs);
 
     let rows: DashboardRow[] = [];

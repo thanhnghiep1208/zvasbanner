@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getDbPool } from "@/lib/db";
-
-type DashboardRange = "today" | "7d" | "30d";
+import {
+  parseDashboardRange,
+  resolveDashboardRangeStartMs,
+} from "@/lib/dashboard";
 
 type DashboardUsersRow = {
   user_id: string | null;
@@ -33,42 +35,15 @@ function parsePage(input: string | null): number {
   return n;
 }
 
-function parseRange(input: string | null): DashboardRange {
-  if (input === "today" || input === "7d" || input === "30d") {
-    return input;
-  }
-  return "7d";
-}
-
-function resolveStartMs(range: DashboardRange, nowMs: number): number {
-  const now = new Date(nowMs);
-
-  if (range === "today") {
-    // Keep consistent with /api/dashboard: UTC midnight boundary.
-    return Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      0,
-      0,
-      0,
-      0
-    );
-  }
-
-  const days = range === "30d" ? 30 : 7;
-  return nowMs - days * 24 * 60 * 60 * 1000;
-}
-
 export async function GET(req: Request) {
   try {
     const pool = getDbPool();
     const url = new URL(req.url);
-    const range = parseRange(url.searchParams.get("range"));
+    const range = parseDashboardRange(url.searchParams.get("range"));
     const page = parsePage(url.searchParams.get("page"));
     const offset = (page - 1) * PAGE_SIZE;
     const nowMs = Date.now();
-    const startMs = resolveStartMs(range, nowMs);
+    const startMs = resolveDashboardRangeStartMs(range, nowMs);
 
     const { rows } = await pool.query<DashboardUsersRow>(
       `

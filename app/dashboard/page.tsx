@@ -11,118 +11,25 @@ import {
 } from "@/components/ui/card";
 import {
   TimeRangeFilter,
-  type DashboardRange,
 } from "@/components/dashboard/TimeRangeFilter";
 import { UserAnalyticsTable } from "@/components/dashboard/UserAnalyticsTable";
-
-type DashboardData = {
-  total_generated: number;
-  total_previewed: number;
-  total_exported: number;
-  export_rate: number;
-  avg_generation_time: number;
-  total_cost: number;
-  current_period_cost: number;
-  previous_period_cost: number;
-  avg_tokens_per_request: number;
-  avg_input_tokens: number;
-  avg_output_tokens: number;
-  total_tokens_month: number;
-  cost_per_gen_user: number;
-  cost_per_success_image: number;
-  cost_per_export_image: number;
-};
-
-const RANGE_STORAGE_KEY = "dashboard:range";
-
-const EMPTY_DATA: DashboardData = {
-  total_generated: 0,
-  total_previewed: 0,
-  total_exported: 0,
-  export_rate: 0,
-  avg_generation_time: 0,
-  total_cost: 0,
-  current_period_cost: 0,
-  previous_period_cost: 0,
-  avg_tokens_per_request: 0,
-  avg_input_tokens: 0,
-  avg_output_tokens: 0,
-  total_tokens_month: 0,
-  cost_per_gen_user: 0,
-  cost_per_success_image: 0,
-  cost_per_export_image: 0,
-};
-
-function formatNumber(n: number): string {
-  return new Intl.NumberFormat("en-US").format(n);
-}
-
-function formatDecimal(n: number): string {
-  return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-function formatPercent(n: number): string {
-  return `${(n * 100).toFixed(1)}%`;
-}
-
-function formatUsd(n: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-function safeRatio(numerator: number, denominator: number): number {
-  if (denominator <= 0) return 0;
-  return numerator / denominator;
-}
-
-function rangeLabel(range: DashboardRange): string {
-  if (range === "today") return "Showing today";
-  if (range === "30d") return "Showing last 30 days";
-  return "Showing last 7 days";
-}
-
-function buildCostComparisonText(data: DashboardData): string | null {
-  const prev = data.previous_period_cost;
-  const curr = data.current_period_cost;
-  if (prev <= 0) return null;
-  const ratio = curr / prev;
-  const deltaPct = Math.abs((ratio - 1) * 100);
-  const arrow = ratio >= 1 ? "↑" : "↓";
-  return `${arrow} ${deltaPct.toFixed(1)}% vs previous period`;
-}
-
-function buildAlerts(data: DashboardData): string[] {
-  const alerts: string[] = [];
-
-  if (data.export_rate < 0.4) {
-    alerts.push(
-      `Export rate đang thấp (${formatPercent(data.export_rate)}), dưới ngưỡng 40%.`
-    );
-  }
-
-  const prev = data.previous_period_cost;
-  const curr = data.current_period_cost;
-  if (prev > 0) {
-    const ratio = curr / prev;
-    if (ratio >= 1.5) {
-      alerts.push(
-        `Chi phí 24h hiện tại tăng mạnh (${formatUsd(curr)} vs ${formatUsd(
-          prev
-        )}, +${((ratio - 1) * 100).toFixed(1)}%).`
-      );
-    }
-  }
-
-  return alerts;
-}
+import {
+  buildCostComparisonText,
+  buildDashboardAlerts,
+  DASHBOARD_RANGE_STORAGE_KEY,
+  dashboardRangeLabel,
+  EMPTY_DASHBOARD_DATA,
+  formatDashboardDecimal,
+  formatDashboardNumber,
+  formatDashboardPercent,
+  formatDashboardUsd,
+  safeRatio,
+  type DashboardData,
+  type DashboardRange,
+} from "@/lib/dashboard";
 
 export default function DashboardPage() {
-  const [data, setData] = React.useState<DashboardData>(EMPTY_DATA);
+  const [data, setData] = React.useState<DashboardData>(EMPTY_DASHBOARD_DATA);
   const [range, setRange] = React.useState<DashboardRange>("7d");
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
@@ -132,7 +39,7 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(RANGE_STORAGE_KEY);
+      const saved = window.localStorage.getItem(DASHBOARD_RANGE_STORAGE_KEY);
       if (saved === "today" || saved === "7d" || saved === "30d") {
         setRange(saved);
       }
@@ -143,7 +50,7 @@ export default function DashboardPage() {
 
   React.useEffect(() => {
     try {
-      window.localStorage.setItem(RANGE_STORAGE_KEY, range);
+      window.localStorage.setItem(DASHBOARD_RANGE_STORAGE_KEY, range);
     } catch {
       // ignore storage errors
     }
@@ -222,7 +129,7 @@ export default function DashboardPage() {
     };
   }, [range]);
 
-  const alerts = React.useMemo(() => buildAlerts(data), [data]);
+  const alerts = React.useMemo(() => buildDashboardAlerts(data), [data]);
   const costComparison = React.useMemo(
     () => buildCostComparisonText(data),
     [data]
@@ -247,7 +154,7 @@ export default function DashboardPage() {
               className="mt-1 text-xs text-indigo-600 transition-all duration-300 ease-out"
               key={range}
             >
-              {rangeLabel(range)}
+              {dashboardRangeLabel(range)}
             </p>
             <p className="mt-1 text-xs text-zinc-500">
               {lastUpdatedAt
@@ -304,7 +211,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-semibold">
-                {loading ? "..." : formatNumber(data.total_generated)}
+                {loading ? "..." : formatDashboardNumber(data.total_generated)}
               </p>
             </CardContent>
           </Card>
@@ -315,7 +222,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-semibold">
-                {loading ? "..." : formatPercent(data.export_rate)}
+                {loading ? "..." : formatDashboardPercent(data.export_rate)}
               </p>
             </CardContent>
           </Card>
@@ -326,7 +233,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-semibold">
-                {loading ? "..." : formatUsd(data.total_cost)}
+                {loading ? "..." : formatDashboardUsd(data.total_cost)}
               </p>
               {!loading && costComparison ? (
                 <p className="mt-1 text-xs text-zinc-500">{costComparison}</p>
@@ -346,7 +253,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-semibold">
-                  {loading ? "..." : formatDecimal(data.avg_tokens_per_request)}
+                  {loading ? "..." : formatDashboardDecimal(data.avg_tokens_per_request)}
                 </p>
               </CardContent>
             </Card>
@@ -356,7 +263,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-semibold">
-                  {loading ? "..." : formatDecimal(data.avg_input_tokens)}
+                  {loading ? "..." : formatDashboardDecimal(data.avg_input_tokens)}
                 </p>
               </CardContent>
             </Card>
@@ -366,7 +273,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-semibold">
-                  {loading ? "..." : formatDecimal(data.avg_output_tokens)}
+                  {loading ? "..." : formatDashboardDecimal(data.avg_output_tokens)}
                 </p>
               </CardContent>
             </Card>
@@ -376,7 +283,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-semibold">
-                  {loading ? "..." : formatNumber(data.total_tokens_month)}
+                  {loading ? "..." : formatDashboardNumber(data.total_tokens_month)}
                 </p>
               </CardContent>
             </Card>
@@ -394,7 +301,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-semibold">
-                  {loading ? "..." : formatUsd(data.cost_per_gen_user)}
+                  {loading ? "..." : formatDashboardUsd(data.cost_per_gen_user)}
                 </p>
               </CardContent>
             </Card>
@@ -404,7 +311,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-semibold">
-                  {loading ? "..." : formatUsd(data.cost_per_success_image)}
+                  {loading ? "..." : formatDashboardUsd(data.cost_per_success_image)}
                 </p>
               </CardContent>
             </Card>
@@ -414,7 +321,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-semibold">
-                  {loading ? "..." : formatUsd(data.cost_per_export_image)}
+                  {loading ? "..." : formatDashboardUsd(data.cost_per_export_image)}
                 </p>
               </CardContent>
             </Card>
@@ -460,10 +367,10 @@ export default function DashboardPage() {
                 <div className="mb-1 flex items-center justify-between text-sm">
                   <span className="font-medium text-zinc-800">{step.label}</span>
                   <span className="text-zinc-600">
-                    {formatNumber(step.value)}
+                    {formatDashboardNumber(step.value)}
                     {conversion !== null ? (
                       <span className="ml-2 text-xs text-zinc-500">
-                        ({formatPercent(conversion)} from previous)
+                        ({formatDashboardPercent(conversion)} from previous)
                       </span>
                     ) : null}
                   </span>
