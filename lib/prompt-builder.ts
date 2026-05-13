@@ -256,6 +256,66 @@ export function buildOutputPriorityDirective(): string {
   ].join(" ");
 }
 
+/** When adapting from an approved reference banner to a new canvas size. */
+export function buildOutputPriorityDirectiveLayoutAdaptation(): string {
+  return [
+    "Generate one final banner only (no alternatives).",
+    "Prioritize FAITHFULNESS to the reference banner over novelty: same campaign look, same hierarchy, same subject and text roles.",
+    "CONTENT-PRESERVATION FIRST: avoid dropping key text blocks, CTA, logo, or hero subject; adapt layout before removing anything.",
+    "Preserve uploaded reference assets with minimal alteration; the reference OUTPUT image defines the target composition—translate it, do not reinvent it.",
+    "Keep composition production-ready for direct use at the exact requested pixel dimensions.",
+  ].join(" ");
+}
+
+function buildLayoutAdaptationBlock(request: GenerationRequest): string {
+  const { width, height, platform, name } = request.canvasConfig;
+  const lockedCopyLines = request.userPrompt
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line) => {
+      const m = line.match(/^(headline|subheadline|cta)\s*:\s*(.+)$/i);
+      if (!m) return [];
+      const label =
+        m[1].toLowerCase() === "cta"
+          ? "CTA"
+          : m[1].toLowerCase() === "headline"
+            ? "Headline"
+            : "Subheadline";
+      return [`- ${label}: ${m[2].trim()}`];
+    });
+
+  return [
+    "=== LAYOUT ADAPTATION (REFERENCE BANNER) ===",
+    "The next multimodal image part (in message order) is the REFERENCE OUTPUT: the user's approved banner at another size.",
+    `Your output MUST be exactly ${width}×${height}px for platform/preset: ${platform} — ${name}.`,
+    "",
+    "Goals (strict):",
+    "- Match the reference as closely as this new aspect ratio allows: same focal subject, same headline/CTA intent, same palette and graphic language.",
+    "- Re-scale and reflow only as needed for fit; keep relative prominence of headline vs sub vs CTA.",
+    "- Preserve ALL major content blocks from the reference (hero, headline, subheadline, CTA, logo). Do not omit them unless physically impossible.",
+    "- If space is tight, compress spacing and line breaks first; do not delete key content.",
+    "- Do NOT replace the hero product/object, invent a new theme, swap typography personality, or introduce unrelated motifs.",
+    "- Do NOT remove or add major brand elements compared to the reference unless the new aspect ratio forces minor safe-zone padding only.",
+    ...(lockedCopyLines.length
+      ? [
+          "",
+          "TEXT LOCK (high priority, keep wording):",
+          ...lockedCopyLines,
+          "- Keep the above copy blocks intact; do not paraphrase or drop them except for minor line-break reflow.",
+        ]
+      : []),
+    "",
+    "Allowed adjustments:",
+    "- Margins, safe-zone padding, line breaks, subtle background extension or tightening to fill the frame.",
+    "- Minor typographic reflow for legibility at the new size.",
+    "",
+    "Forbidden:",
+    "- A redesign that looks like a different ad or campaign.",
+    "- New illustrations, new color schemes, or new layout structure unrelated to the reference.",
+  ].join("\n");
+}
+
 /**
  * Assembles layers into one prompt string for Gemini (or similar multimodal APIs).
  * Order: system → context → style → user brief → output priority.
@@ -264,6 +324,12 @@ export function assembleFullPrompt(request: GenerationRequest): string {
   const strictPreserveInstruction = request.styleControls.strictPreserveMode
     ? "STRICT PRESERVE MODE: Keep uploaded product/logo/object assets nearly unchanged. Only allow subtle integration edits (global tone match, edge cleanup, shadow harmonization). Do not redesign or reshape uploaded subjects."
     : "Balanced preserve mode: keep uploaded assets recognizable while allowing moderate blending and stylistic adaptation.";
+  const adaptation = request.layoutAdaptationFromBanner
+    ? buildLayoutAdaptationBlock(request)
+    : null;
+  const outputDirective = request.layoutAdaptationFromBanner
+    ? buildOutputPriorityDirectiveLayoutAdaptation()
+    : buildOutputPriorityDirective();
   const blocks = [
     SECTION.system,
     buildSystemPrompt(),
@@ -271,6 +337,7 @@ export function assembleFullPrompt(request: GenerationRequest): string {
     SECTION.context,
     buildContextBlock(request),
     "",
+    ...(adaptation ? [adaptation, ""] : []),
     SECTION.creative,
     buildStylePhrase(request.styleControls),
     "",
@@ -280,7 +347,7 @@ export function assembleFullPrompt(request: GenerationRequest): string {
     strictPreserveInstruction,
     "",
     SECTION.output,
-    buildOutputPriorityDirective(),
+    outputDirective,
   ];
   return blocks.join("\n").trim();
 }

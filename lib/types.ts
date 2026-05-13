@@ -89,10 +89,18 @@ export interface StyleControls {
   backgroundConfig: BackgroundConfig;
 }
 
+export type ImageGenerationModel = "nano-banana-pro" | "nano-banana-2";
+
 export interface GenerationRequest {
   canvasConfig: CanvasConfig;
   assets: UploadedAsset[];
   brandKit: BrandKit;
   userPrompt: string;
   styleControls: StyleControls;
+  imageModel: ImageGenerationModel;
+  /**
+   * When set (data URL of the approved banner), the model adapts layout to
+   * `canvasConfig` while staying visually close to this reference.
+   */
+  layoutAdaptationFromBanner?: string;
 }

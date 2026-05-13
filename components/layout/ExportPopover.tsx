@@ -23,29 +23,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { track } from "@/lib/analytics";
+import { configToPresetId } from "@/lib/canvas-presets";
+import { explainExportError } from "@/lib/export-errors";
 import { exportBanner } from "@/lib/export";
 import { useEditorStore } from "@/store/editor";
 import { cn } from "@/lib/utils";
-
-function explainExportError(message: string): string {
-  const msg = message.toLowerCase();
-  if (msg.includes("proxy fetch failed: 413")) {
-    return "[E-EXP-413] Ảnh quá lớn nên không thể xuất. Vui lòng dùng ảnh nhẹ hơn hoặc giảm độ phân giải export.";
-  }
-  if (msg.includes("proxy fetch failed")) {
-    return "[E-EXP-PROXY] Không thể tải ảnh gốc để xuất (lỗi proxy/CORS). Vui lòng thử lại hoặc đổi ảnh.";
-  }
-  if (msg.includes("image failed to load")) {
-    return "[E-EXP-LOAD] Không thể đọc ảnh để xuất. Vui lòng tạo lại banner hoặc thử ảnh khác.";
-  }
-  if (msg.includes("could not get canvas context")) {
-    return "[E-EXP-CANVAS] Trình duyệt không hỗ trợ canvas export ở phiên hiện tại. Vui lòng tải lại trang rồi thử lại.";
-  }
-  if (msg.includes("empty image")) {
-    return "[E-EXP-EMPTY] Ảnh xuất ra bị rỗng. Vui lòng thử xuất lại.";
-  }
-  return `[E-EXP-UNKNOWN] Xuất thất bại: ${message}`;
-}
 
 export function ExportPopover() {
   const generatedImage = useEditorStore((s) => s.generatedImage);
@@ -75,6 +57,7 @@ export function ExportPopover() {
         format,
         quality: qualityPct / 100,
         scale,
+        filenameStamp: `${Date.now()}-${configToPresetId(canvasConfig)}`,
       });
       if (currentBannerId && userId) {
         void track("export_banner", {
@@ -83,6 +66,10 @@ export function ExportPopover() {
           format,
           scale,
           quality: format === "jpg" ? qualityPct / 100 : undefined,
+          export_width: canvasConfig.width,
+          export_height: canvasConfig.height,
+          export_preset_id: configToPresetId(canvasConfig),
+          export_variant: "current_canvas",
         }).catch(() => {
           // Non-blocking analytics path; export UX should not fail.
         });
@@ -136,7 +123,11 @@ export function ExportPopover() {
       >
         Xuất
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 gap-3 p-3" sideOffset={8}>
+      <PopoverContent
+        align="end"
+        className="flex max-h-[min(32rem,calc(100vh-4rem))] w-[min(22rem,calc(100vw-2rem))] flex-col gap-3 overflow-y-auto p-3"
+        sideOffset={8}
+      >
         <PopoverTitle className="text-sm font-semibold text-zinc-900">
           Xuất banner
         </PopoverTitle>
@@ -221,7 +212,7 @@ export function ExportPopover() {
               Đang xuất...
             </>
           ) : (
-            "Tải xuống"
+            "Tải xuống (kích thước canvas hiện tại)"
           )}
         </Button>
       </PopoverContent>

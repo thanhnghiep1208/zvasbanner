@@ -45,6 +45,11 @@ export type AnalyticsEventPayloadMap = {
     prompt_tokens?: number;
     output_tokens?: number;
     total_tokens?: number;
+    /** `extra_size_preview` = layout-adapt variants shown under canvas before download. */
+    generation_context?: "editor" | "extra_size_download" | "extra_size_preview";
+    target_preset_id?: string;
+    target_width?: number;
+    target_height?: number;
   };
   regenerate_banner: AnalyticsBasePayload & {
     reason?: string;
@@ -56,5 +61,12 @@ export type AnalyticsEventPayloadMap = {
     format: "png" | "jpg";
     scale: 1 | 2;
     quality?: number;
+    /** Pixel dimensions of the exported file (may differ from editor canvas). */
+    export_width?: number;
+    export_height?: number;
+    /** Preset id when export used a catalog size; `custom` when editor canvas is custom. */
+    export_preset_id?: string;
+    /** How the export was triggered from the UI. */
+    export_variant?: "current_canvas" | "download_ai_extra";
   };
 };

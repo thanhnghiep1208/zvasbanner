@@ -6,6 +6,11 @@
 
 import { useEditorStore } from "@/store/editor";
 import type { VariationProgressStatus } from "@/store/editor";
+import type {
+  CanvasConfig,
+  GenerationRequest,
+  ImageGenerationModel,
+} from "@/lib/types";
 
 export type FullGenerationResult =
   | {
@@ -144,9 +149,16 @@ async function parseGenerateResponse(res: Response): Promise<{
   }
 }
 
-function timeoutSignal(timeoutMs: number, externalSignal?: AbortSignal): AbortSignal {
+function timeoutSignal(
+  timeoutMs: number,
+  externalSignal?: AbortSignal
+): { signal: AbortSignal; didTimeout: () => boolean } {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   if (externalSignal) {
     externalSignal.addEventListener(
       "abort",
@@ -157,7 +169,7 @@ function timeoutSignal(timeoutMs: number, externalSignal?: AbortSignal): AbortSi
   controller.signal.addEventListener("abort", () => clearTimeout(timeout), {
     once: true,
   });
-  return controller.signal;
+  return { signal: controller.signal, didTimeout: () => timedOut };
 }
 
 export function composeUserPrompt(input: {
@@ -180,30 +192,54 @@ export function composeUserPrompt(input: {
   return lines.join("\n");
 }
 
-export async function requestFullGeneration(options?: {
-  signal?: AbortSignal;
-  onProgress?: (update: GenerationUpdate) => void;
-}): Promise<FullGenerationResult> {
+/** Build the same POST body as main generation, with an explicit canvas size (editor store unchanged). */
+export function buildGeneratePayloadFromStore(
+  canvasConfig: CanvasConfig,
+  extras?: {
+    layoutAdaptationFromBanner?: string;
+    forceStrictPreserveMode?: boolean;
+    imageModelOverride?: ImageGenerationModel;
+    userPromptOverride?: string;
+  }
+): GenerationRequest {
   const state = useEditorStore.getState();
-  const payload = {
-    canvasConfig: state.canvasConfig,
+  const styleControls = extras?.forceStrictPreserveMode
+    ? { ...state.styleControls, strictPreserveMode: true }
+    : state.styleControls;
+  return {
+    canvasConfig,
     assets: state.assets,
     brandKit: state.brandKit,
-    userPrompt: composeUserPrompt({
-      userPrompt: state.userPrompt,
-      headline: state.headline,
-      subheadline: state.subheadline,
-      ctaText: state.ctaText,
-    }),
-    styleControls: state.styleControls,
+    userPrompt:
+      extras?.userPromptOverride?.trim() ||
+      composeUserPrompt({
+        userPrompt: state.userPrompt,
+        headline: state.headline,
+        subheadline: state.subheadline,
+        ctaText: state.ctaText,
+      }),
+    styleControls,
+    imageModel: extras?.imageModelOverride ?? state.imageModel,
+    ...(extras?.layoutAdaptationFromBanner
+      ? { layoutAdaptationFromBanner: extras.layoutAdaptationFromBanner }
+      : {}),
   };
+}
 
+export async function requestGenerationWithPayload(
+  payload: GenerationRequest,
+  options?: {
+    signal?: AbortSignal;
+    onProgress?: (update: GenerationUpdate) => void;
+  }
+): Promise<FullGenerationResult> {
+  const timeoutCtx = timeoutSignal(CLIENT_TIMEOUT_MS, options?.signal);
   try {
     options?.onProgress?.({ status: "running" });
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      signal: timeoutSignal(CLIENT_TIMEOUT_MS, options?.signal),
+      signal: timeoutCtx.signal,
       body: JSON.stringify(payload),
     });
     const parsed = await parseGenerateResponse(res);
@@ -262,7 +298,14 @@ export async function requestFullGeneration(options?: {
     };
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      return { ok: false, error: "Đã hủy tác vụ tạo banner." };
+      if (timeoutCtx.didTimeout()) {
+        return {
+          ok: false,
+          error:
+            "[E-GEN-CLIENT-TIMEOUT] Yêu cầu tạo banner đã quá thời gian chờ phản hồi. Vui lòng thử lại hoặc rút gọn prompt/tài sản upload.",
+        };
+      }
+      return { ok: false, error: "Đã hủy thao tác tạo banner." };
     }
     const message =
       error instanceof Error && error.message
@@ -274,4 +317,38 @@ export async function requestFullGeneration(options?: {
       error: message,
     };
   }
+}
+
+/** Generate at a specific canvas size using current prompt/assets/style; does not mutate the editor store. */
+export async function requestGenerationForCanvasConfig(
+  canvasConfig: CanvasConfig,
+  options?: {
+    signal?: AbortSignal;
+    onProgress?: (update: GenerationUpdate) => void;
+    layoutAdaptationFromBanner?: string;
+    forceStrictPreserveMode?: boolean;
+    imageModelOverride?: ImageGenerationModel;
+    userPromptOverride?: string;
+  }
+): Promise<FullGenerationResult> {
+  return requestGenerationWithPayload(
+    buildGeneratePayloadFromStore(canvasConfig, {
+      layoutAdaptationFromBanner: options?.layoutAdaptationFromBanner,
+      forceStrictPreserveMode: options?.forceStrictPreserveMode,
+      imageModelOverride: options?.imageModelOverride,
+      userPromptOverride: options?.userPromptOverride,
+    }),
+    { signal: options?.signal, onProgress: options?.onProgress }
+  );
+}
+
+export async function requestFullGeneration(options?: {
+  signal?: AbortSignal;
+  onProgress?: (update: GenerationUpdate) => void;
+}): Promise<FullGenerationResult> {
+  const state = useEditorStore.getState();
+  return requestGenerationWithPayload(
+    buildGeneratePayloadFromStore(state.canvasConfig),
+    options
+  );
 }
