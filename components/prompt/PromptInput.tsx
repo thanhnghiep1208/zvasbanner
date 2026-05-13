@@ -4,342 +4,50 @@
 
 "use client";
 
-import * as React from "react";
-import { useAuth } from "@clerk/nextjs";
 import { Loader2, PencilLine } from "lucide-react";
-import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  composeUserPrompt,
-  requestFullGeneration,
-} from "@/lib/client-generation";
-import { track } from "@/lib/analytics";
-import {
-  useEditorStore,
-  type GenerationProgress,
-} from "@/store/editor";
 import { cn } from "@/lib/utils";
 
-const MAX_CHARS = 1000;
-
-const PLACEHOLDER =
-  "Mô tả banner bạn muốn tạo... Ví dụ: Banner sale 50% cho shop thời trang, tone màu pastel, phong cách tối giản";
-
-function explainEnhanceHttpError(status: number, message?: string): string {
-  if (status === 400) {
-    return `Dữ liệu cải thiện prompt chưa hợp lệ. ${message ?? ""}`.trim();
-  }
-  if (status === 401) {
-    return (
-      message?.trim() ||
-      "Cần đăng nhập để cải thiện prompt. Vui lòng đăng nhập và thử lại."
-    );
-  }
-  if (status === 429) {
-    return "Gemini API đang quá tải/rate limit khi cải thiện prompt. Vui lòng thử lại sau ít phút.";
-  }
-  if (status === 504) {
-    return "Yêu cầu cải thiện prompt bị timeout. Vui lòng thử lại.";
-  }
-  if (status >= 500) {
-    return `Máy chủ cải thiện prompt gặp lỗi (${status}). ${message ?? "Vui lòng thử lại sau."}`.trim();
-  }
-  return message ?? `Cải thiện prompt thất bại (HTTP ${status}).`;
-}
-
-function mapEnhanceErrorCode(status: number): string {
-  if (status === 400) return "E-ENH-400";
-  if (status === 401) return "E-ENH-401";
-  if (status === 429) return "E-ENH-429";
-  if (status === 504) return "E-ENH-504";
-  if (status >= 500) return "E-ENH-5XX";
-  return "E-ENH-UNKNOWN";
-}
-
-function GenerateSpinnerIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={cn("size-4 shrink-0", className)}
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <circle
-        className="animate-generate-spinner-stroke"
-        cx="8"
-        cy="8"
-        r="6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+import {
+  GenerateSpinnerIcon,
+  PROMPT_INPUT_MAX_CHARS,
+  PROMPT_INPUT_PLACEHOLDER,
+  usePromptInputActions,
+} from "./prompt-input";
 
 export function PromptInput({ className }: { className?: string }) {
-  const userPrompt = useEditorStore((s) => s.userPrompt);
-  const setUserPrompt = useEditorStore((s) => s.setUserPrompt);
-  const canvasConfig = useEditorStore((s) => s.canvasConfig);
-  const assets = useEditorStore((s) => s.assets);
-  const headline = useEditorStore((s) => s.headline);
-  const setHeadline = useEditorStore((s) => s.setHeadline);
-  const subheadline = useEditorStore((s) => s.subheadline);
-  const setSubheadline = useEditorStore((s) => s.setSubheadline);
-  const ctaText = useEditorStore((s) => s.ctaText);
-  const setCtaText = useEditorStore((s) => s.setCtaText);
-  const styleControls = useEditorStore((s) => s.styleControls);
-  const setStyleControls = useEditorStore((s) => s.setStyleControls);
-  const isGenerating = useEditorStore((s) => s.isGenerating);
-  const setIsGenerating = useEditorStore((s) => s.setIsGenerating);
-  const setGeneratedImage = useEditorStore((s) => s.setGeneratedImage);
-  const setCurrentBannerId = useEditorStore((s) => s.setCurrentBannerId);
-  const setGenerationError = useEditorStore((s) => s.setGenerationError);
-  const setGenerationProgress = useEditorStore((s) => s.setGenerationProgress);
-  const resetGenerationProgress = useEditorStore((s) => s.resetGenerationProgress);
-  const generationStats = useEditorStore((s) => s.generationStats);
-  const setGenerationStats = useEditorStore((s) => s.setGenerationStats);
-  const { isSignedIn, userId } = useAuth();
-  const generatedImage = useEditorStore((s) => s.generatedImage);
-
-  const [isEnhancing, setIsEnhancing] = React.useState(false);
-  const [isEditingImage, setIsEditingImage] = React.useState(false);
-  const [editPrompt, setEditPrompt] = React.useState("");
-  const [enhanceError, setEnhanceError] = React.useState<string | null>(null);
-  const generationAbortRef = React.useRef<AbortController | null>(null);
-
-  const onPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const next = e.target.value.slice(0, MAX_CHARS);
-    setUserPrompt(next);
-  };
-
-  const handleEnhance = async () => {
-    setEnhanceError(null);
-    setIsEnhancing(true);
-    try {
-      const res = await fetch("/api/enhance-prompt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userPrompt: composeUserPrompt({
-            userPrompt,
-            headline,
-            subheadline,
-            ctaText,
-          }),
-          canvasConfig,
-          assets,
-        }),
-      });
-      const contentType = res.headers.get("content-type") ?? "";
-      let data:
-        | {
-            enhancedPrompt?: unknown;
-            error?: unknown;
-          }
-        | null = null;
-      let textError: string | null = null;
-      if (contentType.includes("application/json")) {
-        try {
-          data = (await res.json()) as {
-            enhancedPrompt?: unknown;
-            error?: unknown;
-          };
-        } catch {
-          data = null;
-        }
-      } else {
-        try {
-          textError = await res.text();
-        } catch {
-          textError = null;
-        }
-      }
-      if (!res.ok) {
-        const serverMsg =
-          typeof data?.error === "string" ? data.error : textError ?? undefined;
-        const msg = `[${mapEnhanceErrorCode(res.status)}] ${explainEnhanceHttpError(
-          res.status,
-          serverMsg
-        )}`;
-        throw new Error(msg);
-      }
-      const text =
-        typeof data?.enhancedPrompt === "string" ? data.enhancedPrompt : "";
-      setUserPrompt(text.slice(0, MAX_CHARS));
-      toast.success("Prompt đã được cải thiện", { duration: 2200 });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Lỗi không xác định";
-      setEnhanceError(msg);
-      toast.error(msg);
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
-
-  const handleGenerate = async () => {
-    if (!isSignedIn) {
-      toast.error("Cần sign in để tạo banner.");
-      return;
-    }
-    if (generationAbortRef.current) {
-      generationAbortRef.current.abort();
-    }
-    const controller = new AbortController();
-    generationAbortRef.current = controller;
-    const nextProgress: GenerationProgress = {
-      percent: 0,
-      status: "pending",
-    };
-    setGenerationError(null);
-    setGenerationStats(null);
-    setCurrentBannerId(null);
-    setGenerationProgress(nextProgress);
-    setIsGenerating(true);
-    const result = await requestFullGeneration({
-      signal: controller.signal,
-      onProgress: ({ status }) => {
-        nextProgress.status = status;
-        nextProgress.percent = status === "running" ? 65 : 100;
-        setGenerationProgress({ ...nextProgress });
-      },
-    });
-    if (generationAbortRef.current === controller) {
-      generationAbortRef.current = null;
-    }
-    setIsGenerating(false);
-    if (!result.ok) {
-      setGenerationError(result.error);
-      toast.error(result.error);
-      if (result.error.includes("hủy")) {
-        resetGenerationProgress();
-      }
-      return;
-    }
-    setGeneratedImage(result.image);
-    setGenerationError(null);
-    setGenerationStats(result.meta ?? null);
-    const bannerId = `banner-${canvasConfig.name}-${Date.now()}`;
-    setCurrentBannerId(bannerId);
-    try {
-      await track("generate_banner", {
-        banner_id: bannerId,
-        user_id: userId ?? "unknown",
-        source: result.source,
-        success: result.source === "gemini",
-        has_asset: assets.length > 0,
-        generation_time_ms: result.meta?.elapsedMs ?? undefined,
-        regenerate_count: 0,
-        cost_usd: result.meta?.costUsd ?? 0,
-        prompt_tokens: result.meta?.promptTokens,
-        output_tokens: result.meta?.outputTokens,
-        total_tokens: result.meta?.totalTokens,
-      });
-    } catch {
-      // Non-blocking analytics path; generation UX should not fail.
-    }
-    if (result.source === "placeholder") {
-      const details = result.placeholderError ?? "Không rõ nguyên nhân.";
-      const step = result.failedStep ? ` (bước: ${result.failedStep})` : "";
-      const code = result.errorCode ? ` [${result.errorCode}]` : "";
-      const msg = `Ảnh AI lỗi, đang hiển thị placeholder${step}${code}. ${details}`;
-      setGenerationError(msg);
-      toast.error(msg);
-    }
-    setGenerationProgress({
-      percent: 100,
-      status: result.source === "placeholder" ? "fallback" : "done",
-    });
-  };
-
-  const handleCancelGenerate = () => {
-    generationAbortRef.current?.abort();
-    generationAbortRef.current = null;
-  };
-
-  const handleEditGeneratedImage = async () => {
-    if (!generatedImage) {
-      toast.error("Chưa có ảnh để chỉnh sửa.");
-      return;
-    }
-    if (!isSignedIn) {
-      toast.error("Cần sign in để chỉnh sửa ảnh.");
-      return;
-    }
-    const trimmed = editPrompt.trim();
-    if (trimmed.length < 3) {
-      toast.error("Nhập prompt chỉnh sửa tối thiểu 3 ký tự.");
-      return;
-    }
-
-    setIsEditingImage(true);
-    try {
-      const res = await fetch("/api/edit-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageDataUrl: generatedImage,
-          editPrompt: trimmed,
-          canvasConfig,
-        }),
-      });
-
-      const contentType = res.headers.get("content-type") ?? "";
-      let payload: { image?: unknown; error?: unknown; meta?: unknown } | null = null;
-      let textError: string | null = null;
-      if (contentType.includes("application/json")) {
-        try {
-          payload = (await res.json()) as {
-            image?: unknown;
-            error?: unknown;
-            meta?: unknown;
-          };
-        } catch {
-          payload = null;
-        }
-      } else {
-        textError = await res.text().catch(() => null);
-      }
-
-      if (!res.ok || typeof payload?.image !== "string") {
-        const msg =
-          typeof payload?.error === "string"
-            ? payload.error
-            : textError || `Chỉnh sửa ảnh thất bại (HTTP ${res.status}).`;
-        throw new Error(msg);
-      }
-
-      setGeneratedImage(payload.image);
-      setGenerationStats(
-        payload.meta && typeof payload.meta === "object"
-          ? (payload.meta as {
-              model: string;
-              elapsedMs: number;
-              promptTokens?: number;
-              outputTokens?: number;
-              totalTokens?: number;
-              costUsd?: number;
-            })
-          : null
-      );
-      toast.success("Đã chỉnh sửa ảnh theo prompt.");
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Chỉnh sửa ảnh thất bại.";
-      toast.error(msg);
-      setGenerationError(msg);
-    } finally {
-      setIsEditingImage(false);
-    }
-  };
-
-  const len = userPrompt.length;
-  const disableEnhance = isEnhancing || isGenerating || len === 0;
-  const disableGenerate = isGenerating || isEnhancing || !isSignedIn;
+  const {
+    userPrompt,
+    onPromptChange,
+    headline,
+    setHeadline,
+    subheadline,
+    setSubheadline,
+    ctaText,
+    setCtaText,
+    styleControls,
+    setStyleControls,
+    isGenerating,
+    generatedImage,
+    generationStats,
+    isEnhancing,
+    isEditingImage,
+    editPrompt,
+    setEditPrompt,
+    enhanceError,
+    handleEnhance,
+    handleGenerate,
+    handleCancelGenerate,
+    handleEditGeneratedImage,
+    disableEnhance,
+    disableGenerate,
+    len,
+    isSignedIn,
+  } = usePromptInputActions();
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -370,9 +78,9 @@ export function PromptInput({ className }: { className?: string }) {
         <Textarea
           value={userPrompt}
           onChange={onPromptChange}
-          placeholder={PLACEHOLDER}
+          placeholder={PROMPT_INPUT_PLACEHOLDER}
           rows={3}
-          maxLength={MAX_CHARS}
+          maxLength={PROMPT_INPUT_MAX_CHARS}
           disabled={isGenerating}
           aria-label="Mô tả banner"
           className="min-h-[5.25rem] max-h-[12rem] resize-none overflow-y-auto pb-8"
@@ -381,7 +89,7 @@ export function PromptInput({ className }: { className?: string }) {
           className="pointer-events-none absolute right-2 bottom-2 text-xs tabular-nums text-muted-foreground"
           aria-live="polite"
         >
-          {len}/{MAX_CHARS}
+          {len}/{PROMPT_INPUT_MAX_CHARS}
         </div>
       </div>
 
