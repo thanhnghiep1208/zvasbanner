@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/nextjs";
+import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { LayoutDashboard, PanelLeft, PanelRight } from "lucide-react";
 
@@ -89,11 +84,6 @@ export function EditorToolbar({
               Sign in
             </Button>
           </SignInButton>
-          <SignUpButton mode="modal">
-            <Button type="button" variant="default" size="sm">
-              Sign up
-            </Button>
-          </SignUpButton>
         </Show>
         <Show when="signed-in">
           <UserButton />

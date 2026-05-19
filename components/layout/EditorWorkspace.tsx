@@ -84,6 +84,23 @@ export function EditorWorkspace() {
                         Vui lòng sign in để bắt đầu và mở toàn bộ tính năng tạo
                         ảnh.
                       </p>
+                      <p className="text-sm text-amber-800/90">
+                        Để được cấp tài khoản vui lòng liên hệ:{" "}
+                        <a
+                          href="mailto:Nghiepnt@vng.com.vn"
+                          className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950"
+                        >
+                          Nghiepnt@vng.com.vn
+                        </a>
+                        {" "}
+                        — Zalo:{" "}
+                        <a
+                          href="tel:+84933312887"
+                          className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950"
+                        >
+                          0933312887
+                        </a>
+                      </p>
                     </div>
                   </div>
                 )}
