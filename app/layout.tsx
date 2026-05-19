@@ -30,7 +30,13 @@ export default function RootLayout({
         className={`${inter.className} ${inter.variable} antialiased`}
         suppressHydrationWarning
       >
-        <ClerkProvider>
+        <ClerkProvider
+          appearance={{
+            elements: {
+              footer: "hidden",
+            },
+          }}
+        >
           <Providers>{children}</Providers>
         </ClerkProvider>
         <Analytics />
