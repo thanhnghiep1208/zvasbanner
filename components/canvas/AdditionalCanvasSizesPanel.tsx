@@ -316,147 +316,172 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
     return null;
   }
 
+  const toggleBtnClass = (active: boolean) =>
+    cn(
+      "h-9 min-w-[3.25rem] px-3 text-sm font-medium",
+      !active && "border-0 bg-white shadow-sm ring-1 ring-zinc-900/[0.08]"
+    );
+
   return (
     <section
       className={cn(
-        "w-full max-w-2xl rounded-xl bg-white/92 p-3 shadow-md shadow-zinc-900/[0.06] ring-1 ring-zinc-900/[0.04] backdrop-blur-sm",
+        "w-full max-w-3xl space-y-5 rounded-2xl bg-white/95 p-4 shadow-md shadow-zinc-900/[0.07] ring-1 ring-zinc-900/[0.05] backdrop-blur-sm sm:p-5",
         className
       )}
       aria-label="Biến thể kích thước"
     >
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Biến thể kích thước
-        </p>
-        <Badge variant="secondary" className="h-5 px-2 text-[10px]">
-          Fast Batch
-        </Badge>
-      </div>
-      <p className="mt-1 text-[11px] leading-snug text-zinc-500">
-        Tạo bản xem trước theo từng preset — AI bám sát banner gốc (bố cục, màu, nội
-        dung chính), chỉ điều chỉnh tối thiểu cho khung mới. Chỉ tải khi bạn nhấn
-        Tải xuống; canvas đang chỉnh không đổi.
-      </p>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-medium text-zinc-500">Khi tải</span>
-        <div className="flex gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant={format === "png" ? "default" : "outline"}
-            className={cn(
-              "h-7 px-2 text-xs",
-              format !== "png" &&
-                "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
-            )}
-            onClick={() => setFormat("png")}
-            disabled={previewBusy}
-          >
-            PNG
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={format === "jpg" ? "default" : "outline"}
-            className={cn(
-              "h-7 px-2 text-xs",
-              format !== "jpg" &&
-                "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
-            )}
-            onClick={() => setFormat("jpg")}
-            disabled={previewBusy}
-          >
-            JPG
-          </Button>
+      <header className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-base font-semibold tracking-tight text-zinc-900">
+            Biến thể kích thước
+          </h2>
+          <Badge variant="secondary" className="h-6 px-2.5 text-xs font-medium">
+            Fast Batch
+          </Badge>
         </div>
-        {format === "jpg" ? (
-          <div className="flex min-w-[8rem] flex-1 items-center gap-2">
-            <Slider
-              aria-label="Chất lượng JPG"
-              min={60}
-              max={100}
-              step={1}
-              value={[qualityPct]}
-              disabled={previewBusy}
-              onValueChange={(v) => {
-                const n = Array.isArray(v) ? v[0] : v;
-                setQualityPct(typeof n === "number" ? n : 90);
-              }}
-              className="flex-1"
-            />
-            <span className="w-8 text-[10px] tabular-nums text-zinc-600">
-              {qualityPct}%
+        <p className="max-w-prose text-sm leading-relaxed text-zinc-600">
+          Tạo bản xem trước theo từng preset — AI bám sát banner gốc (bố cục, màu, nội
+          dung chính), chỉ điều chỉnh tối thiểu cho khung mới. Chỉ tải khi bạn nhấn{" "}
+          <span className="font-medium text-zinc-800">Tải xuống</span>; canvas đang chỉnh
+          không đổi.
+        </p>
+      </header>
+
+      <div className="space-y-5 rounded-xl bg-zinc-50/90 p-4 ring-1 ring-zinc-900/[0.05]">
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Tùy chọn tải xuống
+          </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-zinc-700">Định dạng</span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={format === "png" ? "default" : "outline"}
+                  className={toggleBtnClass(format === "png")}
+                  onClick={() => setFormat("png")}
+                  disabled={previewBusy}
+                >
+                  PNG
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={format === "jpg" ? "default" : "outline"}
+                  className={toggleBtnClass(format === "jpg")}
+                  onClick={() => setFormat("jpg")}
+                  disabled={previewBusy}
+                >
+                  JPG
+                </Button>
+              </div>
+            </div>
+            {format === "jpg" ? (
+              <div className="min-w-[12rem] flex-1 space-y-2 sm:max-w-xs">
+                <span className="text-sm font-medium text-zinc-700">Chất lượng JPG</span>
+                <div className="flex items-center gap-3">
+                  <Slider
+                    aria-label="Chất lượng JPG"
+                    min={60}
+                    max={100}
+                    step={1}
+                    value={[qualityPct]}
+                    disabled={previewBusy}
+                    onValueChange={(v) => {
+                      const n = Array.isArray(v) ? v[0] : v;
+                      setQualityPct(typeof n === "number" ? n : 90);
+                    }}
+                    className="flex-1"
+                  />
+                  <span className="w-10 shrink-0 text-right text-sm font-medium tabular-nums text-zinc-700">
+                    {qualityPct}%
+                  </span>
+                </div>
+              </div>
+            ) : null}
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-zinc-700">Độ phân giải</span>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={scale === 1 ? "default" : "outline"}
+                  className={toggleBtnClass(scale === 1)}
+                  onClick={() => setScale(1)}
+                  disabled={previewBusy}
+                >
+                  @1x
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={scale === 2 ? "default" : "outline"}
+                  className={toggleBtnClass(scale === 2)}
+                  onClick={() => setScale(2)}
+                  disabled={previewBusy}
+                >
+                  @2x
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              Chọn preset
+            </p>
+            <span className="text-sm tabular-nums text-zinc-500">
+              {extraPresetIds.size}/{otherPresets.length} đã chọn
             </span>
           </div>
-        ) : null}
-        <div className="flex gap-1">
-          <Button
-            type="button"
-            size="sm"
-            variant={scale === 1 ? "default" : "outline"}
-            className={cn(
-              "h-7 px-2 text-xs",
-              scale !== 1 &&
-                "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
-            )}
-            onClick={() => setScale(1)}
-            disabled={previewBusy}
+          <ul
+            className="grid max-h-52 gap-2 overflow-y-auto pr-1 sm:grid-cols-2"
+            aria-label="Chọn preset biến thể"
           >
-            @1x
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={scale === 2 ? "default" : "outline"}
-            className={cn(
-              "h-7 px-2 text-xs",
-              scale !== 2 &&
-                "border-0 bg-zinc-100/75 shadow-sm ring-1 ring-zinc-900/[0.06]"
-            )}
-            onClick={() => setScale(2)}
-            disabled={previewBusy}
-          >
-            @2x
-          </Button>
+            {otherPresets.map((p) => {
+              const checked = extraPresetIds.has(p.id);
+              return (
+                <li key={p.id}>
+                  <label
+                    className={cn(
+                      "flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors",
+                      checked
+                        ? "border-violet-200 bg-violet-50/80 ring-1 ring-violet-200/60"
+                        : "border-zinc-200/80 bg-white hover:border-zinc-300 hover:bg-zinc-50/80",
+                      previewBusy && "pointer-events-none opacity-60"
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 size-4 shrink-0 rounded border-zinc-300 text-violet-600 focus-visible:ring-violet-500/40"
+                      checked={checked}
+                      disabled={previewBusy}
+                      onChange={() => toggleExtraPreset(p.id)}
+                    />
+                    <span className="min-w-0 flex-1 leading-snug">
+                      <span className="block font-medium text-zinc-900">{p.name}</span>
+                      <span className="mt-1 block text-xs text-zinc-500">
+                        {p.category} · {p.width}×{p.height}px
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </div>
 
-      <ul
-        className="mt-2 max-h-36 space-y-1 overflow-y-auto rounded-md bg-white p-2 shadow-inner ring-1 ring-zinc-900/[0.05]"
-        aria-label="Chọn preset biến thể"
-      >
-        {otherPresets.map((p) => {
-          const checked = extraPresetIds.has(p.id);
-          return (
-            <li key={p.id}>
-              <label className="flex cursor-pointer items-start gap-2 text-xs text-zinc-800">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-3.5 shrink-0 rounded border border-zinc-200/50"
-                  checked={checked}
-                  disabled={previewBusy}
-                  onChange={() => toggleExtraPreset(p.id)}
-                />
-                <span>
-                  <span className="font-medium">{p.name}</span>
-                  <span className="text-zinc-500">
-                    {" "}
-                    ({p.width}×{p.height})
-                  </span>
-                </span>
-              </label>
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row">
         <Button
           type="button"
           variant="default"
-          size="sm"
-          className="flex-1 min-w-[10rem] bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-sm hover:from-violet-500 hover:to-indigo-500"
+          size="default"
+          className="h-11 flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-sm font-medium text-white shadow-sm hover:from-violet-500 hover:to-indigo-500"
           disabled={previewBusy || extraPresetIds.size === 0}
           onClick={() => void handleCreatePreviews()}
         >
@@ -473,8 +498,8 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="border-0 bg-zinc-100/70 shadow-sm ring-1 ring-zinc-900/[0.06]"
+            size="default"
+            className="h-11 shrink-0 border-0 bg-zinc-100/80 px-5 text-sm shadow-sm ring-1 ring-zinc-900/[0.06]"
             disabled={previewBusy}
             onClick={handleClearPreviews}
           >
@@ -484,70 +509,73 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
       </div>
 
       {previewRows.length > 0 ? (
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {previewRows.map((row) => (
-            <div
-              key={row.presetId}
-              className="flex flex-col gap-2 rounded-lg bg-white p-2 shadow-md ring-1 ring-zinc-900/[0.06]"
-            >
-              <div className="flex items-start justify-between gap-2">
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Kết quả xem trước
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {previewRows.map((row) => (
+              <article
+                key={row.presetId}
+                className="flex flex-col gap-3 rounded-xl bg-white p-3 shadow-md ring-1 ring-zinc-900/[0.06]"
+              >
                 <div>
-                  <p className="text-xs font-medium text-zinc-900">{row.label}</p>
-                  <p className="text-[10px] text-zinc-500">
+                  <p className="text-sm font-semibold text-zinc-900">{row.label}</p>
+                  <p className="mt-0.5 text-xs tabular-nums text-zinc-500">
                     {row.width}×{row.height}px
                   </p>
                 </div>
-              </div>
-              <div className="relative aspect-video w-full overflow-hidden rounded-md bg-zinc-100 shadow-inner ring-1 ring-zinc-900/[0.05]">
-                {row.status === "loading" ? (
-                  <div className="flex size-full items-center justify-center gap-2 text-xs text-zinc-500">
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                    Đang tạo…
-                  </div>
-                ) : null}
-                {row.status === "error" ? (
-                  <div className="flex size-full flex-col justify-center gap-1 p-2 text-[11px] text-red-700">
-                    <span className="font-medium">Lỗi</span>
-                    <span className="leading-snug">{row.errorMessage}</span>
-                  </div>
-                ) : null}
-                {row.status === "ready" && row.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={row.image}
-                    alt={`Biến thể ${row.label}`}
-                    className="size-full object-cover"
-                    draggable={false}
-                  />
-                ) : null}
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full border-0 bg-zinc-50/90 shadow-sm ring-1 ring-zinc-900/[0.06]"
-                disabled={
-                  row.status !== "ready" ||
-                  row.source !== "gemini" ||
-                  !row.image ||
-                  exportingPresetId === row.presetId
-                }
-                onClick={() => void handleDownloadRow(row)}
-              >
-                {exportingPresetId === row.presetId ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
-                    Đang tải…
-                  </>
-                ) : (
-                  <>
-                    <Download className="size-3.5" aria-hidden />
-                    Tải xuống
-                  </>
-                )}
-              </Button>
-            </div>
-          ))}
+                <div className="relative min-h-[12rem] w-full overflow-hidden rounded-lg bg-zinc-100 shadow-inner ring-1 ring-zinc-900/[0.05]">
+                  {row.status === "loading" ? (
+                    <div className="flex size-full min-h-[12rem] items-center justify-center gap-2 text-sm text-zinc-600">
+                      <Loader2 className="size-5 animate-spin" aria-hidden />
+                      Đang tạo…
+                    </div>
+                  ) : null}
+                  {row.status === "error" ? (
+                    <div className="flex size-full min-h-[12rem] flex-col justify-center gap-2 p-4 text-sm text-red-700">
+                      <span className="font-semibold">Lỗi</span>
+                      <span className="leading-relaxed">{row.errorMessage}</span>
+                    </div>
+                  ) : null}
+                  {row.status === "ready" && row.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={row.image}
+                      alt={`Biến thể ${row.label}`}
+                      className="size-full min-h-[12rem] object-contain"
+                      draggable={false}
+                    />
+                  ) : null}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="default"
+                  className="h-10 w-full border-0 bg-zinc-50 text-sm shadow-sm ring-1 ring-zinc-900/[0.06]"
+                  disabled={
+                    row.status !== "ready" ||
+                    row.source !== "gemini" ||
+                    !row.image ||
+                    exportingPresetId === row.presetId
+                  }
+                  onClick={() => void handleDownloadRow(row)}
+                >
+                  {exportingPresetId === row.presetId ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                      Đang tải…
+                    </>
+                  ) : (
+                    <>
+                      <Download className="size-4" aria-hidden />
+                      Tải xuống
+                    </>
+                  )}
+                </Button>
+              </article>
+            ))}
+          </div>
         </div>
       ) : null}
     </section>

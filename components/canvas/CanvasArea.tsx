@@ -199,9 +199,13 @@ export function CanvasArea({ className }: { className?: string }) {
           {previewUrl ? (
             <Tabs defaultValue="preview" className="h-full min-h-0">
               <div className="flex items-center justify-between gap-2">
-                <TabsList variant="line" className="w-full justify-start">
-                  <TabsTrigger value="preview">Xem trước</TabsTrigger>
-                  <TabsTrigger value="variants">Biến thể kích thước</TabsTrigger>
+                <TabsList variant="line" className="h-10 w-full justify-start gap-1">
+                  <TabsTrigger value="preview" className="px-3 text-sm">
+                    Xem trước
+                  </TabsTrigger>
+                  <TabsTrigger value="variants" className="px-3 text-sm">
+                    Biến thể kích thước
+                  </TabsTrigger>
                 </TabsList>
                 {modelBadgeLabel ? (
                   <Badge
@@ -215,8 +219,8 @@ export function CanvasArea({ className }: { className?: string }) {
               <TabsContent value="preview" className="mt-1 min-h-0 flex-1">
                 {canvasPreview}
               </TabsContent>
-              <TabsContent value="variants" className="mt-1 min-h-0 flex-1">
-                <AdditionalCanvasSizesPanel className="mx-auto shrink-0" />
+              <TabsContent value="variants" className="mt-3 min-h-0 flex-1 overflow-y-auto pb-2">
+                <AdditionalCanvasSizesPanel className="mx-auto w-full shrink-0" />
               </TabsContent>
             </Tabs>
           ) : (
