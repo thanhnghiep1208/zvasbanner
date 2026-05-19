@@ -26,6 +26,36 @@ export const DASHBOARD_RANGE_STORAGE_KEY = "dashboard:range";
 /** Auto-refresh interval for aggregate metrics (client polling). Keep conservative to reduce DB load. */
 export const DASHBOARD_AGGREGATE_POLL_MS = 4 * 60 * 60 * 1000;
 
+/** Server-side TTL for `/api/dashboard` aggregate JSON (per range). */
+export const DASHBOARD_AGGREGATE_CACHE_MS = 30 * 60 * 1000;
+
+/** In-memory TTL for Clerk role/block lookups in `getUserAccessByUserId`. */
+export const USER_ACCESS_CACHE_MS = 5 * 60 * 1000;
+
+export const DASHBOARD_USERS_PAGE_SIZE = 15;
+
+export type DashboardUserRow = {
+  user_id: string;
+  user_name: string;
+  email: string;
+  role: "admin" | "mod" | "editor";
+  blocked: boolean;
+  total_generate: number;
+  total_export: number;
+};
+
+export type DashboardUsersPagination = {
+  page: number;
+  pageSize: number;
+  totalUsers: number;
+  totalPages: number;
+};
+
+export type DashboardUsersPageResult = {
+  users: DashboardUserRow[];
+  pagination: DashboardUsersPagination;
+};
+
 export const EMPTY_DASHBOARD_DATA: DashboardData = {
   total_generated: 0,
   total_previewed: 0,

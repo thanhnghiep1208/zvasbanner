@@ -31,6 +31,13 @@ async function ensureBannerEventsSchema(): Promise<void> {
       ADD COLUMN IF NOT EXISTS total_tokens INTEGER,
       ADD COLUMN IF NOT EXISTS image_model TEXT
   `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_banner_events_ts_event
+      ON banner_events (timestamp DESC, event_name);
+
+    CREATE INDEX IF NOT EXISTS idx_banner_events_ts_user
+      ON banner_events (timestamp DESC, user_id);
+  `);
 }
 
 export async function ensureAnalyticsSchemaReady(): Promise<void> {

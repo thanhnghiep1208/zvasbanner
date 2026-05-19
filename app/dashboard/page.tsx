@@ -31,6 +31,7 @@ import {
   safeRatio,
   type DashboardData,
   type DashboardRange,
+  type DashboardUserRow,
 } from "@/lib/dashboard";
 
 export default function DashboardPage() {
@@ -42,6 +43,16 @@ export default function DashboardPage() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = React.useState<number | null>(null);
+  const [usersPage1, setUsersPage1] = React.useState<{
+    users: DashboardUserRow[];
+    pagination?: {
+      page: number;
+      pageSize: number;
+      totalUsers: number;
+      totalPages: number;
+    };
+    requesterRole?: "admin" | "mod" | "editor";
+  } | null>(null);
   const hasLoadedOnceRef = React.useRef(false);
   const cancelledRef = React.useRef(false);
 
@@ -69,20 +80,30 @@ export default function DashboardPage() {
   }, [range]);
 
   const loadDashboard = React.useCallback(
-    async (options?: { initial?: boolean }) => {
+    async (options?: { initial?: boolean; refresh?: boolean }) => {
       const isInitial = options?.initial ?? false;
+      const forceRefresh = options?.refresh ?? false;
       if (isInitial) {
         setLoading(true);
       } else {
         setRefreshing(true);
       }
       try {
-        const res = await fetch(`/api/dashboard?range=${range}`, {
+        const params = new URLSearchParams({
+          range,
+          includeUsers: "1",
+          usersPage: "1",
+        });
+        if (forceRefresh) params.set("refresh", "1");
+        const res = await fetch(`/api/dashboard?${params.toString()}`, {
           method: "GET",
           cache: "no-store",
         });
         const json = (await res.json()) as Partial<DashboardData> & {
           error?: string;
+          users?: DashboardUserRow[];
+          pagination?: NonNullable<typeof usersPage1>["pagination"];
+          requesterRole?: "admin" | "mod" | "editor";
         };
         if (!res.ok) {
           throw new Error(json.error ?? `HTTP ${res.status}`);
@@ -118,6 +139,13 @@ export default function DashboardPage() {
             );
           })(),
         }));
+        if (Array.isArray(json.users)) {
+          setUsersPage1({
+            users: json.users,
+            pagination: json.pagination,
+            requesterRole: json.requesterRole,
+          });
+        }
         setError(null);
         setLastUpdatedAt(Date.now());
       } catch (e) {
@@ -253,7 +281,7 @@ export default function DashboardPage() {
               size="sm"
               className="h-8 shrink-0 rounded-lg border-zinc-200 bg-white text-xs font-medium text-zinc-800 hover:bg-zinc-50"
               disabled={loading || refreshing}
-              onClick={() => void loadDashboard()}
+              onClick={() => void loadDashboard({ refresh: true })}
             >
               Làm mới
             </Button>
@@ -472,7 +500,11 @@ export default function DashboardPage() {
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">
             Top Users
           </h2>
-          <UserAnalyticsTable range={range} />
+          <UserAnalyticsTable
+            range={range}
+            prefetchedPage1={usersPage1}
+            prefetchedKey={lastUpdatedAt}
+          />
         </section>
 
         <section>

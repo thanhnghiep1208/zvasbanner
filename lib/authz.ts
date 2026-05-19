@@ -1,5 +1,7 @@
 import { clerkClient } from "@clerk/nextjs/server";
 
+import { USER_ACCESS_CACHE_MS } from "@/lib/dashboard";
+
 export type UserRole = "admin" | "mod" | "editor";
 export type Permission =
   | "view_dashboard"
@@ -45,10 +47,19 @@ export async function getUserRoleByUserId(userId: string): Promise<UserRole> {
   return normalizeRole(roleFromMetadata);
 }
 
-export async function getUserAccessByUserId(userId: string): Promise<{
-  role: UserRole;
-  blocked: boolean;
-}> {
+type UserAccess = { role: UserRole; blocked: boolean };
+
+const userAccessCache = new Map<string, { expiresAt: number; access: UserAccess }>();
+
+export function invalidateUserAccessCache(userId?: string): void {
+  if (userId) {
+    userAccessCache.delete(userId);
+    return;
+  }
+  userAccessCache.clear();
+}
+
+async function loadUserAccessFromClerk(userId: string): Promise<UserAccess> {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
   const primaryEmail =
@@ -65,5 +76,19 @@ export async function getUserAccessByUserId(userId: string): Promise<{
         ? user.publicMetadata.blocked
         : false;
   return { role, blocked };
+}
+
+export async function getUserAccessByUserId(userId: string): Promise<UserAccess> {
+  const now = Date.now();
+  const cached = userAccessCache.get(userId);
+  if (cached && cached.expiresAt > now) {
+    return cached.access;
+  }
+  const access = await loadUserAccessFromClerk(userId);
+  userAccessCache.set(userId, {
+    access,
+    expiresAt: now + USER_ACCESS_CACHE_MS,
+  });
+  return access;
 }
 

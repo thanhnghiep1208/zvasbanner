@@ -26,3 +26,11 @@ CREATE INDEX IF NOT EXISTS idx_banner_events_user_id
 
 CREATE INDEX IF NOT EXISTS idx_banner_events_timestamp
   ON banner_events (timestamp);
+
+-- Dashboard aggregates: time range + event_name filters
+CREATE INDEX IF NOT EXISTS idx_banner_events_ts_event
+  ON banner_events (timestamp DESC, event_name);
+
+-- Top Users: time range + GROUP BY user_id
+CREATE INDEX IF NOT EXISTS idx_banner_events_ts_user
+  ON banner_events (timestamp DESC, user_id);

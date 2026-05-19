@@ -103,7 +103,21 @@ function roleBadgeClass(role: UserAnalyticsRow["role"]): string {
   return "border-indigo-200 bg-indigo-50 text-indigo-700";
 }
 
-export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
+type PrefetchedPage1 = {
+  users: UserAnalyticsRow[];
+  pagination?: UsersApiResponse["pagination"];
+  requesterRole?: UsersApiResponse["requesterRole"];
+};
+
+export function UserAnalyticsTable({
+  range,
+  prefetchedPage1,
+  prefetchedKey,
+}: {
+  range: DashboardRange;
+  prefetchedPage1?: PrefetchedPage1 | null;
+  prefetchedKey?: number | null;
+}) {
   const [rows, setRows] = React.useState<UserAnalyticsRow[]>([]);
   const [page, setPage] = React.useState(1);
   const [totalUsers, setTotalUsers] = React.useState(0);
@@ -119,12 +133,35 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
   );
   const [confirmDeleteUser, setConfirmDeleteUser] =
     React.useState<UserAnalyticsRow | null>(null);
+  const appliedPrefetchKeyRef = React.useRef<string | null>(null);
+
+  const applyUsersResponse = React.useCallback((json: UsersApiResponse) => {
+    setRows(Array.isArray(json.users) ? json.users : []);
+    setRequesterRole(json.requesterRole ?? "editor");
+    setTotalUsers(Number(json.pagination?.totalUsers ?? 0));
+    setTotalPages(Number(json.pagination?.totalPages ?? 0));
+    setError(null);
+  }, []);
 
   React.useEffect(() => {
+    appliedPrefetchKeyRef.current = null;
     setPage(1);
   }, [range]);
 
   React.useEffect(() => {
+    const bundleKey =
+      prefetchedKey != null ? `${range}-${prefetchedKey}` : null;
+
+    if (page === 1 && prefetchedPage1 && bundleKey) {
+      if (appliedPrefetchKeyRef.current === bundleKey) {
+        return;
+      }
+      appliedPrefetchKeyRef.current = bundleKey;
+      applyUsersResponse(prefetchedPage1);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function loadUsers() {
@@ -139,11 +176,7 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
           throw new Error(json.error ?? `HTTP ${res.status}`);
         }
         if (cancelled) return;
-        setRows(Array.isArray(json.users) ? json.users : []);
-        setRequesterRole(json.requesterRole ?? "editor");
-        setTotalUsers(Number(json.pagination?.totalUsers ?? 0));
-        setTotalPages(Number(json.pagination?.totalPages ?? 0));
-        setError(null);
+        applyUsersResponse(json);
       } catch (e) {
         if (cancelled) return;
         const msg =
@@ -155,7 +188,6 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
         setTotalUsers(0);
         setTotalPages(0);
       } finally {
-        // Always clear loading (Strict Mode / fast navigation can cancel mid-flight).
         setLoading(false);
       }
     }
@@ -164,7 +196,7 @@ export function UserAnalyticsTable({ range }: { range: DashboardRange }) {
     return () => {
       cancelled = true;
     };
-  }, [range, page]);
+  }, [range, page, prefetchedPage1, prefetchedKey, applyUsersResponse]);
 
   const maxGenerate = rows.reduce(
     (max, row) => Math.max(max, row.total_generate),

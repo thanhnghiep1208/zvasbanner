@@ -93,6 +93,8 @@ psql "$DATABASE_URL" -f db/banner_events.sql
 
 Nếu bảng/index đã tồn tại, Postgres có thể báo `already exists, skipping` — vẫn coi là thành công.
 
+Index composite cho dashboard (`idx_banner_events_ts_event`, `idx_banner_events_ts_user`) nằm trong cùng file; lần gọi `ensureAnalyticsSchemaReady` (track/dashboard) cũng tạo index nếu thiếu.
+
 Kiểm tra nhanh:
 
 ```bash
@@ -116,8 +118,9 @@ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM banner_events;"
 
 - URL local: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
 - **Đăng nhập**: trang dashboard hiển thị CTA **Login** khi chưa sign-in; sau khi đăng nhập, API vẫn trả **403** nếu role không có quyền `view_dashboard` (xem RBAC bên dưới).
-- Dữ liệu: `GET /api/dashboard` và `GET /api/dashboard/users` với query `range` (`today`, `7d`, `30d`) và `page` (users). Các thao tác quản trị user dùng `PATCH` / `POST` / `DELETE` trên cùng base path `/api/dashboard/users` (cần quyền tương ứng).
-- Trang client **poll** định kỳ (mặc định tối đa mỗi 4 giờ, hằng `DASHBOARD_AGGREGATE_POLL_MS` trong `lib/dashboard.ts`; có nút **Làm mới** để tải ngay) khi user đã đăng nhập; cần có event thật trong app thì số liệu mới tăng.
+- Dữ liệu: `GET /api/dashboard` (metrics) và `GET /api/dashboard/users` (phân trang). Query `range` (`today`, `7d`, `30d`); users thêm `page`. Gộp lần tải đầu: `GET /api/dashboard?includeUsers=1&usersPage=1` (một lần auth + metrics + trang users đầu). Bỏ qua cache server: `refresh=1` (nút **Làm mới**). Các thao tác quản trị user: `PATCH` / `POST` / `DELETE` trên `/api/dashboard/users`.
+- Cache server: aggregate metrics ~30 phút (`DASHBOARD_AGGREGATE_CACHE_MS`); lookup role/block Clerk ~5 phút (`USER_ACCESS_CACHE_MS`, xóa cache khi đổi role/block/xóa user).
+- Trang client **poll** định kỳ (mặc định tối đa mỗi 4 giờ, `DASHBOARD_AGGREGATE_POLL_MS`; có nút **Làm mới** với `refresh=1`) khi user đã đăng nhập; cần có event thật trong app thì số liệu mới tăng.
 - **Hydration**: trang dashboard dùng cờ hydrate client trước khi phân nhánh auth để giảm cảnh báo mismatch; nếu vẫn thấy attribute lạ (ví dụ `bis_skin_checked`), thường do extension trình duyệt — xem mục troubleshooting.
 
 ### RBAC (vai trò & Clerk metadata)

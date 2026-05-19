@@ -1,31 +1,11 @@
 import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
+
+import { invalidateUserAccessCache, type UserRole } from "@/lib/authz";
+import { fetchDashboardUsersPage } from "@/lib/dashboard-users-query";
+import { parseDashboardRange } from "@/lib/dashboard";
 import { getDbPool } from "@/lib/db";
 import { requirePermissionJson } from "@/lib/require-user";
-import type { UserRole } from "@/lib/authz";
-import {
-  parseDashboardRange,
-  resolveDashboardRangeStartMs,
-} from "@/lib/dashboard";
-
-type DashboardUsersRow = {
-  user_id: string | null;
-  total_generate: string | number | null;
-  total_export: string | number | null;
-  total_users: string | number | null;
-};
-
-type DashboardUser = {
-  user_id: string;
-  user_name: string;
-  email: string;
-  role: UserRole;
-  blocked: boolean;
-  total_generate: number;
-  total_export: number;
-};
-
-const DEFAULT_ADMIN_EMAIL = "thanhnghiep1208@gmail.com";
 
 async function logAuditEvent(params: {
   actorUserId: string;
@@ -71,14 +51,6 @@ async function logAuditEvent(params: {
   }
 }
 
-function toNumber(value: string | number | null): number {
-  if (value == null) return 0;
-  const n = typeof value === "number" ? value : Number.parseFloat(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-const PAGE_SIZE = 15;
-
 function parsePage(input: string | null): number {
   const n = Number.parseInt(input ?? "1", 10);
   if (!Number.isFinite(n) || n < 1) return 1;
@@ -98,138 +70,13 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const range = parseDashboardRange(url.searchParams.get("range"));
     const page = parsePage(url.searchParams.get("page"));
-    const offset = (page - 1) * PAGE_SIZE;
-    const nowMs = Date.now();
-    const startMs = resolveDashboardRangeStartMs(range, nowMs);
-
-    const { rows } = await pool.query<DashboardUsersRow>(
-      `
-      WITH filtered AS (
-        SELECT
-          be.user_id,
-          be.event_name
-        FROM banner_events be
-        WHERE be.timestamp >= $1::bigint
-      ),
-      user_agg AS (
-        SELECT
-          f.user_id,
-          COUNT(*) FILTER (WHERE f.event_name = 'generate_banner') AS total_generate,
-          COUNT(*) FILTER (WHERE f.event_name = 'export_banner') AS total_export
-        FROM filtered f
-        GROUP BY f.user_id
-      )
-      SELECT
-        ua.user_id,
-        ua.total_generate,
-        ua.total_export,
-        COUNT(*) OVER() AS total_users
-      FROM user_agg ua
-      WHERE ua.total_generate > 0
-      ORDER BY ua.total_generate DESC
-      LIMIT $2::int
-      OFFSET $3::int
-    `,
-      [startMs, PAGE_SIZE, offset]
-    );
-
-    if (!rows.length) {
-      return NextResponse.json(
-        {
-          users: [] as DashboardUser[],
-          requesterRole: authGate.role,
-          pagination: {
-            page,
-            pageSize: PAGE_SIZE,
-            totalUsers: 0,
-            totalPages: 0,
-          },
-        },
-        { status: 200 }
-      );
-    }
-
-    const ids = rows
-      .map((row) => row.user_id)
-      .filter((id): id is string => Boolean(id && id.trim()));
-
-    const identityByUserId = new Map<
-      string,
-      { user_name: string; email: string; role: UserRole; blocked: boolean }
-    >();
-
-    if (ids.length > 0) {
-      try {
-        const client = await clerkClient();
-        const clerkUsers = await client.users.getUserList({
-          userId: ids,
-          limit: ids.length,
-        });
-
-        for (const user of clerkUsers.data) {
-          const primaryEmail =
-            user.emailAddresses.find(
-              (addr) => addr.id === user.primaryEmailAddressId
-            )?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
-          const fullName = [user.firstName, user.lastName]
-            .filter(Boolean)
-            .join(" ")
-            .trim();
-
-          identityByUserId.set(user.id, {
-            user_name: fullName || user.username || "Unknown user",
-            email: primaryEmail ?? "-",
-            role: primaryEmail?.toLowerCase() === DEFAULT_ADMIN_EMAIL
-              ? "admin"
-              : user.privateMetadata?.role === "admin" ||
-              user.privateMetadata?.role === "mod" ||
-              user.privateMetadata?.role === "editor"
-                ? (user.privateMetadata.role as UserRole)
-                : user.publicMetadata?.role === "admin" ||
-                    user.publicMetadata?.role === "mod" ||
-                    user.publicMetadata?.role === "editor"
-                  ? (user.publicMetadata.role as UserRole)
-                  : "editor",
-            blocked:
-              typeof user.privateMetadata?.blocked === "boolean"
-                ? user.privateMetadata.blocked
-                : typeof user.publicMetadata?.blocked === "boolean"
-                  ? user.publicMetadata.blocked
-                  : false,
-          });
-        }
-      } catch (error) {
-        console.error("[dashboard.users] failed to fetch Clerk users", error);
-      }
-    }
-
-    const users: DashboardUser[] = rows.map((row) => {
-      const userId = row.user_id ?? "unknown";
-      const identity = identityByUserId.get(userId);
-      return {
-        user_id: userId,
-        user_name: identity?.user_name ?? userId,
-        email: identity?.email ?? "-",
-        role: identity?.role ?? "editor",
-        blocked: identity?.blocked ?? false,
-        total_generate: Math.round(toNumber(row.total_generate)),
-        total_export: Math.round(toNumber(row.total_export)),
-      };
-    });
-
-    const totalUsers = Math.max(0, Math.round(toNumber(rows[0]?.total_users ?? 0)));
-    const totalPages = Math.ceil(totalUsers / PAGE_SIZE);
+    const result = await fetchDashboardUsersPage(pool, range, page);
 
     return NextResponse.json(
       {
-        users,
+        users: result.users,
         requesterRole: authGate.role,
-        pagination: {
-          page,
-          pageSize: PAGE_SIZE,
-          totalUsers,
-          totalPages,
-        },
+        pagination: result.pagination,
       },
       { status: 200 }
     );
@@ -284,6 +131,7 @@ export async function PATCH(req: Request) {
     await client.users.updateUserMetadata(body.targetUserId, {
       privateMetadata: { role: body.role },
     });
+    invalidateUserAccessCache(body.targetUserId);
     await logAuditEvent({
       actorUserId: authGate.userId,
       action: "role_change",
@@ -327,6 +175,7 @@ export async function POST(req: Request) {
     await client.users.updateUserMetadata(body.targetUserId, {
       privateMetadata: { blocked: body.blocked },
     });
+    invalidateUserAccessCache(body.targetUserId);
     await logAuditEvent({
       actorUserId: authGate.userId,
       action: "block_toggle",
@@ -356,6 +205,7 @@ export async function DELETE(req: Request) {
   try {
     const client = await clerkClient();
     await client.users.deleteUser(targetUserId);
+    invalidateUserAccessCache(targetUserId);
     await logAuditEvent({
       actorUserId: authGate.userId,
       action: "delete_user",
