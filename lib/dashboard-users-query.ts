@@ -1,7 +1,7 @@
 import { clerkClient } from "@clerk/nextjs/server";
 import type { Pool } from "pg";
 
-import type { UserRole } from "@/lib/authz";
+import { getRoleFromClerkUser, type UserRole } from "@/lib/authz";
 import {
   DASHBOARD_USERS_PAGE_SIZE,
   type DashboardRange,
@@ -9,8 +9,6 @@ import {
   type DashboardUsersPageResult,
   resolveDashboardRangeStartMs,
 } from "@/lib/dashboard";
-
-const DEFAULT_ADMIN_EMAIL = "thanhnghiep1208@gmail.com";
 
 type DashboardUsersRow = {
   user_id: string | null;
@@ -23,21 +21,6 @@ function toNumber(value: string | number | null): number {
   if (value == null) return 0;
   const n = typeof value === "number" ? value : Number.parseFloat(value);
   return Number.isFinite(n) ? n : 0;
-}
-
-function roleFromClerkUser(user: {
-  emailAddresses: { id: string; emailAddress: string }[];
-  primaryEmailAddressId: string | null;
-  privateMetadata: Record<string, unknown>;
-  publicMetadata: Record<string, unknown>;
-}): UserRole {
-  const primaryEmail =
-    user.emailAddresses.find((addr) => addr.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
-  if (primaryEmail?.toLowerCase() === DEFAULT_ADMIN_EMAIL) return "admin";
-  const raw = user.privateMetadata?.role ?? user.publicMetadata?.role;
-  if (raw === "admin" || raw === "mod" || raw === "editor") return raw;
-  return "editor";
 }
 
 export async function fetchDashboardUsersPage(
@@ -122,7 +105,7 @@ export async function fetchDashboardUsersPage(
         identityByUserId.set(user.id, {
           user_name: fullName || user.username || "Unknown user",
           email: primaryEmail ?? "-",
-          role: roleFromClerkUser(user),
+          role: getRoleFromClerkUser(user),
           blocked:
             typeof user.privateMetadata?.blocked === "boolean"
               ? user.privateMetadata.blocked

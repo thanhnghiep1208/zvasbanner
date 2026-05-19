@@ -10,7 +10,8 @@ export type Permission =
   | "block_user"
   | "generate_image";
 
-const DEFAULT_ADMIN_EMAIL = "thanhnghiep1208@gmail.com";
+/** Override admin by primary email (Clerk user record). */
+export const DEFAULT_ADMIN_EMAIL = "thanhnghiep1208@gmail.com";
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   admin: [
@@ -29,6 +30,31 @@ function normalizeRole(raw: unknown): UserRole {
   return "editor";
 }
 
+export type ClerkUserRoleInput = {
+  emailAddresses: { id: string; emailAddress: string }[];
+  primaryEmailAddressId: string | null;
+  privateMetadata: Record<string, unknown>;
+  publicMetadata: Record<string, unknown>;
+};
+
+export function getPrimaryEmailFromClerkUser(
+  user: ClerkUserRoleInput
+): string | undefined {
+  return (
+    user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+      ?.emailAddress ?? user.emailAddresses[0]?.emailAddress
+  );
+}
+
+/** Role from Clerk user (email override + private/public metadata). */
+export function getRoleFromClerkUser(user: ClerkUserRoleInput): UserRole {
+  const primaryEmail = getPrimaryEmailFromClerkUser(user);
+  if (primaryEmail?.toLowerCase() === DEFAULT_ADMIN_EMAIL) {
+    return "admin";
+  }
+  return normalizeRole(user.privateMetadata?.role ?? user.publicMetadata?.role);
+}
+
 export function hasPermission(role: UserRole, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
 }
@@ -36,15 +62,7 @@ export function hasPermission(role: UserRole, permission: Permission): boolean {
 export async function getUserRoleByUserId(userId: string): Promise<UserRole> {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const primaryEmail =
-    user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
-  if (primaryEmail?.toLowerCase() === DEFAULT_ADMIN_EMAIL) {
-    return "admin";
-  }
-  const roleFromMetadata =
-    user.privateMetadata?.role ?? user.publicMetadata?.role;
-  return normalizeRole(roleFromMetadata);
+  return getRoleFromClerkUser(user);
 }
 
 type UserAccess = { role: UserRole; blocked: boolean };
@@ -62,13 +80,7 @@ export function invalidateUserAccessCache(userId?: string): void {
 async function loadUserAccessFromClerk(userId: string): Promise<UserAccess> {
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const primaryEmail =
-    user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
-  const role =
-    primaryEmail?.toLowerCase() === DEFAULT_ADMIN_EMAIL
-      ? "admin"
-      : normalizeRole(user.privateMetadata?.role ?? user.publicMetadata?.role);
+  const role = getRoleFromClerkUser(user);
   const blocked =
     typeof user.privateMetadata?.blocked === "boolean"
       ? user.privateMetadata.blocked
@@ -91,4 +103,3 @@ export async function getUserAccessByUserId(userId: string): Promise<UserAccess>
   });
   return access;
 }
-

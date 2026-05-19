@@ -233,7 +233,7 @@ export default function DashboardPage() {
               bằng tài khoản được cấp quyền để truy cập.
             </p>
             <div className="mt-5 flex items-center justify-center">
-              <SignInButton mode="modal">
+              <SignInButton mode="redirect" forceRedirectUrl="/dashboard">
                 <Button
                   type="button"
                   className="h-9 rounded-lg bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"

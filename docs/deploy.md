@@ -18,6 +18,16 @@ Checklist để đưa **AI Banner Generator** lên môi trường thật: Vercel
   - **Secret key** (`sk_live_...`) → `CLERK_SECRET_KEY` (chỉ server, không lộ ra client).
 3. **Không** dùng key `pk_test_` / `sk_test_` trên site public: trình duyệt sẽ cảnh báo và có giới hạn.
 
+### 1.0 Đăng nhập username + password (không Google)
+
+Trên **cả Development và Production** instance trong Clerk:
+
+- Bật **Username** + **Password**; tắt **Google** (Social connections).
+- Khuyến nghị **Disable sign-ups** — tạo user thủ công (username, password, `privateMetadata.role`).
+- App dùng trang `/sign-in` (`NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`).
+
+Chi tiết và xử lý lỗi 409: [development-guide.md](./development-guide.md) (mục Clerk username/password).
+
 ### 1.1 Domain & URL trong Clerk (bước quan trọng)
 
 Sau khi có URL production (Vercel hoặc domain riêng), cấu hình trong Clerk:

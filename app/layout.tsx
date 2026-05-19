@@ -31,9 +31,15 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ClerkProvider
+          signInUrl="/sign-in"
+          signInFallbackRedirectUrl="/"
+          afterSignOutUrl="/"
           appearance={{
             elements: {
               footer: "hidden",
+              footerAction: "hidden",
+              socialButtonsBlockButton: "hidden",
+              dividerRow: "hidden",
             },
           }}
         >

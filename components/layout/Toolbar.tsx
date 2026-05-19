@@ -79,7 +79,7 @@ export function EditorToolbar({
       <div className="flex items-center justify-end gap-2 justify-self-end">
         <ExportPopover />
         <Show when="signed-out">
-          <SignInButton mode="modal">
+          <SignInButton mode="redirect" forceRedirectUrl="/">
             <Button type="button" variant="secondary" size="sm">
               Sign in
             </Button>
