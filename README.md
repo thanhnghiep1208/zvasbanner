@@ -18,10 +18,12 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Documentation
 
-- [Architecture](docs/architecture.md)
-- [API Reference](docs/api.md)
-- [Development Guide](docs/development-guide.md)
+- [Architecture](docs/architecture.md) — FE/BE, Clerk auth, đa phiên, dashboard analytics
+- [API Reference](docs/api.md) — Route Handlers (`/api/sessions`, generate, dashboard, …)
+- [Development Guide](docs/development-guide.md) — `.env.local`, RBAC, checklist thử nghiệm
 - [Deploy (Vercel + Clerk + domain)](docs/deploy.md)
+
+Tính năng chính: tạo banner AI (Gemini), chỉnh sửa ảnh, export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`.
 
 ## Troubleshooting (Local Dev)
 

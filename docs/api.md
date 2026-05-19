@@ -406,14 +406,18 @@ Quản lý phiên đăng nhập **của chính user đang đăng nhập** (Clerk
       "isCurrent": true,
       "deviceLabel": "Chrome 120 · macOS · Ho Chi Minh, VN",
       "browserName": "Chrome",
-      "deviceType": "desktop"
+      "deviceType": "desktop",
+      "city": "Ho Chi Minh",
+      "country": "VN",
+      "ipAddress": "203.0.113.1"
     }
   ]
 }
 ```
 
-- `isCurrent`: so với `auth().sessionId` của request.
-- `deviceLabel`: ghép từ `latestActivity` của Clerk (browser, device, geo).
+- `isCurrent`: so với `auth().sessionId` của request (chỉ có trên `GET /api/sessions` của chính user).
+- `deviceLabel`: ghép từ `latestActivity` của Clerk (browser, device, geo); fallback `"Thiết bị không xác định"`.
+- Timestamp (`lastActiveAt`, `createdAt`, `expireAt`): Unix **ms** từ Clerk.
 
 ### `DELETE` — thu hồi một phiên
 
@@ -430,6 +434,8 @@ Quản lý phiên đăng nhập **của chính user đang đăng nhập** (Clerk
 
 ### Lỗi — `400` / `401` / `403` / `500`
 
+- `403`: `sessionId` không thuộc user hiện tại (sau khi kiểm tra danh sách active sessions).
+
 ---
 
 ## 10) `GET` / `DELETE` — `/api/dashboard/users/sessions`
@@ -440,14 +446,14 @@ Admin thu hồi phiên của user khác. Cần `CLERK_SECRET_KEY`.
 
 - **Permission**: `block_user` (admin; mod không có quyền này trong RBAC hiện tại).
 - **Query**: `?targetUserId=user_…`
-- **Success**: `{ "sessions": [...], "targetUserId": "user_…" }` — cùng shape session như mục 9 (không có `isCurrent` cho admin view).
+- **Success**: `{ "sessions": [...], "targetUserId": "user_…" }` — cùng shape `SessionListItem` như mục 9; `isCurrent` luôn `false` (admin không truyền `currentSessionId`).
 
 ### `DELETE` — thu hồi phiên user
 
-- **Permission**: `block_user`.
+- **Permission**: `block_user` (chỉ role **admin** trong RBAC hiện tại).
 - **Query**: `?targetUserId=user_…&sessionId=sess_…`
-- Ghi audit `admin_audit` với `style=session_revoke`.
-- **Success**: `{ "ok": true }`
+- Ghi audit qua `logDashboardAuditEvent`: `event_name = admin_audit`, `style = session_revoke`, `canvas_size` = chuỗi chi tiết (ví dụ `sessionId=sess_…;actorRole=admin`), `user_id` = admin thực hiện, `banner_id` = `user-{targetUserId}`.
+- **Success**: `{ "ok": true }` (không trả `revokedCurrent` — user bị đăng xuất ở thiết bị đó khi request tiếp theo).
 
 ### Lỗi — `400` / `401` / `403` / `500`
 

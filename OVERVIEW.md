@@ -39,9 +39,10 @@ Hien tai he thong uu tien duy nhat model tao anh `gemini-3.1-flash-image-preview
   - Hien thi preview banner.
   - Export output.
 - **Backend (Next.js route handlers)**:
-  - `/api/enhance-prompt`: cai thien prompt bang Gemini text flow.
-  - `/api/generate`: tao 1 banner image, tra ve image + metadata + loi chi tiet neu fallback placeholder.
-  - `/api/proxy-image`: fetch image qua proxy an toan.
+  - `/api/enhance-prompt`, `/api/generate`, `/api/edit-image`, `/api/proxy-image`, `/api/track`.
+  - `/api/dashboard`, `/api/dashboard/users`, `/api/dashboard/users/sessions` (admin).
+  - `/api/sessions` (user quan ly phien Clerk).
+- **Auth (Clerk)**: middleware `proxy.ts`; RBAC `lib/authz.ts`; da phien tren nhieu thiet bi; UI `/account/sessions`, admin thu hoi phien qua dashboard.
 - **State layer**:
   - `store/editor.ts` quan ly canvas config, assets, style, progress, generatedImage, generation stats.
 
@@ -200,13 +201,23 @@ npm run lint
 
 ## 10) ENV can thiet
 
-Tao file `.env.local`:
+Tao file `.env.local` (xem day du trong `docs/development-guide.md`):
 
 ```bash
 GEMINI_API_KEY=your_api_key_here
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+DATABASE_URL='postgresql://...'
 ```
 
 Khong commit file chua secret.
+
+## 12) Tai lieu du an
+
+- `docs/architecture.md` — kien truc FE/BE, auth, analytics.
+- `docs/api.md` — contract API (gom `/api/sessions`).
+- `docs/development-guide.md` — env, workflow, checklist da phien.
+- `docs/deploy.md` — Vercel, Clerk production, Postgres.
 
 ---
 
