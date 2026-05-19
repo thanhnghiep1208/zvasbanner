@@ -4,52 +4,9 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { invalidateUserAccessCache, type UserRole } from "@/lib/authz";
 import { fetchDashboardUsersPage } from "@/lib/dashboard-users-query";
 import { parseDashboardRange } from "@/lib/dashboard";
+import { logDashboardAuditEvent } from "@/lib/dashboard-audit";
 import { getDbPool } from "@/lib/db";
 import { requirePermissionJson } from "@/lib/require-user";
-
-async function logAuditEvent(params: {
-  actorUserId: string;
-  action: "role_change" | "block_toggle" | "delete_user";
-  targetUserId: string;
-  detail: string;
-}) {
-  try {
-    const pool = getDbPool();
-    await pool.query(
-      `
-      INSERT INTO banner_events (
-        event_name,
-        user_id,
-        banner_id,
-        timestamp,
-        style,
-        canvas_size,
-        has_asset,
-        generation_time_ms,
-        regenerate_count,
-        exported,
-        cost_usd
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-      `,
-      [
-        "admin_audit",
-        params.actorUserId,
-        `user-${params.targetUserId}`,
-        Date.now(),
-        params.action,
-        params.detail,
-        null,
-        null,
-        null,
-        null,
-        null,
-      ]
-    );
-  } catch (error) {
-    console.error("[dashboard.users] audit log failed", error);
-  }
-}
 
 function parsePage(input: string | null): number {
   const n = Number.parseInt(input ?? "1", 10);
@@ -132,7 +89,7 @@ export async function PATCH(req: Request) {
       privateMetadata: { role: body.role },
     });
     invalidateUserAccessCache(body.targetUserId);
-    await logAuditEvent({
+    await logDashboardAuditEvent({
       actorUserId: authGate.userId,
       action: "role_change",
       targetUserId: body.targetUserId,
@@ -176,7 +133,7 @@ export async function POST(req: Request) {
       privateMetadata: { blocked: body.blocked },
     });
     invalidateUserAccessCache(body.targetUserId);
-    await logAuditEvent({
+    await logDashboardAuditEvent({
       actorUserId: authGate.userId,
       action: "block_toggle",
       targetUserId: body.targetUserId,
@@ -206,7 +163,7 @@ export async function DELETE(req: Request) {
     const client = await clerkClient();
     await client.users.deleteUser(targetUserId);
     invalidateUserAccessCache(targetUserId);
-    await logAuditEvent({
+    await logDashboardAuditEvent({
       actorUserId: authGate.userId,
       action: "delete_user",
       targetUserId,

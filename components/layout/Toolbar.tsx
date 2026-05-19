@@ -86,6 +86,15 @@ export function EditorToolbar({
           </SignInButton>
         </Show>
         <Show when="signed-in">
+          <Link
+            href="/account/sessions"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "hidden text-zinc-600 sm:inline-flex"
+            )}
+          >
+            Phiên
+          </Link>
           <UserButton />
         </Show>
         <Link

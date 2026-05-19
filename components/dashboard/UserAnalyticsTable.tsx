@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { UserSessionsDialog } from "@/components/dashboard/UserSessionsDialog";
 import { cn } from "@/lib/utils";
 
 type UserAnalyticsRow = {
@@ -133,6 +134,9 @@ export function UserAnalyticsTable({
   );
   const [confirmDeleteUser, setConfirmDeleteUser] =
     React.useState<UserAnalyticsRow | null>(null);
+  const [sessionsUser, setSessionsUser] = React.useState<UserAnalyticsRow | null>(
+    null
+  );
   const appliedPrefetchKeyRef = React.useRef<string | null>(null);
 
   const applyUsersResponse = React.useCallback((json: UsersApiResponse) => {
@@ -421,6 +425,15 @@ export function UserAnalyticsTable({
                               size="sm"
                               variant="outline"
                               disabled={actionBusyUserId === row.user_id}
+                              onClick={() => setSessionsUser(row)}
+                            >
+                              Phiên
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={actionBusyUserId === row.user_id}
                               onClick={() => void setBlocked(row.user_id, !row.blocked)}
                             >
                               {row.blocked ? "Unblock" : "Block"}
@@ -470,6 +483,20 @@ export function UserAnalyticsTable({
           </div>
         </div>
       </div>
+
+      <UserSessionsDialog
+        open={sessionsUser !== null}
+        onOpenChange={(open) => {
+          if (!open) setSessionsUser(null);
+        }}
+        targetUserId={sessionsUser?.user_id ?? null}
+        displayName={
+          sessionsUser?.user_name ||
+          sessionsUser?.email ||
+          sessionsUser?.user_id ||
+          ""
+        }
+      />
 
       {confirmDeleteUser ? (
         <div

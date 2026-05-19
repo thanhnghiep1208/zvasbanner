@@ -384,6 +384,75 @@ Quản trị user qua Clerk (metadata) + ghi audit `admin_audit` vào `banner_ev
 
 ---
 
+## 9) `GET` / `DELETE` — `/api/sessions`
+
+Quản lý phiên đăng nhập **của chính user đang đăng nhập** (Clerk active sessions). Không cần Postgres.
+
+### `GET` — danh sách phiên
+
+- **Permission**: đăng nhập Clerk (`requireUserJson`).
+- **Success — `200`**:
+
+```json
+{
+  "sessions": [
+    {
+      "sessionId": "sess_…",
+      "userId": "user_…",
+      "status": "active",
+      "lastActiveAt": 1710000000000,
+      "createdAt": 1709900000000,
+      "expireAt": 1711000000000,
+      "isCurrent": true,
+      "deviceLabel": "Chrome 120 · macOS · Ho Chi Minh, VN",
+      "browserName": "Chrome",
+      "deviceType": "desktop"
+    }
+  ]
+}
+```
+
+- `isCurrent`: so với `auth().sessionId` của request.
+- `deviceLabel`: ghép từ `latestActivity` của Clerk (browser, device, geo).
+
+### `DELETE` — thu hồi một phiên
+
+- **Permission**: đăng nhập.
+- **Query**: `?sessionId=sess_…` (bắt buộc).
+- Chỉ revoke phiên **thuộc user hiện tại** (kiểm tra qua danh sách active sessions).
+- **Success — `200`**:
+
+```json
+{ "ok": true, "revokedCurrent": false }
+```
+
+- `revokedCurrent: true` khi user thu hồi phiên đang dùng — client nên redirect `/sign-in`.
+
+### Lỗi — `400` / `401` / `403` / `500`
+
+---
+
+## 10) `GET` / `DELETE` — `/api/dashboard/users/sessions`
+
+Admin thu hồi phiên của user khác. Cần `CLERK_SECRET_KEY`.
+
+### `GET` — danh sách phiên user
+
+- **Permission**: `block_user` (admin; mod không có quyền này trong RBAC hiện tại).
+- **Query**: `?targetUserId=user_…`
+- **Success**: `{ "sessions": [...], "targetUserId": "user_…" }` — cùng shape session như mục 9 (không có `isCurrent` cho admin view).
+
+### `DELETE` — thu hồi phiên user
+
+- **Permission**: `block_user`.
+- **Query**: `?targetUserId=user_…&sessionId=sess_…`
+- Ghi audit `admin_audit` với `style=session_revoke`.
+- **Success**: `{ "ok": true }`
+
+### Lỗi — `400` / `401` / `403` / `500`
+
+---
+
 ## Liên kết
 
 - [Development Guide](./development-guide.md) — env, workflow.
