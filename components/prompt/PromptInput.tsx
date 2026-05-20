@@ -223,6 +223,16 @@ export function PromptInput({ className }: { className?: string }) {
 
       {generationStats ? (
         <div className="rounded-lg bg-zinc-50/90 px-3 py-2 text-xs text-zinc-700 shadow-inner ring-1 ring-zinc-900/[0.05]">
+          {generationStats.harmonyApplied ? (
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <Badge
+                variant="outline"
+                className="h-5 border-zinc-200/80 bg-zinc-100/60 px-2 text-[10px] font-normal text-zinc-500"
+              >
+                ✦ Đã tinh chỉnh hòa hợp
+              </Badge>
+            </div>
+          ) : null}
           <p>
             Model: <span className="font-medium">{generationStats.model}</span>
           </p>

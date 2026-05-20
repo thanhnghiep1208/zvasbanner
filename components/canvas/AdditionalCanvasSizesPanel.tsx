@@ -22,6 +22,8 @@ import { resolveBannerImageToDataUrl } from "@/lib/reference-image-data-url";
 import { useEditorStore } from "@/store/editor";
 import { cn } from "@/lib/utils";
 
+import { PresetAspectShape } from "@/components/canvas/PresetAspectShape";
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
@@ -448,7 +450,7 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
                 <li key={p.id}>
                   <label
                     className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm transition-colors",
+                      "flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm transition-colors",
                       checked
                         ? "border-violet-200 bg-violet-50/80 ring-1 ring-violet-200/60"
                         : "border-zinc-200/80 bg-white hover:border-zinc-300 hover:bg-zinc-50/80",
@@ -457,10 +459,17 @@ export function AdditionalCanvasSizesPanel({ className }: { className?: string }
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 size-4 shrink-0 rounded border-zinc-300 text-violet-600 focus-visible:ring-violet-500/40"
+                      className="size-4 shrink-0 rounded border-zinc-300 text-violet-600 focus-visible:ring-violet-500/40"
                       checked={checked}
                       disabled={previewBusy}
                       onChange={() => toggleExtraPreset(p.id)}
+                    />
+                    <PresetAspectShape
+                      width={p.width}
+                      height={p.height}
+                      variant={checked ? "selected" : "default"}
+                      showRatioLabel
+                      size={44}
                     />
                     <span className="min-w-0 flex-1 leading-snug">
                       <span className="block font-medium text-zinc-900">{p.name}</span>

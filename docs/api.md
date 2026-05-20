@@ -8,7 +8,8 @@ Tài liệu mô tả **contract** các Route Handlers dưới `app/api/`. Mọi 
 - **Model ảnh (generate)**: theo field `imageModel` trong body — `nano-banana-pro` → `gemini-3-pro-image-preview`, `nano-banana-2` → `gemini-3.1-flash-image-preview` (mặc định server nếu thiếu/sai: Pro). **Edit-image** dùng model theo implementation trong `lib/gemini-server.ts` (thường cùng family flash/pro tùy route).
 - **Ảnh trả về**: thường là chuỗi **data URL** (`data:image/png;base64,...`) hoặc định dạng tương thích client (ví dụ thẻ img với `src` trỏ tới data URL).
 - **Lỗi thân thiện + mã ngắn**: client có thể hiển thị tiền tố dạng `[E-GEN-…]`, `[E-ENH-…]`, `[E-EXP-…]`; server `edit-image` trả các mã kiểu `EDIT_TIMEOUT`, `EDIT_AUTH`, … trong trường `errorCode`. Chi tiết kỹ thuật thường nằm trong nội dung `error` hoặc log server.
-- **Timeout**: generate/edit trên server có giới hạn thời gian (khoảng vài chục giây tùy route); quá hạn trả lỗi hoặc placeholder tùy luồng generate.
+- **Timeout**: generate trên server tối đa ~90s (`maxDuration` route, gồm generate chính ~58s + **harmony pass** tối đa 30s); client `requestGeneration*` timeout ~92s (`lib/client-generation.ts`). Edit-image timeout ~45s. Quá hạn generate → placeholder; harmony pass fail → trả ảnh generate gốc (best-effort).
+- **Harmony pass (ngầm)**: sau khi `source === "gemini"`, server tự chạy một lần chỉnh cohesion (ánh sáng, viền, color grade) qua `runHarmonyPass` — không phải API riêng; xem `meta.harmonyApplied`.
 
 ---
 
@@ -72,12 +73,23 @@ Tạo **một** banner từ prompt + assets (multimodal).
     "promptTokens": 2100,
     "outputTokens": 340,
     "totalTokens": 2440,
-    "costUsd": 0.000519
+    "costUsd": 0.000519,
+    "harmonyApplied": true
   }
 }
 ```
 
-`meta.totalTokens` / `meta.costUsd` có thể vắng tùy response model (cost thường là ước lượng).
+`meta.totalTokens` / `meta.costUsd` có thể vắng tùy response model (cost thường là ước lượng). `meta.elapsedMs` / token / cost chỉ phản ánh **lần generate đầu**, chưa cộng harmony pass.
+
+- `meta.harmonyApplied` (boolean, tùy chọn): `true` khi bước harmony pass (post-process) chạy thành công; `false` hoặc vắng khi harmony bỏ qua (timeout/lỗi) hoặc `source === "placeholder"` (không chạy harmony).
+
+### Harmony pass (server, không expose endpoint)
+
+Sau generate Gemini thành công, `app/api/generate/route.ts` gọi `runHarmonyPass` (`lib/gemini-server.ts`):
+
+- Prompt cố định `HARMONY_EDIT_PROMPT` — chỉ cohesion (ánh sáng, feather edge, AO shadow, color grade, vignette); **không** đổi layout/copy/vị trí subject.
+- Timeout riêng **30s**; lỗi/timeout → log warning, trả ảnh trước harmony, `harmonyApplied: false`.
+- Dùng cùng pipeline ảnh như edit (`geminiGenerateOneImage` + asset base image), model theo `imageModel` trong request.
 
 ### Placeholder fallback — `200` (ảnh dự phòng khi model lỗi)
 
@@ -143,7 +155,7 @@ Viết lại / cải thiện prompt text trước khi generate. Yêu cầu đăn
 
 ## 3) `POST /api/edit-image`
 
-Chỉnh sửa **ảnh đã tạo** (multimodal: ảnh hiện tại + hướng dẫn text). Yêu cầu đăng nhập và permission `**generate_image`**. Không yêu cầu tạo lại composition hoàn toàn mới — prompt hệ thống ép giữ subject/composition, chỉ điều chỉnh nhẹ vị trí, góc, màu.
+Chỉnh sửa **ảnh đã tạo** (multimodal: ảnh hiện tại + hướng dẫn text). Yêu cầu đăng nhập và permission `**generate_image`**. Không yêu cầu tạo lại composition hoàn toàn mới — prompt hệ thống ép giữ subject/composition, chỉ điều chỉnh nhẹ vị trí, góc, màu. Implementation dùng `geminiEditImage()` trong `lib/gemini-server.ts` (model mặc định theo `IMAGE_MODEL_MAP`, thường Pro nếu không truyền `imageModel`).
 
 ### Request body
 

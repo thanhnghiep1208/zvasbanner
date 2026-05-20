@@ -13,6 +13,19 @@ import type {
 
 export const GEMINI_ENHANCE_TIMEOUT_MS = 30_000;
 export const GEMINI_IMAGE_TIMEOUT_MS = 55_000;
+export const GEMINI_HARMONY_TIMEOUT_MS = 30_000;
+
+export const HARMONY_EDIT_PROMPT = [
+  "Refine this banner for visual cohesion only — do NOT change layout, composition, text, or subject positions.",
+  "Tasks:",
+  "1. Unify the light source direction across all elements and background — match shadows and highlights.",
+  "2. Soften and feather all element edges so they blend naturally into the background (no hard cutout edges).",
+  "3. Add subtle ambient occlusion shadows at contact points between elements and background.",
+  "4. Apply a single unified color grade (temperature, contrast, saturation) across the entire image.",
+  "5. Add a ground shadow beneath any product/object element touching a surface.",
+  "6. Apply a very subtle vignette to unify the scene.",
+  "Output the same canvas size, same content — only lighting, edge blending, and color harmony should change.",
+].join("\n");
 
 const ENHANCE_MODELS = [
   "gemini-3.1-flash-image-preview",
@@ -32,6 +45,7 @@ export type ImageGenerationMeta = {
   outputTokens?: number;
   totalTokens?: number;
   costUsd?: number;
+  harmonyApplied?: boolean;
 };
 
 const INPUT_COST_PER_1K_TOKENS_USD = 0.00015;
@@ -272,6 +286,119 @@ function parseDataUrl(dataUrl: string | undefined): { mimeType: string; base64: 
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!m) return null;
   return { mimeType: m[1], base64: m[2] };
+}
+
+function buildHarmonyImagePrompt(canvasConfig: CanvasConfig): string {
+  const canvasText = `Target canvas: ${canvasConfig.width}x${canvasConfig.height} (${canvasConfig.platform} - ${canvasConfig.name}).`;
+  return [
+    "You are refining an existing generated banner image for visual cohesion only.",
+    "Do NOT change layout, composition, text content, or subject positions.",
+    "Preserve readability and production quality.",
+    canvasText,
+    "",
+    HARMONY_EDIT_PROMPT,
+  ].join("\n");
+}
+
+function buildEditImagePrompt(editPrompt: string, canvasConfig?: CanvasConfig): string {
+  const canvasText = canvasConfig
+    ? `Target canvas: ${canvasConfig.width}x${canvasConfig.height} (${canvasConfig.platform} - ${canvasConfig.name}).`
+    : "Target canvas: keep original image ratio and framing.";
+  return [
+    "You are editing an existing generated banner image.",
+    "IMPORTANT: Keep the same core subject, same overall composition, and same scene identity.",
+    "Do NOT create a brand-new design from scratch.",
+    "Only apply limited edits requested by the user, mainly:",
+    "- adjust object position/layout subtly,",
+    "- adjust rotation/angle subtly,",
+    "- adjust basic colors, tone, or contrast.",
+    "Preserve readability and production quality.",
+    canvasText,
+    "",
+    `User edit request: ${editPrompt.trim()}`,
+  ].join("\n");
+}
+
+/**
+ * Edit an existing generated image (same model path as /api/edit-image).
+ */
+export async function geminiEditImage(
+  apiKey: string,
+  imageDataUrl: string,
+  editPrompt: string,
+  options?: {
+    canvasConfig?: CanvasConfig;
+    imageModel?: ImageGenerationModel;
+  }
+): Promise<{ image: string; meta: ImageGenerationMeta }> {
+  const prompt = buildEditImagePrompt(editPrompt, options?.canvasConfig);
+  const dims = options?.canvasConfig;
+  return geminiGenerateOneImage(
+    apiKey,
+    prompt,
+    [
+      {
+        id: "generated-base-image",
+        url: "generated-base-image",
+        dataUrl: imageDataUrl,
+        fileName: "generated-base-image.png",
+        role: "image",
+        hasAlpha: false,
+        originalDims: {
+          width: dims?.width ?? 0,
+          height: dims?.height ?? 0,
+        },
+      },
+    ],
+    { imageModel: options?.imageModel }
+  );
+}
+
+/**
+ * Best-effort post-generation harmony pass (lighting, edges, color grade).
+ * Returns the original image when the pass fails or times out.
+ */
+function buildHarmonyBaseAsset(
+  imageDataUrl: string,
+  canvasConfig: CanvasConfig
+): UploadedAsset {
+  return {
+    id: "generated-base-image",
+    url: "generated-base-image",
+    dataUrl: imageDataUrl,
+    fileName: "generated-base-image.png",
+    role: "image",
+    hasAlpha: false,
+    originalDims: {
+      width: canvasConfig.width,
+      height: canvasConfig.height,
+    },
+  };
+}
+
+export async function runHarmonyPass(
+  apiKey: string,
+  imageDataUrl: string,
+  canvasConfig: CanvasConfig,
+  imageModel?: ImageGenerationModel
+): Promise<{ image: string; harmonyApplied: boolean }> {
+  try {
+    const result = await withTimeout(
+      geminiGenerateOneImage(
+        apiKey,
+        buildHarmonyImagePrompt(canvasConfig),
+        [buildHarmonyBaseAsset(imageDataUrl, canvasConfig)],
+        { imageModel }
+      ),
+      GEMINI_HARMONY_TIMEOUT_MS,
+      "Harmony pass"
+    );
+    return { image: result.image, harmonyApplied: true };
+  } catch (e) {
+    const reason = e instanceof Error ? e.message : String(e);
+    console.warn(`[harmony-pass] skipped: ${reason}`);
+    return { image: imageDataUrl, harmonyApplied: false };
+  }
 }
 
 /**

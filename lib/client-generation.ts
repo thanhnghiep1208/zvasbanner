@@ -24,6 +24,7 @@ export type FullGenerationResult =
         outputTokens?: number;
         totalTokens?: number;
         costUsd?: number;
+        harmonyApplied?: boolean;
       };
       placeholderError?: string;
       failedStep?: string;
@@ -31,7 +32,8 @@ export type FullGenerationResult =
     }
   | { ok: false; error: string };
 
-const CLIENT_TIMEOUT_MS = 45_000;
+/** Must exceed server generate (58s) + harmony pass (30s); route maxDuration is 90s. */
+const CLIENT_TIMEOUT_MS = 92_000;
 
 type GenerationUpdate = {
   status: VariationProgressStatus;
@@ -43,6 +45,7 @@ type GenerationUpdate = {
     outputTokens?: number;
     totalTokens?: number;
     costUsd?: number;
+    harmonyApplied?: boolean;
   };
   placeholderError?: string;
   failedStep?: string;
@@ -277,6 +280,7 @@ export async function requestGenerationWithPayload(
             outputTokens?: number;
             totalTokens?: number;
             costUsd?: number;
+            harmonyApplied?: boolean;
           })
         : undefined;
     options?.onProgress?.({

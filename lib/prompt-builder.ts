@@ -247,6 +247,22 @@ export function buildStylePhrase(controls: StyleControls): string {
   return parts.join(" ");
 }
 
+/**
+ * Visual cohesion directives for composited banners (lighting, edges, depth).
+ */
+export function buildCohesionInstructions(): string {
+  return [
+    "VISUAL COHESION & DEPTH REQUIREMENTS:",
+    "- Establish a single dominant light source direction (e.g. top-left at 45°); all elements must cast shadows and receive highlights consistent with this source — no element should look lit from a different angle than the background.",
+    "- At every point where an element contacts or overlaps the background, add a soft ambient occlusion shadow (feathered 8–16px, opacity 20–35%) so the element feels grounded, not floating.",
+    "- Apply a unified color grade across the entire canvas: same color temperature (warm/cool), same hue tint, same contrast curve — no element should have a noticeably different white balance than its surroundings.",
+    "- Blend element edges into the background using soft feathering (no hard pixel-perfect cutouts); if an element has a transparent background, its edge should pick up subtle reflected color from the background behind it.",
+    "- Add micro-depth cues: foreground elements slightly larger/sharper, background elements slightly desaturated and softer (depth of field falloff).",
+    "- Ensure ground plane consistency: any element resting on a surface must have a contact shadow beneath it; floating elements must have a drop shadow with correct perspective.",
+    "- Global atmosphere: apply a subtle unified vignette or atmospheric haze so the entire composition reads as one scene, not a collage.",
+  ].join("\n");
+}
+
 export function buildOutputPriorityDirective(): string {
   return [
     "Generate one final banner only (no alternatives).",
@@ -340,6 +356,8 @@ export function assembleFullPrompt(request: GenerationRequest): string {
     ...(adaptation ? [adaptation, ""] : []),
     SECTION.creative,
     buildStylePhrase(request.styleControls),
+    "",
+    buildCohesionInstructions(),
     "",
     SECTION.user,
     request.userPrompt.trim() || "(No additional user text.)",

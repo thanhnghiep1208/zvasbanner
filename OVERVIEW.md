@@ -77,10 +77,23 @@ Hien tai he thong uu tien duy nhat model tao anh `gemini-3.1-flash-image-preview
 Sau moi lan generate, UI hien box status nho gom:
 
 - Model da dung.
-- Thoi gian tao (giay).
+- Thoi gian tao (giay) — chi do lan generate dau, chua cong harmony pass.
 - Token usage (total/prompt/output) neu model tra ve.
+- Badge **「Da tinh chinh hoa hop」** khi `meta.harmonyApplied === true` (harmony pass server thanh cong).
 
-### 4.5 Export
+### 4.5 Visual cohesion (prompt + harmony pass)
+
+- **Prompt generate**: `buildCohesionInstructions()` trong `lib/prompt-builder.ts` (anh sang thong nhat, AO shadow, color grade, depth).
+- **Harmony pass (server, ngam)**: sau generate Gemini OK, `runHarmonyPass` goi Gemini edit cohesion-only (~30s, best-effort); fail thi tra anh goc, `harmonyApplied: false`.
+- Chi chay khi `source === "gemini"`; khong chay tren placeholder.
+
+### 4.6 Bien the kich thuoc
+
+- Tab trong `CanvasArea` — `AdditionalCanvasSizesPanel.tsx`.
+- Danh sach preset co icon silhouette ti le (`PresetAspectShape`) + nhan ti le (vd. 16:9).
+- Tao preview theo preset da chon; model flash + layout adaptation tu banner goc.
+
+### 4.7 Export
 
 - Export PNG/JPG, quality (JPG), scale 1x/2x.
 - **Khong chen them logo/watermark** khi export (giu nguyen banner da tao).
@@ -95,11 +108,12 @@ Sau moi lan generate, UI hien box status nho gom:
 4. Client goi `POST /api/generate`.
 5. Server:
   - validate request,
-  - assemble prompt,
-  - goi `gemini-3.1-flash-image-preview`,
-  - tra `{ image, source, meta }`,
+  - assemble prompt (gom cohesion instructions),
+  - goi Gemini theo `imageModel`,
+  - neu OK: harmony pass ngam (cohesion-only),
+  - tra `{ image, source, meta }` (meta co `harmonyApplied`),
   - neu fail tra placeholder + error detail.
-6. Client cap nhat `generatedImage`, progress, status box.
+6. Client cap nhat `generatedImage`, progress, status box (+ badge harmony neu co).
 7. User export output.
 
 ---
@@ -113,7 +127,11 @@ Sau moi lan generate, UI hien box status nho gom:
 - `components/prompt/StyleControls.tsx`
   - Style/mood/font/background options.
 - `components/canvas/CanvasArea.tsx`
-  - Preview duy nhat cho ket qua banner.
+  - Preview duy nhat cho ket qua banner; tab Bien the kich thuoc.
+- `components/canvas/AdditionalCanvasSizesPanel.tsx`
+  - Chon preset + icon ti le; tao/xem/tai bien the.
+- `components/canvas/PresetAspectShape.tsx`
+  - Icon silhouette ti le canvas cho preset.
 - `components/layout/ExportPopover.tsx`
   - Cau hinh va trigger export.
 - `components/layout/EditorWorkspace.tsx`
@@ -130,11 +148,13 @@ Sau moi lan generate, UI hien box status nho gom:
   - Timeout wrapper.
   - Placeholder fallback + detailed failure info.
 - `lib/gemini-server.ts`
-  - Gemini helpers (enhance + image).
+  - Gemini helpers (enhance + image + edit + harmony pass).
+  - `geminiEditImage`, `runHarmonyPass`, `HARMONY_EDIT_PROMPT`.
   - Build inline multimodal parts tu assets.
   - Trich xuat usage metadata.
 - `lib/prompt-builder.ts`
   - Build system/context/creative/output instructions.
+  - `buildCohesionInstructions()` cho visual cohesion.
 - `lib/validate-generation.ts`
   - Runtime validation cho API payload.
 - `app/api/proxy-image/route.ts`

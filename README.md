@@ -23,7 +23,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - [Development Guide](docs/development-guide.md) — `.env.local`, RBAC, checklist thử nghiệm
 - [Deploy (Vercel + Clerk + domain)](docs/deploy.md)
 
-Tính năng chính: tạo banner AI (Gemini), chỉnh sửa ảnh, export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`.
+Tính năng chính: tạo banner AI (Gemini, cohesion prompt + harmony pass ngầm), chỉnh sửa ảnh, **biến thể kích thước** (preset có icon tỉ lệ), export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`.
 
 ## Troubleshooting (Local Dev)
 

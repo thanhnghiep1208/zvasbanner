@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requirePermissionJson } from "@/lib/require-user";
 import {
-  geminiGenerateOneImage,
+  geminiEditImage,
   getGeminiApiKey,
   type ImageGenerationMeta,
 } from "@/lib/gemini-server";
@@ -52,22 +52,6 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
       }
     );
   });
-}
-
-function buildEditPrompt(editPrompt: string, canvasText: string): string {
-  return [
-    "You are editing an existing generated banner image.",
-    "IMPORTANT: Keep the same core subject, same overall composition, and same scene identity.",
-    "Do NOT create a brand-new design from scratch.",
-    "Only apply limited edits requested by the user, mainly:",
-    "- adjust object position/layout subtly,",
-    "- adjust rotation/angle subtly,",
-    "- adjust basic colors, tone, or contrast.",
-    "Preserve readability and production quality.",
-    canvasText,
-    "",
-    `User edit request: ${editPrompt.trim()}`,
-  ].join("\n");
 }
 
 function classifyEditError(message: string): { errorCode: string; userMessage: string } {
@@ -144,28 +128,13 @@ export async function POST(req: Request) {
   }
 
   const canvasConfig = parseCanvasConfig(parsed.canvasConfig);
-  const canvasText = canvasConfig
-    ? `Target canvas: ${canvasConfig.width}x${canvasConfig.height} (${canvasConfig.platform} - ${canvasConfig.name}).`
-    : "Target canvas: keep original image ratio and framing.";
-  const prompt = buildEditPrompt(parsed.editPrompt, canvasText);
   const startedAt = Date.now();
 
   try {
     const generated = await withTimeout(
-      geminiGenerateOneImage(apiKey, prompt, [
-        {
-          id: "generated-base-image",
-          url: "generated-base-image",
-          dataUrl: parsed.imageDataUrl,
-          fileName: "generated-base-image.png",
-          role: "image",
-          hasAlpha: false,
-          originalDims: {
-            width: canvasConfig?.width ?? 0,
-            height: canvasConfig?.height ?? 0,
-          },
-        },
-      ]),
+      geminiEditImage(apiKey, parsed.imageDataUrl, parsed.editPrompt, {
+        canvasConfig: canvasConfig ?? undefined,
+      }),
       EDIT_TIMEOUT_MS,
       "Gemini edit image"
     );

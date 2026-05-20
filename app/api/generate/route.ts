@@ -5,13 +5,14 @@ import {
   buildPlaceholderDataUrl,
   geminiGenerateOneImage,
   getGeminiApiKey,
+  runHarmonyPass,
   type ImageGenerationMeta,
 } from "@/lib/gemini-server";
 import { assembleFullPrompt } from "@/lib/prompt-builder";
 import type { GenerationRequest } from "@/lib/types";
 import { parseGenerateApiBody } from "@/lib/validate-generation";
 
-export const maxDuration = 60;
+export const maxDuration = 90;
 
 const ASSET_PRIORITY_TIMEOUT_MS = 58_000;
 
@@ -136,7 +137,20 @@ async function generateOneVariation(
       ASSET_PRIORITY_TIMEOUT_MS,
       "Gemini image"
     );
-    return { image: generated.image, source: "gemini", meta: generated.meta };
+    const harmony = await runHarmonyPass(
+      apiKey,
+      generated.image,
+      request.canvasConfig,
+      request.imageModel
+    );
+    return {
+      image: harmony.image,
+      source: "gemini",
+      meta: {
+        ...generated.meta,
+        harmonyApplied: harmony.harmonyApplied,
+      },
+    };
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     const normalized = normalizeGenerationError(reason);

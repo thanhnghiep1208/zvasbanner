@@ -59,6 +59,7 @@ export interface GenerationStats {
   outputTokens?: number;
   totalTokens?: number;
   costUsd?: number;
+  harmonyApplied?: boolean;
 }
 
 export interface EditorState {
