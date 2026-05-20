@@ -16,6 +16,7 @@ import {
   TimeRangeFilter,
 } from "@/components/dashboard/TimeRangeFilter";
 import { UserAnalyticsTable } from "@/components/dashboard/UserAnalyticsTable";
+import { HomeBackHeader } from "@/components/layout/HomeBackHeader";
 import {
   buildCostComparisonText,
   buildDashboardAlerts,
@@ -33,6 +34,15 @@ import {
   type DashboardRange,
   type DashboardUserRow,
 } from "@/lib/dashboard";
+
+function DashboardPageShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-dvh bg-zinc-50/80">
+      <HomeBackHeader />
+      {children}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const { isSignedIn } = useAuth();
@@ -209,17 +219,20 @@ export default function DashboardPage() {
 
   if (!hydrated) {
     return (
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
-        <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 shadow-sm">
-          Đang tải dashboard...
-        </div>
-      </main>
+      <DashboardPageShell>
+        <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
+          <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 shadow-sm">
+            Đang tải dashboard...
+          </div>
+        </main>
+      </DashboardPageShell>
     );
   }
 
   if (!isSignedIn) {
     return (
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
+      <DashboardPageShell>
+        <main className="mx-auto w-full max-w-7xl px-4 py-6 lg:px-6">
         <section className="flex min-h-[52vh] items-center justify-center rounded-2xl bg-gradient-to-br from-amber-50 to-white p-8">
           <div className="max-w-lg text-center">
             <div className="mx-auto mb-3 flex size-11 items-center justify-center rounded-full bg-amber-100 text-amber-700">
@@ -244,11 +257,13 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
-      </main>
+        </main>
+      </DashboardPageShell>
     );
   }
 
   return (
+    <DashboardPageShell>
     <main className="mx-auto w-full max-w-7xl space-y-5 px-4 py-6 lg:px-6">
       <section className="rounded-2xl bg-white/90 p-4 shadow-sm backdrop-blur-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -549,5 +564,6 @@ export default function DashboardPage() {
         </section>
       </div>
     </main>
+    </DashboardPageShell>
   );
 }

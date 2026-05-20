@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ExportPopover } from "./ExportPopover";
 import { useEditorStore } from "@/store/editor";
+import { useCanViewDashboard } from "@/lib/use-can-view-dashboard";
 import { cn } from "@/lib/utils";
 
 export type EditorToolbarProps = {
@@ -24,6 +25,7 @@ export function EditorToolbar({
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
   const isGenerating = useEditorStore((s) => s.isGenerating);
   const generationProgress = useEditorStore((s) => s.generationProgress);
+  const canViewDashboard = useCanViewDashboard();
 
   return (
     <header
@@ -97,16 +99,18 @@ export function EditorToolbar({
           </Link>
           <UserButton />
         </Show>
-        <Link
-          href="/dashboard"
-          aria-label="Mở dashboard"
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "icon-sm" }),
-            "text-zinc-600"
-          )}
-        >
-          <LayoutDashboard className="size-4" />
-        </Link>
+        {canViewDashboard ? (
+          <Link
+            href="/dashboard"
+            aria-label="Mở dashboard"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "icon-sm" }),
+              "text-zinc-600"
+            )}
+          >
+            <LayoutDashboard className="size-4" />
+          </Link>
+        ) : null}
         <Button
           type="button"
           variant="outline"
