@@ -99,7 +99,7 @@ export function ExportPopover() {
           aria-label="Xuất banner"
           className="pointer-events-none border-0 bg-zinc-100/90 text-zinc-600 shadow-sm ring-1 ring-zinc-900/[0.06]"
         >
-          Xuất
+          Download Image
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">
@@ -121,7 +121,7 @@ export function ExportPopover() {
           "border-0 shadow-sm ring-1 ring-zinc-900/[0.06]"
         )}
       >
-        Xuất
+        Download Image
       </PopoverTrigger>
       <PopoverContent
         align="end"
