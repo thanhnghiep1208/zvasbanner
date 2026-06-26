@@ -15,6 +15,7 @@ import type {
 export type FullGenerationResult =
   | {
       ok: true;
+      bannerId: string;
       image: string;
       source: "gemini" | "placeholder";
       meta?: {
@@ -116,6 +117,7 @@ function mapGenerateErrorCode(params: {
 
 async function parseGenerateResponse(res: Response): Promise<{
   json: {
+    bannerId?: unknown;
     image?: unknown;
     source?: unknown;
     meta?: unknown;
@@ -130,6 +132,7 @@ async function parseGenerateResponse(res: Response): Promise<{
   if (contentType.includes("application/json")) {
     try {
       const json = (await res.json()) as {
+        bannerId?: unknown;
         image?: unknown;
         source?: unknown;
         meta?: unknown;
@@ -265,6 +268,10 @@ export async function requestGenerationWithPayload(
       const msg = `[${shortCode}] ${friendly}${technical}`;
       throw new Error(msg);
     }
+    const bannerId =
+      typeof data.bannerId === "string" && data.bannerId.length > 0
+        ? data.bannerId
+        : crypto.randomUUID();
     const source = data.source === "placeholder" ? "placeholder" : "gemini";
     const placeholderError =
       typeof data.placeholderError === "string" ? data.placeholderError : undefined;
@@ -293,6 +300,7 @@ export async function requestGenerationWithPayload(
     });
     return {
       ok: true,
+      bannerId,
       image: data.image,
       source,
       meta,

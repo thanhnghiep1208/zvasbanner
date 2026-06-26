@@ -248,7 +248,9 @@ export async function POST(req: Request) {
   const { request } = parsed;
   const { width, height } = request.canvasConfig;
   const one = await generateOneVariation(apiKey, request, width, height);
+  const bannerId = crypto.randomUUID();
   return NextResponse.json({
+    bannerId,
     image: one.image,
     source: one.source,
     meta: one.meta,

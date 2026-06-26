@@ -159,7 +159,7 @@ export function usePromptInputActions() {
     setGeneratedImage(result.image);
     setGenerationError(null);
     setGenerationStats(result.meta ?? null);
-    const bannerId = `banner-${canvasConfig.name}-${Date.now()}`;
+    const bannerId = result.bannerId;
     setCurrentBannerId(bannerId);
     try {
       await track("generate_banner", {
