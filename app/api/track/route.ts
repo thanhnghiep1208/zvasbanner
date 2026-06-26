@@ -29,10 +29,6 @@ type BannerEventInsert = {
   image_model: string | null;
 };
 
-type PgLikeError = {
-  code?: string;
-};
-
 const ANALYTICS_EVENTS: AnalyticsEventName[] = [
   "select_canvas",
   "upload_asset",
@@ -133,13 +129,11 @@ export async function POST(req: Request) {
     try {
       await ensureAnalyticsSchemaReady();
     } catch (error) {
-      // Legacy/locked-down DBs may not allow ALTER TABLE.
       console.warn("[analytics.track] schema auto-migration skipped", error);
     }
     const row = mapToInsertRow(parsed, userId);
     const pool = getDbPool();
-    try {
-      await pool.query(
+    await pool.query(
       `
         INSERT INTO banner_events (
           event_name,
@@ -180,89 +174,6 @@ export async function POST(req: Request) {
         row.image_model,
       ]
     );
-    } catch (error) {
-      const pgError = error as PgLikeError;
-      if (pgError?.code !== "42703") {
-        throw error;
-      }
-      try {
-        await pool.query(
-          `
-        INSERT INTO banner_events (
-          event_name,
-          user_id,
-          banner_id,
-          timestamp,
-          style,
-          canvas_size,
-          has_asset,
-          generation_time_ms,
-          regenerate_count,
-          exported,
-          cost_usd,
-          generation_success,
-          prompt_tokens,
-          output_tokens,
-          total_tokens
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-      `,
-          [
-            row.event_name,
-            row.user_id,
-            row.banner_id,
-            row.timestamp,
-            row.style,
-            row.canvas_size,
-            row.has_asset,
-            row.generation_time_ms,
-            row.regenerate_count,
-            row.exported,
-            row.cost_usd,
-            row.generation_success,
-            row.prompt_tokens,
-            row.output_tokens,
-            row.total_tokens,
-          ]
-        );
-      } catch (error2) {
-        const pg2 = error2 as PgLikeError;
-        if (pg2?.code !== "42703") {
-          throw error2;
-        }
-        await pool.query(
-          `
-        INSERT INTO banner_events (
-          event_name,
-          user_id,
-          banner_id,
-          timestamp,
-          style,
-          canvas_size,
-          has_asset,
-          generation_time_ms,
-          regenerate_count,
-          exported,
-          cost_usd
-        )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-      `,
-          [
-            row.event_name,
-            row.user_id,
-            row.banner_id,
-            row.timestamp,
-            row.style,
-            row.canvas_size,
-            row.has_asset,
-            row.generation_time_ms,
-            row.regenerate_count,
-            row.exported,
-            row.cost_usd,
-          ]
-        );
-      }
-    }
   } catch (error) {
     console.error("[analytics.track] insert failed", error);
     return NextResponse.json(
