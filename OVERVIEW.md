@@ -8,7 +8,14 @@ AI Banner Generator la ung dung web tao banner marketing bang AI tu prompt + ass
 - Giu nguyen chu the upload (san pham/logo/chu the) va sang tao them nen, anh sang, hieu ung.
 - Cho phep export anh cuoi cung theo PNG/JPG va scale 1x/2x.
 
-Hien tai he thong uu tien duy nhat model tao anh `gemini-3.1-flash-image-preview`.
+He thong ho tro 2 model tao anh, chon qua `imageModel` slug trong editor:
+
+| Slug (internal) | Gemini model ID | Ghi chu |
+|---|---|---|
+| `nano-banana-pro` | `gemini-3-pro-image-preview` | Default; chat luong cao hon |
+| `nano-banana-2` | `gemini-3.1-flash-image-preview` | Nhanh hon, dung khi model chinh qua tai |
+
+Mapping duoc dinh nghia trong `lib/gemini-server.ts` (`IMAGE_MODEL_MAP`).
 
 ---
 
@@ -26,7 +33,7 @@ Hien tai he thong uu tien duy nhat model tao anh `gemini-3.1-flash-image-preview
 ### AI + image processing
 
 - **@google/generative-ai** - goi Gemini server-side.
-- **Gemini model**: `gemini-3.1-flash-image-preview` (locked).
+- **Gemini models**: `gemini-3-pro-image-preview` (default) va `gemini-3.1-flash-image-preview` (fallback nhanh). Xem `IMAGE_MODEL_MAP` trong `lib/gemini-server.ts`.
 - **Canvas API (client-side)** - export va xu ly anh.
 - **/api/proxy-image** - proxy image remote de tranh CORS khi ve canvas.
 
