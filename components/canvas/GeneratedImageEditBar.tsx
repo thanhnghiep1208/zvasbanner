@@ -25,10 +25,12 @@ export function GeneratedImageEditBar({ className }: { className?: string }) {
 
   useEffect(() => {
     if (!generatedImage) return;
-    const t = setTimeout(() => inputRef.current?.focus(), 200);
-    try {
-      if (!localStorage.getItem(CALLOUT_SEEN_KEY)) setShowCallout(true);
-    } catch {}
+    const t = setTimeout(() => {
+      inputRef.current?.focus();
+      try {
+        if (!localStorage.getItem(CALLOUT_SEEN_KEY)) setShowCallout(true);
+      } catch {}
+    }, 200);
     return () => clearTimeout(t);
   }, [generatedImage]);
 

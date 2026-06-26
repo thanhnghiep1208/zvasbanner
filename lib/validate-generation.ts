@@ -212,6 +212,12 @@ export function parseGenerationRequest(v: unknown): GenerationRequest | null {
     if (!a) return null;
     assets.push(a);
   }
+  const totalAssetDataUrlBytes = assets.reduce(
+    (sum, a) => sum + (a.dataUrl?.length ?? 0),
+    0
+  );
+  if (totalAssetDataUrlBytes > 25_000_000) return null;
+
   let layoutAdaptationFromBanner: string | undefined;
   const lab = v.layoutAdaptationFromBanner;
   if (lab !== undefined) {

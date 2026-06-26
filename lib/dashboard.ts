@@ -29,8 +29,10 @@ export const DASHBOARD_AGGREGATE_POLL_MS = 4 * 60 * 60 * 1000;
 /** Server-side TTL for `/api/dashboard` aggregate JSON (per range). */
 export const DASHBOARD_AGGREGATE_CACHE_MS = 30 * 60 * 1000;
 
-/** In-memory TTL for Clerk role/block lookups in `getUserAccessByUserId`. */
-export const USER_ACCESS_CACHE_MS = 5 * 60 * 1000;
+/** In-memory TTL for Clerk role/block lookups in `getUserAccessByUserId`.
+ *  Kept at 60s so a block/role change propagates within one minute on each warm instance.
+ *  For instant cross-instance invalidation, replace the Map cache with Redis/KV. */
+export const USER_ACCESS_CACHE_MS = 60 * 1000;
 
 export const DASHBOARD_USERS_PAGE_SIZE = 15;
 

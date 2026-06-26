@@ -16,6 +16,29 @@ export const maxDuration = 90;
 
 const ASSET_PRIORITY_TIMEOUT_MS = 58_000;
 
+// 30 MB ceiling checked via Content-Length before JSON parse.
+const MAX_REQUEST_BODY_BYTES = 30 * 1024 * 1024;
+
+// Per-instance sliding window rate limit (20 req/hr/user).
+// For distributed enforcement across serverless instances, replace with Redis/KV.
+const RATE_LIMIT_MAX_PER_HOUR = 20;
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
+const rateLimitMap = new Map<string, number[]>();
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  const prev = rateLimitMap.get(userId) ?? [];
+  const timestamps = prev.filter((t) => t > cutoff);
+  if (timestamps.length >= RATE_LIMIT_MAX_PER_HOUR) {
+    rateLimitMap.set(userId, timestamps);
+    return false;
+  }
+  timestamps.push(now);
+  rateLimitMap.set(userId, timestamps);
+  return true;
+}
+
 function normalizeGenerationError(raw: string): {
   userMessage: string;
   errorCode: string;
@@ -175,6 +198,21 @@ export async function POST(req: Request) {
     permission: "generate_image",
   });
   if (authGate instanceof NextResponse) return authGate;
+
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > MAX_REQUEST_BODY_BYTES) {
+    return NextResponse.json(
+      { error: "Request payload quá lớn. Vui lòng giảm dung lượng ảnh upload." },
+      { status: 413 }
+    );
+  }
+
+  if (!checkRateLimit(authGate.userId)) {
+    return NextResponse.json(
+      { error: "Bạn đã tạo quá nhiều ảnh trong 1 giờ. Vui lòng thử lại sau." },
+      { status: 429 }
+    );
+  }
 
   let body: unknown;
   try {
