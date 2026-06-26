@@ -10,8 +10,8 @@ export type Permission =
   | "block_user"
   | "generate_image";
 
-/** Override admin by primary email (Clerk user record). */
-export const DEFAULT_ADMIN_EMAIL = "thanhnghiep1208@gmail.com";
+/** Override admin by primary email — set via ADMIN_EMAIL env var, never hardcode. */
+const ADMIN_EMAIL_OVERRIDE = process.env.ADMIN_EMAIL?.trim().toLowerCase() || null;
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   admin: [
@@ -46,11 +46,13 @@ export function getPrimaryEmailFromClerkUser(
   );
 }
 
-/** Role from Clerk user (email override + private/public metadata). */
+/** Role from Clerk user (env email override + private/public metadata). */
 export function getRoleFromClerkUser(user: ClerkUserRoleInput): UserRole {
-  const primaryEmail = getPrimaryEmailFromClerkUser(user);
-  if (primaryEmail?.toLowerCase() === DEFAULT_ADMIN_EMAIL) {
-    return "admin";
+  if (ADMIN_EMAIL_OVERRIDE) {
+    const primaryEmail = getPrimaryEmailFromClerkUser(user);
+    if (primaryEmail?.toLowerCase() === ADMIN_EMAIL_OVERRIDE) {
+      return "admin";
+    }
   }
   return normalizeRole(user.privateMetadata?.role ?? user.publicMetadata?.role);
 }
