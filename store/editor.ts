@@ -10,6 +10,7 @@ import type {
   BrandKit,
   CanvasConfig,
   ImageGenerationModel,
+  MarketingBrief,
   StyleControls,
   UploadedAsset,
 } from "@/lib/types";
@@ -100,6 +101,8 @@ export interface EditorState {
   resetGenerationProgress: () => void;
   generationStats: GenerationStats | null;
   setGenerationStats: (stats: GenerationStats | null) => void;
+  marketingBrief: MarketingBrief;
+  setMarketingBrief: (patch: Partial<MarketingBrief>) => void;
 }
 
 const defaultGenerationProgress: GenerationProgress = {
@@ -163,4 +166,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     set({ generationProgress: defaultGenerationProgress }),
   generationStats: null,
   setGenerationStats: (stats) => set({ generationStats: stats }),
+  marketingBrief: { campaignIntents: [], focalSubjects: [] },
+  setMarketingBrief: (patch) =>
+    set((s) => ({ marketingBrief: { ...s.marketingBrief, ...patch } })),
 }));

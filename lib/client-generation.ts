@@ -229,6 +229,7 @@ export function buildGeneratePayloadFromStore(
     ...(extras?.layoutAdaptationFromBanner
       ? { layoutAdaptationFromBanner: extras.layoutAdaptationFromBanner }
       : {}),
+    marketingBrief: state.marketingBrief,
   };
 }
 

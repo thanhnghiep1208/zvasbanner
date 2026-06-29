@@ -28,13 +28,19 @@ import {
   BACKGROUND_TONE_OPTIONS,
 } from "@/lib/background-options";
 import type { StyleControls as StyleControlsType } from "@/lib/types";
+import { getStyleSuggestions } from "@/lib/style-suggestions";
 import { useEditorStore } from "@/store/editor";
 import { cn } from "@/lib/utils";
 
 export function StyleControls({ className }: { className?: string }) {
   const styleControls = useEditorStore((s) => s.styleControls);
   const setStyleControls = useEditorStore((s) => s.setStyleControls);
+  const marketingBrief = useEditorStore((s) => s.marketingBrief);
   const bg = styleControls.backgroundConfig;
+
+  const suggestions = getStyleSuggestions(marketingBrief.campaignIntents);
+  const suggestStyle = suggestions.style !== styleControls.style ? suggestions.style : undefined;
+  const suggestMood = suggestions.mood !== styleControls.mood ? suggestions.mood : undefined;
 
   const toggleIn = <T extends string>(list: T[], value: T) => {
     if (list.includes(value)) return list.filter((x) => x !== value);
@@ -61,12 +67,23 @@ export function StyleControls({ className }: { className?: string }) {
       <div className="w-full min-w-0 space-y-4 px-3 py-3">
         <div className="grid w-full min-w-0 grid-cols-1 gap-4">
           <div className="min-w-0 space-y-1.5">
-            <label
-              htmlFor="style-control-style"
-              className="text-xs font-medium text-zinc-600 dark:text-muted-foreground"
-            >
-              Phong cách
-            </label>
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="style-control-style"
+                className="text-xs font-medium text-zinc-600 dark:text-muted-foreground"
+              >
+                Phong cách
+              </label>
+              {suggestStyle ? (
+                <button
+                  type="button"
+                  onClick={() => setStyleControls({ style: suggestStyle })}
+                  className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300"
+                >
+                  💡 Gợi ý: {STYLE_OPTIONS.find((o) => o.value === suggestStyle)?.label}
+                </button>
+              ) : null}
+            </div>
             <div className="min-w-0 w-full">
               <Select
                 value={styleControls.style}
@@ -102,12 +119,23 @@ export function StyleControls({ className }: { className?: string }) {
           </div>
 
           <div className="min-w-0 space-y-1.5">
-            <label
-              htmlFor="style-control-mood"
-              className="text-xs font-medium text-zinc-600 dark:text-muted-foreground"
-            >
-              Tông cảm xúc
-            </label>
+            <div className="flex items-center gap-2">
+              <label
+                htmlFor="style-control-mood"
+                className="text-xs font-medium text-zinc-600 dark:text-muted-foreground"
+              >
+                Tông cảm xúc
+              </label>
+              {suggestMood ? (
+                <button
+                  type="button"
+                  onClick={() => setStyleControls({ mood: suggestMood })}
+                  className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300"
+                >
+                  💡 Gợi ý: {MOOD_OPTIONS.find((o) => o.value === suggestMood)?.label}
+                </button>
+              ) : null}
+            </div>
             <div className="min-w-0 w-full">
               <Select
                 value={styleControls.mood}

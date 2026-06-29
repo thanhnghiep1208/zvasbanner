@@ -91,6 +91,19 @@ export interface StyleControls {
 
 export type ImageGenerationModel = "nano-banana-pro" | "nano-banana-2";
 
+export type CampaignIntent =
+  | "flash-sale"
+  | "product-launch"
+  | "brand-awareness"
+  | "event";
+
+export type FocalSubject = "product" | "person" | "text" | "scene";
+
+export interface MarketingBrief {
+  campaignIntents: CampaignIntent[];
+  focalSubjects: FocalSubject[];
+}
+
 export interface GenerationRequest {
   canvasConfig: CanvasConfig;
   assets: UploadedAsset[];
@@ -103,4 +116,5 @@ export interface GenerationRequest {
    * `canvasConfig` while staying visually close to this reference.
    */
   layoutAdaptationFromBanner?: string;
+  marketingBrief?: MarketingBrief;
 }

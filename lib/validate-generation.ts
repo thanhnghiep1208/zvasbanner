@@ -5,9 +5,12 @@ import type {
   BackgroundShapeOption,
   BackgroundToneOption,
   BrandKit,
+  CampaignIntent,
   CanvasConfig,
+  FocalSubject,
   GenerationRequest,
   ImageGenerationModel,
+  MarketingBrief,
   StyleControls,
   UploadedAsset,
 } from "@/lib/types";
@@ -149,6 +152,30 @@ const IMAGE_MODELS: ImageGenerationModel[] = [
   "nano-banana-2",
 ];
 
+const CAMPAIGN_INTENTS: CampaignIntent[] = [
+  "flash-sale",
+  "product-launch",
+  "brand-awareness",
+  "event",
+];
+const FOCAL_SUBJECTS: FocalSubject[] = ["product", "person", "text", "scene"];
+
+function parseMarketingBrief(v: unknown): MarketingBrief {
+  const empty: MarketingBrief = { campaignIntents: [], focalSubjects: [] };
+  if (!isRecord(v)) return empty;
+  const campaignIntents = Array.isArray(v.campaignIntents)
+    ? (v.campaignIntents as unknown[]).filter((x): x is CampaignIntent =>
+        CAMPAIGN_INTENTS.includes(x as CampaignIntent)
+      )
+    : [];
+  const focalSubjects = Array.isArray(v.focalSubjects)
+    ? (v.focalSubjects as unknown[]).filter((x): x is FocalSubject =>
+        FOCAL_SUBJECTS.includes(x as FocalSubject)
+      )
+    : [];
+  return { campaignIntents, focalSubjects };
+}
+
 export function parseStyleControls(v: unknown): StyleControls | null {
   if (!isRecord(v)) return null;
   const { style, mood, colorPalette, fontStyle, strictPreserveMode, backgroundConfig } = v;
@@ -231,6 +258,10 @@ export function parseGenerationRequest(v: unknown): GenerationRequest | null {
     }
     layoutAdaptationFromBanner = lab;
   }
+  const marketingBrief =
+    v.marketingBrief !== undefined
+      ? parseMarketingBrief(v.marketingBrief)
+      : undefined;
   return {
     canvasConfig,
     assets,
@@ -241,6 +272,7 @@ export function parseGenerationRequest(v: unknown): GenerationRequest | null {
     ...(layoutAdaptationFromBanner !== undefined
       ? { layoutAdaptationFromBanner }
       : {}),
+    ...(marketingBrief !== undefined ? { marketingBrief } : {}),
   };
 }
 

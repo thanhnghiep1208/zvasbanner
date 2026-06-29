@@ -1,5 +1,8 @@
 import type {
+  CampaignIntent,
+  FocalSubject,
   GenerationRequest,
+  MarketingBrief,
   StyleControls,
   UploadedAsset,
 } from "@/lib/types";
@@ -58,10 +61,10 @@ function formatAssetLine(asset: UploadedAsset): string {
 }
 
 /**
- * Layer 2 — Structured context: canvas, assets (by role with URLs), and brand kit.
+ * Layer 2 — Structured context: canvas, assets (by role with URLs), brand kit, and industry context.
  */
 export function buildContextBlock(config: GenerationRequest): string {
-  const { canvasConfig, assets, brandKit } = config;
+  const { canvasConfig, assets, brandKit, marketingBrief } = config;
   const lines: string[] = [];
 
   lines.push("Canvas");
@@ -210,10 +213,33 @@ const BG_EFFECT_LABELS: Record<StyleControls["backgroundConfig"]["effects"][numb
   "high-contrast": "High-Contrast",
 };
 
+const INTENT_PHRASES: Record<CampaignIntent, string> = {
+  "flash-sale":
+    "Urgency-forward composition: bold discount callout prominent, high-contrast warm accent color, time-pressure visual energy, eye-catching over refined.",
+  "product-launch":
+    "Premium reveal aesthetic: hero product dominant and well-lit, clean aspirational atmosphere, sense of unveiling something new.",
+  "brand-awareness":
+    "Brand storytelling over hard sell: emotional resonance, narrative composition, visual cohesion with brand identity takes priority.",
+  "event":
+    "Celebratory atmosphere: festive warmth, seasonal or occasion-relevant motifs used sparingly, inviting and energetic feel.",
+};
+
+const FOCAL_PHRASES: Record<FocalSubject, string> = {
+  "product":
+    "Product must be the dominant subject: 55–70% of frame area, hero-lit from front-top, clean visual separation from background, no competing focal points.",
+  "person":
+    "Human figure or face is the primary focal point: expression or gesture leads the eye, product/environment plays supporting role.",
+  "text":
+    "Typography-first layout: headline text is the visual hero, imagery and graphics exist to frame and support the message, not compete with it.",
+  "scene":
+    "Atmospheric scene composition: wide establishing shot, product or subject integrated into environment, mood and setting carry the story.",
+};
+
+
 /**
  * Maps style controls to compact visual-descriptor phrases for the creative layer.
  */
-export function buildStylePhrase(controls: StyleControls): string {
+export function buildStylePhrase(controls: StyleControls, brief?: MarketingBrief): string {
   const parts = [
     `Overall style (${controls.style}): ${STYLE_PHRASES[controls.style]}.`,
     `Mood (${controls.mood}): ${MOOD_PHRASES[controls.mood]}.`,
@@ -244,6 +270,17 @@ export function buildStylePhrase(controls: StyleControls): string {
   if (bgParts.length > 0) {
     parts.push(`Preselected background checklist: ${bgParts.join(" ")}`);
   }
+
+  const intents = brief?.campaignIntents ?? [];
+  if (intents.length > 0) {
+    parts.push(`Campaign intent: ${intents.map((i) => INTENT_PHRASES[i]).join(" + ")}`);
+  }
+
+  const focals = brief?.focalSubjects ?? [];
+  if (focals.length > 0) {
+    parts.push(`Focal subject: ${focals.map((f) => FOCAL_PHRASES[f]).join(", ")}`);
+  }
+
   return parts.join(" ");
 }
 
@@ -355,7 +392,7 @@ export function assembleFullPrompt(request: GenerationRequest): string {
     "",
     ...(adaptation ? [adaptation, ""] : []),
     SECTION.creative,
-    buildStylePhrase(request.styleControls),
+    buildStylePhrase(request.styleControls, request.marketingBrief),
     "",
     buildCohesionInstructions(),
     "",

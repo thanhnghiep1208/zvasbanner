@@ -13,12 +13,48 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ImageGenerationModel } from "@/lib/types";
 
+import { useEditorStore } from "@/store/editor";
+
+import { MarketingBriefChips } from "./MarketingBriefChips";
 import {
   GenerateSpinnerIcon,
   PROMPT_INPUT_MAX_CHARS,
   PROMPT_INPUT_PLACEHOLDER,
   usePromptInputActions,
 } from "./prompt-input";
+
+function BriefPill() {
+  const { campaignIntents, focalSubjects } = useEditorStore(
+    (s) => s.marketingBrief
+  );
+
+  const INTENT_LABELS: Record<string, string> = {
+    "flash-sale": "flash sale",
+    "product-launch": "ra mắt SP",
+    "brand-awareness": "nhận thức TH",
+    "event": "sự kiện",
+  };
+  const FOCAL_LABELS: Record<string, string> = {
+    product: "sản phẩm",
+    person: "người",
+    text: "text",
+    scene: "không gian",
+  };
+
+  const parts = [
+    ...campaignIntents.map((v) => INTENT_LABELS[v] ?? v),
+    ...focalSubjects.map((v) => FOCAL_LABELS[v] ?? v),
+  ];
+
+  if (parts.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+      <span className="size-1.5 rounded-full bg-indigo-400 shrink-0" aria-hidden />
+      <span>{parts.join(" · ")}</span>
+    </div>
+  );
+}
 
 export function PromptInput({ className }: { className?: string }) {
   const {
@@ -55,7 +91,7 @@ export function PromptInput({ className }: { className?: string }) {
       )}
     >
       <div className="relative">
-        <div className="mb-2 grid grid-cols-1 gap-2">
+        <div className="mb-3 grid grid-cols-1 gap-2">
           <Input
             value={headline}
             onChange={(e) => setHeadline(e.target.value)}
@@ -78,6 +114,9 @@ export function PromptInput({ className }: { className?: string }) {
             aria-label="Nút kêu gọi hành động"
           />
         </div>
+        <div className="mb-3 rounded-lg bg-zinc-50/80 px-2.5 py-2.5 ring-1 ring-zinc-900/[0.04]">
+          <MarketingBriefChips disabled={isGenerating} />
+        </div>
         <Textarea
           value={userPrompt}
           onChange={onPromptChange}
@@ -95,6 +134,7 @@ export function PromptInput({ className }: { className?: string }) {
           {len}/{PROMPT_INPUT_MAX_CHARS}
         </div>
       </div>
+      <BriefPill />
 
       {enhanceError ? (
         <p className="text-sm text-destructive" role="alert">
