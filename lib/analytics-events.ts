@@ -6,7 +6,10 @@ export type AnalyticsEventName =
   | "generate_banner"
   | "regenerate_banner"
   | "preview_banner"
-  | "export_banner";
+  | "export_banner"
+  | "open_canva"
+  | "open_canva_success"
+  | "open_canva_error";
 
 export type AnalyticsBasePayload = {
   banner_id: string;
@@ -71,4 +74,7 @@ export type AnalyticsEventPayloadMap = {
     /** How the export was triggered from the UI. */
     export_variant?: "current_canvas" | "download_ai_extra";
   };
+  open_canva: AnalyticsBasePayload;
+  open_canva_success: AnalyticsBasePayload;
+  open_canva_error: AnalyticsBasePayload;
 };
