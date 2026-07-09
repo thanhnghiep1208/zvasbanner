@@ -26,7 +26,7 @@ Trên **cả Development và Production** instance trong Clerk:
 - Khuyến nghị **Disable sign-ups** — tạo user thủ công (username, password, `privateMetadata.role`).
 - App dùng trang `/sign-in` (`NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in`).
 
-Chi tiết và xử lý lỗi 409: [development-guide.md](./development-guide.md) (mục Clerk username/password).
+Chi tiết và xử lý lỗi 409: [Workflow](./workflow.md) (mục Clerk username/password).
 
 ### 1.1 Domain & URL trong Clerk (bước quan trọng)
 
@@ -99,10 +99,12 @@ Thêm trong **Settings → Environment Variables** (scope **Production**; có th
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Production | `pk_live_...`                                                |
 | `CLERK_SECRET_KEY`                  | Production | `sk_live_...`                                                |
 | `DATABASE_URL`                      | Production | Postgres production; nhớ `sslmode=require` nếu host yêu cầu. |
+| `ADMIN_EMAIL`                       | Production (tùy chọn) | Email primary luôn được coi là `admin` bất kể metadata Clerk. Ưu tiên set role qua Clerk Dashboard (`privateMetadata.role`); chỉ dùng biến này cho tài khoản chủ dự án lúc chưa set metadata. |
 
 
 - Không commit các giá trị này vào git.
 - Sau khi thêm/sửa biến: **Redeploy** deployment mới nhất để build nhúng đúng các biến tiền tố `NEXT_PUBLIC_` (ví dụ publishable key Clerk).
+- **Content-Security-Policy phụ thuộc `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` lúc build**: `next.config.mjs` tự decode domain Clerk Frontend API từ key này để đưa vào `script-src`/`connect-src`. Nếu build production **thiếu** biến này (hoặc build trước khi set), CSP sẽ không có domain Clerk → **Clerk script bị CSP chặn, không đăng nhập được** dù app không lỗi 500. Luôn set key **trước** lần build đầu, và **redeploy** (không chỉ restart) sau khi đổi key hoặc đổi Clerk instance (dev ↔ production).
 
 ### 4.2 Deploy & xem log
 
@@ -121,6 +123,7 @@ Thực hiện trên URL production (domain hoặc `*.vercel.app`):
 - Sau đăng nhập: thấy canvas / có thể **tạo banner** (gọi Gemini thành công).
 - **Export** ảnh tải xuống được.
 - Mở `/dashboard` (nếu không chặn): dữ liệu aggregate không 500; sau vài hành động, số liệu thay đổi (cần DB + event `track`).
+- Mở DevTools → Console khi tải trang: **không** có lỗi `Content-Security-Policy` (nếu có, thường do domain Clerk trong CSP không khớp — xem mục CSP ở bước 4.1). Kiểm tra header nhanh: `curl -sI https://<domain> | grep -i content-security-policy`.
 
 ---
 
@@ -141,13 +144,15 @@ Thực hiện trên URL production (domain hoặc `*.vercel.app`):
 | `DATABASE_URL` lỗi SSL                     | Thêm `?sslmode=require` (hoặc theo doc nhà cung cấp).                                                  |
 | Dashboard 500, track lỗi                   | Chạy migration `banner_events.sql`; kiểm tra `DATABASE_URL` trên Vercel.                               |
 | Generate ảnh 500 / placeholder             | Kiểm tra `GEMINI_API_KEY`, quota API, log function Vercel.                                             |
+| Console báo lỗi `Content-Security-Policy` / Clerk script không load | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` thiếu hoặc sai lúc build (CSP decode domain Clerk từ key này) → set đúng key rồi **redeploy** (không chỉ restart). Nếu app gọi thêm domain ngoài mới, phải thêm vào `next.config.mjs` (`csp` trong hàm `headers()`). |
 
 
 ---
 
 ## Tài liệu liên quan
 
-- [Development Guide](./development-guide.md) — cài đặt local, env, workflow dev.
+- [Workflow](./workflow.md) — cài đặt local, env, checklist thử nghiệm.
+- [Backend](./backend.md) — bảo mật, CSP, rate limit.
 - [Architecture](./architecture.md) — luồng hệ thống.
 - [API Reference](./api.md) — contract endpoint.
 

@@ -18,10 +18,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — FE/BE, Clerk auth, đa phiên, dashboard analytics
-- [API Reference](docs/api.md) — Route Handlers (`/api/sessions`, generate, dashboard, …)
-- [Development Guide](docs/development-guide.md) — `.env.local`, RBAC, checklist thử nghiệm
-- [Deploy (Vercel + Clerk + domain)](docs/deploy.md)
+- [Architecture](docs/architecture.md) — tổng quan hệ thống, tech stack, luồng tạo ảnh
+- [Frontend](docs/frontend.md) — cấu trúc UI, state (Zustand), luồng tương tác
+- [Backend](docs/backend.md) — Route Handlers, RBAC, tích hợp Gemini, **bảo mật** (CSP, rate limit, SSRF, …)
+- [API Reference](docs/api.md) — contract từng endpoint (`/api/generate`, `/api/sessions`, dashboard, …)
+- [Workflow](docs/workflow.md) — cài đặt `.env.local`, RBAC, checklist thử nghiệm
+- [Deploy](docs/deploy.md) — Vercel + Clerk + domain + Postgres
+- [Roadmap](docs/roadmap/) — đề xuất tính năng chưa triển khai (ví dụ Canva Connect)
 
 Tính năng chính: tạo banner AI (Gemini, cohesion prompt + harmony pass ngầm), chỉnh sửa ảnh, **biến thể kích thước** (preset có icon tỉ lệ), export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`.
 

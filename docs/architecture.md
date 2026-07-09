@@ -1,102 +1,64 @@
-# Kiến trúc ứng dụng
+# Kiến trúc hệ thống
 
-Tài liệu mô tả **cách các phần frontend, backend, AI và analytics kết nối** trong dự án AI Banner Generator (Next.js App Router).
+Tài liệu tổng quan (birds-eye view) cho AI Banner Generator. Chi tiết theo từng lớp xem các doc liên kết ở cuối trang.
 
 ## Tổng quan
 
-Ứng dụng là một **monolith Next.js**: UI và Route Handlers (API) nằm chung một repo, deploy một service. Người dùng tạo banner bằng prompt đa phương tiện (text + ảnh upload); server gọi **Google Gemini**; sự kiện hành vi được ghi qua **POST /api/track** xuống **PostgreSQL** để dashboard tổng hợp.
+Ứng dụng là một **monolith Next.js** (App Router): UI và Route Handlers (API) nằm chung một repo, deploy một service duy nhất trên Vercel. Người dùng tạo banner bằng prompt đa phương tiện (text + ảnh upload); server gọi **Google Gemini**; sự kiện hành vi được ghi qua `POST /api/track` xuống **PostgreSQL** để dashboard tổng hợp. Auth qua **Clerk**.
+
+```
+Browser (React 19)
+  │  fetch cùng-origin, không gọi trực tiếp Gemini/DB
+  ▼
+Next.js Route Handlers (app/api/**)  ──auth──▶  Clerk (session, RBAC metadata)
+  │                    │
+  │ Gemini SDK          └─▶ PostgreSQL (banner_events) — analytics/dashboard
+  ▼
+Google Gemini API (generate / enhance / edit / harmony pass)
+```
 
 ## Công nghệ chính
 
-
-| Lớp          | Công nghệ                                                                                                                                                                               |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Framework    | Next.js 16 (App Router), React 19, TypeScript (strict)                                                                                                                                  |
-| UI           | Tailwind CSS v4, shadcn-style components, Sonner (toast)                                                                                                                                |
-| Font         | `next/font` — Inter (latin + vietnamese)                                                                                                                                                |
-| State client | Zustand (`store/editor.ts`)                                                                                                                                                             |
-| Auth         | Clerk (`@clerk/nextjs`), middleware `proxy.ts`                                                                                                                                          |
-| AI           | `@google/generative-ai`; model ảnh theo lựa chọn: `gemini-3-pro-image-preview` (Nano Banana Pro) hoặc `gemini-3.1-flash-image-preview` (Nano Banana 2); tab biến thể cố định dùng flash |
-| Analytics DB | `pg`, bảng `banner_events` (xem `db/banner_events.sql`)                                                                                                                                 |
-| Deploy gợi ý | Vercel + Postgres hosted (Neon, Supabase, …)                                                                                                                                            |
-
+| Lớp | Công nghệ |
+| --- | --- |
+| Framework | Next.js 16 (App Router), React 19, TypeScript strict |
+| UI | Tailwind CSS v4, shadcn-style components, Base UI, Sonner (toast) |
+| State client | Zustand (`store/editor.ts`) |
+| Auth | Clerk (`@clerk/nextjs`), middleware `proxy.ts` |
+| AI | `@google/generative-ai`; model ảnh theo lựa chọn: `gemini-3-pro-image-preview` (Nano Banana Pro) hoặc `gemini-3.1-flash-image-preview` (Nano Banana 2) |
+| Analytics DB | `pg`, bảng `banner_events` (`db/banner_events.sql`) |
+| Deploy | Vercel + Postgres hosted (Neon, Supabase, …) |
 
 ## Cấu trúc thư mục (rút gọn)
 
-- `**app/`** — Trang (`page.tsx`), layout, Route Handlers dưới `app/api/` (các file `route.ts`).
-- `**components/`** — UI theo vùng: `canvas/`, `layout/`, `prompt/`, `dashboard/`, `account/`, `ui/`.
-- `**lib/`** — Logic dùng chung: `gemini-server.ts`, `client-generation.ts`, `analytics.ts`, `authz.ts`, `require-user.ts`, `clerk-sessions.ts`, `dashboard-audit.ts`, `db.ts`, `validate-generation.ts`, presets canvas.
-- `**store/`** — Zustand: prompt, canvas, assets, ảnh đã tạo, `currentBannerId` (analytics).
-- `**proxy.ts`** — `clerkMiddleware()` (Clerk khuyến nghị cho Next.js; file tên `proxy.ts` thay vì `middleware.ts` trong setup này).
-- `**docs/`** — Hướng dẫn dev, API, kiến trúc.
-
-## Frontend (FE)
-
-- **Entry**: `app/layout.tsx` bọc `ClerkProvider`, `Providers` (theme/toast), font Inter.
-- **Trang chính**: editor workspace — chọn kích thước canvas, upload asset, nhập headline/sub/CTA, style controls, nút cải thiện prompt và tạo banner.
-- **Điều kiện hiển thị**: một số vùng (canvas / tạo banner) chỉ bật khi **đã đăng nhập** Clerk; khi chưa đăng nhập hiển thị hướng dẫn sign in.
-- **Toolbar** (`components/layout/Toolbar.tsx`): link **Phiên** → `/account/sessions` (chỉ khi signed-in, ẩn trên màn hình rất nhỏ); icon **Dashboard** → `/dashboard` (style link qua `buttonVariants`, không dùng `asChild` trên `Button` Base UI).
-- **Quản lý phiên (user)**: `app/account/sessions/page.tsx` + `components/account/SessionsPanel.tsx` — liệt kê phiên Clerk active, đăng xuất từng phiên.
-- **Gọi API**: `fetch` tới Route Handlers cùng origin (`/api/generate`, `/api/enhance-prompt`, `/api/edit-image`, `/api/proxy-image`, `/api/track`, `/api/sessions`).
-- **Export**: Canvas API trên trình duyệt, có thể tải ảnh qua proxy để tránh CORS; **không** chèn watermark logo khi xuất (logo đã nằm trong banner nếu user thiết kế vậy).
-- **Analytics client**: hàm `track()` (`lib/analytics.ts`) gửi payload type-safe tới `POST /api/track` (kèm `user_id` từ Clerk khi có).
-
-## Backend (BE)
-
-- **Route Handlers** chạy trên server Node, đọc biến môi trường **chỉ server** (`GEMINI_API_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`).
-- **RBAC**: `lib/authz.ts` định nghĩa role `admin` | `mod` | `editor` và permission; `lib/require-user.ts` có `requirePermissionJson()` để chặn user chưa đăng nhập, user **blocked**, hoặc thiếu quyền (403 JSON).
-- **Generate** (`/api/generate`): cần permission `generate_image`; validate body (gồm `imageModel`: `nano-banana-pro` | `nano-banana-2`), ghép prompt qua `assembleFullPrompt` (gồm `buildCohesionInstructions()`), gọi Gemini multimodal; khi thành công chạy **harmony pass** ngầm (`runHarmonyPass`, best-effort 30s); trả ảnh base64/data URL + `meta.harmonyApplied` hoặc placeholder + `failedStep` / `placeholderError` khi lỗi.
-- **Enhance** (`/api/enhance-prompt`): cần `generate_image`; meta-prompt viết lại `userPrompt`.
-- **Edit image** (`/api/edit-image`): cần `generate_image`; nhận `imageDataUrl` + `editPrompt`, gọi `geminiEditImage()` — chỉnh sửa nhẹ trên ảnh đã tạo (vị trí, góc, màu cơ bản), không tạo composition mới từ đầu.
-- **Proxy ảnh** (`/api/proxy-image`): stream ảnh remote, giảm rủi ro SSRF bằng validate URL.
-- **Track** (`/api/track`): insert một dòng vào `banner_events`.
-- **Sessions (user)** (`GET`/`DELETE /api/sessions`): danh sách / thu hồi phiên Clerk của user hiện tại; không cần Postgres.
-- **Sessions (admin)** (`GET`/`DELETE /api/dashboard/users/sessions`): xem/thu hồi phiên user khác; permission `block_user`; audit `session_revoke`.
-- **Dashboard** (`GET /api/dashboard`, `GET/PATCH/POST/DELETE /api/dashboard/users`): aggregate SQL theo khoảng thời gian; users enrich tên/email + **role** / **blocked** từ Clerk metadata; bảng Top Users có nút **Phiên** mở `UserSessionsDialog`. Hành động admin (đổi role, block, xóa user, thu hồi phiên) ghi **audit** qua `lib/dashboard-audit.ts` → `banner_events` với `event_name = admin_audit` (`style` = loại hành động, `canvas_size` = chuỗi chi tiết).
+- **`app/`** — Trang (`page.tsx`), layout, Route Handlers dưới `app/api/**/route.ts`.
+- **`components/`** — UI theo vùng: `canvas/`, `layout/`, `prompt/`, `dashboard/`, `account/`, `auth/`, `assets/`, `results/`, `ui/`.
+- **`lib/`** — Logic dùng chung: `gemini-server.ts`, `prompt-builder.ts`, `client-generation.ts`, `analytics.ts`, `authz.ts`, `require-user.ts`, `request-limits.ts`, `clerk-sessions.ts`, `dashboard*.ts`, `db.ts`, `validate-generation.ts`, presets canvas.
+- **`store/`** — Zustand: canvas config, assets, prompt/style, ảnh đã tạo, `currentBannerId` (analytics).
+- **`proxy.ts`** — export `clerkMiddleware()` (Next.js 16 dùng tên file `proxy.ts` thay cho `middleware.ts`).
+- **`docs/`** — tài liệu dự án (file này + frontend/backend/api/deploy/workflow).
 
 ## Luồng tạo ảnh (high level)
 
-1. Client thu thập `canvasConfig`, `assets` (data URL), `userPrompt`, `styleControls`, v.v.
-2. `POST /api/generate` → server ghép prompt (`buildCohesionInstructions` trong creative layer) → `geminiGenerateOneImage` với parts text + image.
-3. Nếu Gemini OK: `runHarmonyPass` (cohesion-only edit, timeout 30s, không làm fail request nếu lỗi).
-4. Phản hồi thành công: một `image` (data URL) + `meta` (model, thời gian, token, cost ước lượng, `harmonyApplied`).
-5. Client cập nhật Zustand (`generationStats`, badge **「Đã tinh chỉnh hòa hợp」** khi `harmonyApplied === true`); hiển thị preview; có thể `track('generate_banner', …)`.
-6. Khi preview hiển thị, có thể `track('preview_banner', …)` (một lần theo `currentBannerId`).
-7. Tùy chọn: user nhập prompt chỉnh sửa → `POST /api/edit-image` → cập nhật ảnh trong store.
-8. Export file → `track('export_banner', …)`.
+1. Client thu thập `canvasConfig`, `assets` (kèm data URL), `userPrompt`, `styleControls`, `marketingBrief`.
+2. `POST /api/generate` → server validate + ghép prompt (`assembleFullPrompt`, gồm `buildCohesionInstructions`) → gọi Gemini multimodal theo `imageModel`.
+3. Nếu Gemini OK: chạy ngầm `runHarmonyPass` (chỉnh cohesion, best-effort, timeout riêng ~30s).
+4. Trả `{ image, source, meta }` (`meta.harmonyApplied`) khi thành công, hoặc ảnh placeholder + `failedStep`/`placeholderError` khi lỗi.
+5. Client cập nhật Zustand, hiển thị preview + status box; có thể `track(...)` sự kiện.
+6. Tuỳ chọn: `POST /api/edit-image` (chỉnh nhẹ) hoặc tab **Biến thể kích thước** (luôn dùng flash + layout adaptation từ banner gốc).
+7. Export (Canvas API, không watermark) → `track('export_banner', …)`.
 
-### Tab Biến thể kích thước
+Chi tiết từng bước, component, và endpoint: xem [Frontend](./frontend.md), [Backend](./backend.md), [API Reference](./api.md).
 
-- UI: `components/canvas/AdditionalCanvasSizesPanel.tsx` (tab trong `CanvasArea`).
-- User chọn preset khác kích thước canvas gốc; mỗi preset có icon silhouette tỉ lệ (`PresetAspectShape`) + nhãn tỉ lệ gọn (vd. `16:9`).
-- Generate biến thể: luôn **Nano Banana 2** + layout adaptation từ banner gốc; không chạy harmony pass riêng trên từng biến thể (chỉ luồng generate chính).
+## Auth & Analytics (tóm tắt)
 
-## Auth (Clerk)
-
-- **Middleware** (`proxy.ts`): matcher áp dụng cho các route UI và `/api`, theo cấu hình Clerk.
-- **Client**: `SignInButton` (redirect → `/sign-in`), `UserButton`, `Show` (signed-in / signed-out); form `<SignIn />` username/password theo cấu hình Clerk Dashboard (không OAuth Google trong code).
-- **Server**: `auth()` / `clerkClient()` dùng ở các route cần identity; **role** lưu trong `privateMetadata.role` hoặc `publicMetadata.role` (giá trị: `admin` | `mod` | `editor`); **blocked** trong `privateMetadata.blocked` hoặc `publicMetadata.blocked` (boolean). Email `thanhnghiep1208@gmail.com` luôn được coi là **admin** (override trong `lib/authz.ts`). **Mod** không được promote user lên `admin` (server trả 403).
-- **Đa phiên (multi-device)**: Clerk mặc định cho phép một user đăng nhập đồng thời trên nhiều trình duyệt/thiết bị (mỗi nơi một session cookie). App **không** giới hạn số phiên trong code.
-- **Quản lý phiên**: `lib/clerk-sessions.ts` gọi Clerk Sessions API (`getSessionList` lọc `status: active`, `revokeSession`). User tự quản lý tại `/account/sessions`. Admin chỉ **admin** có `block_user` (mod không có) — xem/thu hồi phiên qua dashboard. Thu hồi phiên đang dùng → client redirect `/sign-in` khi `revokedCurrent: true`.
-
-## Analytics & Dashboard
-
-- Mọi event chuẩn hóa tên trong `lib/analytics-events.ts`; `track()` đảm bảo type an toàn theo từng event.
-- **Persistence**: `POST /api/track` ghi vào PostgreSQL; không có `DATABASE_URL` thì endpoint này (và dashboard) sẽ lỗi khi gọi.
-- **Dashboard UI** (`/dashboard`): client component; sau khi **hydrate** client mới phân nhánh signed-in (tránh hydration mismatch với Clerk); polling định kỳ khi đã đăng nhập; lọc **Today / 7 ngày / 30 ngày** (query `range`); layout ưu tiên **ít viền lồng nhau**, section rõ; bảng Top Users (role badge màu, quản trị theo quyền).
-
-## Mô hình AI
-
-- **Generate (chọn được)**: `nano-banana-pro` → `gemini-3-pro-image-preview`; `nano-banana-2` → `gemini-3.1-flash-image-preview` (mặc định Pro trên UI chính).
-- **Biến thể kích thước** (tab riêng): luôn dùng **Nano Banana 2** (flash) + chế độ giữ layout/copy chặt hơn; có thể auto-retry một lần khi lỗi/placeholder.
-- **Harmony pass**: chỉ sau generate chính thành công (`source === "gemini"`); prompt cohesion cũng được inject lúc generate qua `buildCohesionInstructions()`.
-- **Enhance / edit-image**: enhance dùng model text; edit-image / harmony dùng `geminiEditImage` / `buildHarmonyImagePrompt` trong `lib/gemini-server.ts`.
-- Timeout tách: enhance ~30s; harmony pass ~30s; generate ảnh ~58s (+ harmony); route generate `maxDuration` 90s; client generate ~92s; mã `[E-GEN-CLIENT-TIMEOUT]` khi client hết hạn.
-- Xử lý **503 high demand** Gemini: thông điệp riêng (không gộp chung quota) — xem `normalizeGenerationError` trong `app/api/generate/route.ts`.
+- **Clerk** quản lý session; role (`admin`/`mod`/`editor`) + `blocked` lưu trong Clerk metadata; hỗ trợ đa phiên/đa thiết bị, user tự quản lý tại `/account/sessions`, admin quản lý qua dashboard. Chi tiết RBAC: [Backend § RBAC](./backend.md#rbac-libauthzts-librequire-userts).
+- **Analytics**: mọi event chuẩn hoá tên trong `lib/analytics-events.ts`, ghi qua `POST /api/track` xuống Postgres; dashboard (`/dashboard`) tổng hợp theo khoảng thời gian. Chi tiết: [Backend § Analytics & Dashboard DB](./backend.md#analytics--dashboard-db-postgresql).
 
 ## Tài liệu liên quan
 
-- [Development Guide](./development-guide.md) — cấu hình env, workflow chi tiết.
-- [Deploy](./deploy.md) — Vercel, Clerk, domain, Postgres production.
+- [Frontend](./frontend.md) — cấu trúc UI, state, luồng tương tác.
+- [Backend](./backend.md) — Route Handlers, RBAC, Gemini, bảo mật.
 - [API Reference](./api.md) — contract từng endpoint.
-
+- [Deploy](./deploy.md) — Vercel, Clerk, domain, Postgres production.
+- [Workflow](./workflow.md) — setup local, env, checklist thử nghiệm.
