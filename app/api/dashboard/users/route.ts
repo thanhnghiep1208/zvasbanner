@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 
-import { invalidateUserAccessCache, type UserRole } from "@/lib/authz";
+import { getUserRoleByUserId, invalidateUserAccessCache, type UserRole } from "@/lib/authz";
 import { fetchDashboardUsersPage } from "@/lib/dashboard-users-query";
 import { parseDashboardRange } from "@/lib/dashboard";
 import { logDashboardAuditEvent } from "@/lib/dashboard-audit";
@@ -77,11 +77,20 @@ export async function PATCH(req: Request) {
   if (!isPatchRoleBody(body)) {
     return NextResponse.json({ error: "Dữ liệu đổi role không hợp lệ." }, { status: 400 });
   }
-  if (authGate.role === "mod" && body.role === "admin") {
-    return NextResponse.json(
-      { error: "Mod không được phép promote user lên admin." },
-      { status: 403 }
-    );
+  if (authGate.role === "mod") {
+    if (body.role === "admin") {
+      return NextResponse.json(
+        { error: "Mod không được phép promote user lên admin." },
+        { status: 403 }
+      );
+    }
+    const targetRole = await getUserRoleByUserId(body.targetUserId);
+    if (targetRole === "admin") {
+      return NextResponse.json(
+        { error: "Mod không được phép chỉnh quyền của admin." },
+        { status: 403 }
+      );
+    }
   }
   try {
     const client = await clerkClient();
