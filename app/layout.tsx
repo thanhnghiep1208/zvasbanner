@@ -34,6 +34,7 @@ export default function RootLayout({
           signInUrl="/sign-in"
           signInFallbackRedirectUrl="/"
           afterSignOutUrl="/"
+          telemetry={false}
           appearance={{
             elements: {
               footer: "hidden",
