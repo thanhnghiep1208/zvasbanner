@@ -7,10 +7,16 @@ import {
   type ImageGenerationMeta,
 } from "@/lib/gemini-server";
 import { parseCanvasConfig } from "@/lib/validate-generation";
+import { createRateLimiter, readJsonWithSizeLimit } from "@/lib/request-limits";
 
 export const maxDuration = 60;
 
 const EDIT_TIMEOUT_MS = 45_000;
+
+// A single edit request carries one base64 image + a short prompt.
+const MAX_REQUEST_BODY_BYTES = 20 * 1024 * 1024;
+
+const checkRateLimit = createRateLimiter(20, 60 * 60 * 1000); // 20 req/hr/user
 
 type EditImageBody = {
   imageDataUrl: string;
@@ -93,17 +99,19 @@ export async function POST(req: Request) {
   });
   if (authGate instanceof NextResponse) return authGate;
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
+  if (!checkRateLimit(authGate.userId)) {
     return NextResponse.json(
-      { error: "Body JSON không hợp lệ. Vui lòng kiểm tra dữ liệu gửi lên." },
-      { status: 400 }
+      { error: "Bạn đã chỉnh sửa quá nhiều ảnh trong 1 giờ. Vui lòng thử lại sau." },
+      { status: 429 }
     );
   }
 
-  const parsed = parseEditImageBody(body);
+  const bodyResult = await readJsonWithSizeLimit(req, MAX_REQUEST_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+  }
+
+  const parsed = parseEditImageBody(bodyResult.body);
   if (!parsed) {
     return NextResponse.json(
       {
@@ -147,13 +155,14 @@ export async function POST(req: Request) {
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     const mapped = classifyEditError(reason);
+    console.error("[edit-image] gemini edit failed", reason);
     const meta: ImageGenerationMeta = {
       model: "gemini-3.1-flash-image-preview",
       elapsedMs: Date.now() - startedAt,
     };
     return NextResponse.json(
       {
-        error: `[${mapped.errorCode}] ${mapped.userMessage} (Chi tiết kỹ thuật: ${reason})`,
+        error: `[${mapped.errorCode}] ${mapped.userMessage}`,
         errorCode: mapped.errorCode,
         source: "error",
         meta,

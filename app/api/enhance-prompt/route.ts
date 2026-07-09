@@ -7,8 +7,14 @@ import {
   runGeminiEnhance,
 } from "@/lib/gemini-server";
 import { parseEnhancePromptBody } from "@/lib/validate-generation";
+import { createRateLimiter, readJsonWithSizeLimit } from "@/lib/request-limits";
 
 export const maxDuration = 60;
+
+// Body can carry asset data URLs for context, same scale as /api/generate.
+const MAX_REQUEST_BODY_BYTES = 30 * 1024 * 1024;
+
+const checkRateLimit = createRateLimiter(20, 60 * 60 * 1000); // 20 req/hr/user
 
 function normalizeEnhanceError(raw: string): { message: string; status: number } {
   const msg = raw.toLowerCase();
@@ -60,17 +66,19 @@ export async function POST(request: Request) {
   });
   if (authGate instanceof NextResponse) return authGate;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
+  if (!checkRateLimit(authGate.userId)) {
     return NextResponse.json(
-      { error: "Body JSON không hợp lệ. Vui lòng kiểm tra dữ liệu gửi lên." },
-      { status: 400 }
+      { error: "Bạn đã cải thiện prompt quá nhiều lần trong 1 giờ. Vui lòng thử lại sau." },
+      { status: 429 }
     );
   }
 
-  const parsed = parseEnhancePromptBody(body);
+  const bodyResult = await readJsonWithSizeLimit(request, MAX_REQUEST_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+  }
+
+  const parsed = parseEnhancePromptBody(bodyResult.body);
   if (!parsed) {
     return NextResponse.json(
       {
@@ -106,14 +114,8 @@ export async function POST(request: Request) {
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     const normalized = normalizeEnhanceError(message);
+    console.error("[enhance-prompt] gemini enhance failed", message);
 
-    return NextResponse.json(
-      {
-        error: `${normalized.message} (Chi tiết kỹ thuật: ${
-          message || "Enhancement failed"
-        })`,
-      },
-      { status: normalized.status }
-    );
+    return NextResponse.json({ error: normalized.message }, { status: normalized.status });
   }
 }

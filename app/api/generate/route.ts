@@ -11,33 +11,16 @@ import {
 import { assembleFullPrompt } from "@/lib/prompt-builder";
 import type { GenerationRequest } from "@/lib/types";
 import { parseGenerateApiBody } from "@/lib/validate-generation";
+import { createRateLimiter, readJsonWithSizeLimit } from "@/lib/request-limits";
 
 export const maxDuration = 90;
 
 const ASSET_PRIORITY_TIMEOUT_MS = 58_000;
 
-// 30 MB ceiling checked via Content-Length before JSON parse.
+// 30 MB ceiling enforced on actual bytes read, not just Content-Length.
 const MAX_REQUEST_BODY_BYTES = 30 * 1024 * 1024;
 
-// Per-instance sliding window rate limit (20 req/hr/user).
-// For distributed enforcement across serverless instances, replace with Redis/KV.
-const RATE_LIMIT_MAX_PER_HOUR = 20;
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000;
-const rateLimitMap = new Map<string, number[]>();
-
-function checkRateLimit(userId: string): boolean {
-  const now = Date.now();
-  const cutoff = now - RATE_LIMIT_WINDOW_MS;
-  const prev = rateLimitMap.get(userId) ?? [];
-  const timestamps = prev.filter((t) => t > cutoff);
-  if (timestamps.length >= RATE_LIMIT_MAX_PER_HOUR) {
-    rateLimitMap.set(userId, timestamps);
-    return false;
-  }
-  timestamps.push(now);
-  rateLimitMap.set(userId, timestamps);
-  return true;
-}
+const checkRateLimit = createRateLimiter(20, 60 * 60 * 1000); // 20 req/hr/user
 
 function normalizeGenerationError(raw: string): {
   userMessage: string;
@@ -177,6 +160,7 @@ async function generateOneVariation(
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     const normalized = normalizeGenerationError(reason);
+    console.error("[generate] gemini image generation failed", reason);
     return {
       image: buildPlaceholderDataUrl(width, height),
       source: "placeholder",
@@ -186,7 +170,7 @@ async function generateOneVariation(
       },
       failedStep: "gemini-3.1-flash-image-preview",
       errorCode: normalized.errorCode,
-      placeholderError: `${normalized.userMessage} (Chi tiết kỹ thuật: ${reason})`,
+      placeholderError: normalized.userMessage,
     };
   }
 }
@@ -199,14 +183,6 @@ export async function POST(req: Request) {
   });
   if (authGate instanceof NextResponse) return authGate;
 
-  const contentLength = req.headers.get("content-length");
-  if (contentLength && parseInt(contentLength, 10) > MAX_REQUEST_BODY_BYTES) {
-    return NextResponse.json(
-      { error: "Request payload quá lớn. Vui lòng giảm dung lượng ảnh upload." },
-      { status: 413 }
-    );
-  }
-
   if (!checkRateLimit(authGate.userId)) {
     return NextResponse.json(
       { error: "Bạn đã tạo quá nhiều ảnh trong 1 giờ. Vui lòng thử lại sau." },
@@ -214,17 +190,12 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Body JSON không hợp lệ. Vui lòng kiểm tra dữ liệu gửi lên." },
-      { status: 400 }
-    );
+  const bodyResult = await readJsonWithSizeLimit(req, MAX_REQUEST_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
 
-  const parsed = parseGenerateApiBody(body);
+  const parsed = parseGenerateApiBody(bodyResult.body);
   if (!parsed) {
     return NextResponse.json(
       { error: "Dữ liệu tạo ảnh không hợp lệ (GenerationRequest)." },
