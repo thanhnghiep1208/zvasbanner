@@ -64,7 +64,7 @@ function formatAssetLine(asset: UploadedAsset): string {
  * Layer 2 — Structured context: canvas, assets (by role with URLs), brand kit, and industry context.
  */
 export function buildContextBlock(config: GenerationRequest): string {
-  const { canvasConfig, assets, brandKit, marketingBrief } = config;
+  const { canvasConfig, assets, brandKit } = config;
   const lines: string[] = [];
 
   lines.push("Canvas");
