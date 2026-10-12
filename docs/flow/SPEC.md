@@ -138,7 +138,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 ### Bước 1 – Đóng nền domain
 - [x] **T1.1** Đọc `GenerationRequest` và payload form gửi `/api/generate`; ghi bảng mapping vào `lib/flow/legacy/README.md`; sửa `lib/flow/schema.ts` khớp type thật (Q6): `ModelId` → `ImageGenerationModel`, `StyleControls`, `MarketingBrief`, đủ `AssetRole`, `BrandKit` inline, `RatioSpec` theo preset id + `platform`/`name`
 - [x] **T1.1b** Bỏ node `harmony-pass`; `generate-flat` có `aiCallsPerRatio = 2`; cập nhật compiler/decompiler/`estimateAiCalls`/test (Q4)
-- [ ] **T1.2** `from-legacy-config.ts` + test
+- [x] **T1.2** `from-legacy-config.ts` + test
 - [ ] **T1.3** `to-legacy-config.ts` + test
 - [ ] **T1.4** Thay fixture giả bằng ≥3 payload `GenerationRequest` thật log từ form chạy local (bỏ `dataUrl`, ẩn dữ liệu nhạy cảm), bổ sung case tự dựng nếu thiếu (Q1); round-trip `legacy → job → graph → job → legacy` khớp
 - [ ] **T1.5** Thiết kế model text layer mới (font family/weight/size, line-height, color, align, max lines…) thay `typography: Record<string, unknown>` (Q2)
@@ -198,3 +198,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 
 - **2026-10-12** – Xong T1.1. Schema khớp `lib/types.ts` (Q6A): `ModelId = ImageGenerationModel`, `RatioSpec = CanvasConfig + id`, asset node mang `FlowAsset` (role pixel: image/logo/decoration; role tham chiếu: style-reference/background), `brand-kit = BrandKit`, `style = StyleControls` bỏ `strictPreserveMode`, brief có `marketingBrief`, export theo `exportBanner()`. Mapping ở `lib/flow/legacy/README.md`. 21 test pass, tsc pass. Thêm Q7 (kho lưu asset), Q8 (route composed). Tiếp theo: T1.1b.
 - **2026-10-12** – Xong T1.1b (Q4B). Bỏ node `harmony-pass` khỏi schema/registry/compiler/decompiler; `generate-flat.aiCallsPerRatio = 2`; `estimateAiCalls` đọc `aiCallsPerRatio` từ `NODE_DEFINITIONS`; bỏ `CompiledJob.flat.harmonyPass`. 21 test pass, tsc pass. Tiếp theo: T1.2.
+- **2026-10-12** – Xong T1.2. `lib/flow/legacy/from-legacy-config.ts`: `fromLegacyConfig(request, { form? }) → { job, runtime }`, tách text bằng `splitComposedPrompt()` (test đối chiếu với `composeUserPrompt` thật), asset chia theo role, `dataUrl`/`layoutAdaptationFromBanner` vào `runtime`. Thêm `vitest.config.mts` (alias `@/`). 38 test pass, tsc pass. Tiếp theo: T1.3.

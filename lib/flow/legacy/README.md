@@ -55,3 +55,12 @@ Các field này chỉ dùng trong canvas, `toLegacyConfig` bỏ qua:
 Chỉ hợp lệ với `renderMode = 'flat'`. Với `composed` phải trả lỗi rõ ràng, không được âm thầm chuyển sang flat.
 
 Harmony pass không có node riêng (Q4). Server luôn chạy `runHarmonyPass` sau mỗi lần generate Gemini thành công, nên `generate-flat` được tính `aiCallsPerRatio = 2`.
+
+## Trạng thái
+
+- `from-legacy-config.ts` (T1.2): `fromLegacyConfig(request, { form? }) → { job, runtime }`.
+  - `runtime` giữ `dataUrls[assetId]` và `layoutAdaptationFromBanner`. Hai thứ này không vào graph, nhưng `toLegacyConfig` cần lại để dựng request.
+  - Text: có `form` thì dùng thẳng 3 field (lossless); không có thì `splitComposedPrompt()` tách các dòng `Headline:` / `Subheadline:` / `CTA:` ở cuối prompt. Chỉ nhận nhãn đúng thứ tự, mỗi nhãn tối đa 1 lần.
+  - Flat: `renderSource` của text layer để mặc định `'layer'` và bị bỏ qua, vì Gemini vẽ mọi chữ.
+  - Request thiếu `marketingBrief` → mảng rỗng. Vì vậy request đi round-trip sẽ có thêm field này; form luôn gửi nên không ảnh hưởng.
+- `to-legacy-config.ts` (T1.3): chưa có.
