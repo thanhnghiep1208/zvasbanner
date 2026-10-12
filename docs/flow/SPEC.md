@@ -17,11 +17,11 @@ Graph là source of truth duy nhất.
 ## 2. Nguyên tắc không được vi phạm
 
 1. **Asset fidelity**: pixel gốc của sản phẩm không bao giờ đi qua model AI (trừ executor `legacy`). Đã khoá bằng test `rules.test.ts`; không được xoá hoặc nới test này.
-2. **Không viết lại pipeline cũ** trong P1. Graph biên dịch xuống `CompiledJob` → adapter → input mà pipeline hiện tại đã hiểu. Không sửa Route Handler, `lib/prompt-builder.ts`, `lib/export.ts`, `lib/text-layer-render.ts` trừ khi task ghi rõ; nếu buộc phải sửa, dừng lại và ghi câu hỏi (mục 9).
+2. **Không viết lại pipeline cũ** trong P1. Graph biên dịch xuống `CompiledJob` → adapter → input mà pipeline hiện tại đã hiểu. Không sửa Route Handler, `lib/prompt-builder.ts`, `lib/export.ts`, `lib/gemini-server.ts`, `lib/client-generation.ts` trừ khi task ghi rõ; nếu buộc phải sửa, dừng lại và ghi câu hỏi (mục 9).
 3. **`lib/flow/` là domain thuần**: không import React, React Flow, Next.js, Zustand.
 4. **Feature flag**: mọi UI mới nằm sau `FLOW_CANVAS` (`lib/flags.ts`). Form cũ giữ nguyên đến bước 6.
 5. **Không persist graph vào localStorage**. Lưu Postgres (JSONB) qua `StoredFlowDoc` với `schemaVersion`.
-6. **Không đoán field**: trước khi dùng type có sẵn (canvasConfig, TextLayer, UploadedAsset, ComposedDoc, ProductLayer, ShadowConfig, LightingProfile…), tìm và đọc định nghĩa thật trong repo.
+6. **Không đoán field**: trước khi dùng type có sẵn, đọc định nghĩa thật trong `lib/types.ts` (`GenerationRequest`, `CanvasConfig`, `UploadedAsset`, `AssetRole`, `BrandKit`, `StyleControls`, `ImageGenerationModel`, `MarketingBrief`) và tái sử dụng, không định nghĩa lại. Repo **không có** `TextLayer`, `ComposedDoc`, `ProductLayer`, `LightingProfile`, `lib/text-layer-render.ts`: các phần này phải xây mới (Q2, Q3).
 7. Rate limit hiện có (20 request/giờ/user) và body size cap phải được tôn trọng; graph không được tạo đường vòng qua chúng.
 
 ## 3. Quyết định đã chốt (composed mode)
@@ -47,7 +47,9 @@ Style/Brand/Ref┘        └──── transforms ─────────
 |---|---|---|
 | Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có, 21 test pass |
 | IR | `lib/flow/compiled-job.ts` (`CompiledJob`, `estimateAiCalls`) | Có |
-| Adapter legacy | `lib/flow/legacy/to-legacy-config.ts`, `from-legacy-config.ts` | **Chưa có** |
+| Adapter legacy | `lib/flow/legacy/to-legacy-config.ts`, `from-legacy-config.ts` (legacy = `GenerationRequest`) | **Chưa có** |
+| Text layer + renderer | `lib/flow/text/` (model) + renderer Canvas 2D | **Chưa có, xây mới (Q2)** |
+| Compose | `lib/flow/compose/` (Canvas 2D) | **Chưa có, xây mới (Q3)** |
 | Layout engine | `lib/flow/layout/` | **Chưa có** |
 | Executor engine | `lib/flow/executor.ts` | **Chưa có** |
 | RF adapter | `lib/flow-ui/rf-adapter.ts` (FlowNode ↔ React Flow node) | **Chưa có** |
@@ -55,7 +57,7 @@ Style/Brand/Ref┘        └──── transforms ─────────
 | UI | `components/flow/` | Canvas trống |
 | Route | `app/(studio)/flow/page.tsx` (hoặc `src/app/...`) | Có, sau flag |
 
-Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, brief, text-layer, brand-kit, ratio, style, auto-layout, generate-background, generate-flat (legacy), harmony-pass, compose, export.
+Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, brief, text-layer, brand-kit, ratio, style, auto-layout, generate-background, generate-flat (legacy, đã gồm harmony pass server-side: 2 AI call/ratio), compose, export. Node `harmony-pass` bị bỏ (Q4).
 
 ## 5. Spec chi tiết theo module
 
@@ -68,7 +70,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - Input: products (kèm kích thước + alpha bbox nếu có), textLayers (content, role, priority, minFontSizePx, typography), ratio, overrides.
 - Phân loại ratio: `landscape` (>1.2), `square` (0.8–1.2), `portrait` (<0.8), `ultra-wide` (>2.5). Mỗi loại có ≥2 layout variant gồm các slot: product, headline, subline, cta, logo.
 - Thuật toán khi không vừa, theo thứ tự: thu nhỏ product tới `minScale` → giảm font tới `minFontSizePx` (layer priority thấp co trước) → thử variant kế tiếp → trả `{ ok: false, reason }`.
-- Đo text bằng cùng logic font metrics của `lib/text-layer-render.ts` để khớp WYSIWYG giữa DOM preview và canvas export.
+- Đo text bằng cùng text renderer Canvas 2D mới (Q2) dùng cho preview và export để khớp WYSIWYG.
 - Output `LayoutPlan`: `transforms[ratioId][elementId]`, `guide[ratioId]` (danh sách rect để vẽ layout guide image), `variantId`.
 - Override tay luôn thắng; sửa content chỉ tính lại ratio chưa bị override.
 - Pure function, deterministic, có unit test cho mỗi ratio class và trường hợp không vừa.
@@ -80,7 +82,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - Mỗi ratio = 1 lần gọi. Hiển thị `estimateAiCalls()` trước khi Run.
 
 ### 5.4 Compose + auto shadow
-- Compose client-side theo hệ thống composed mode hiện có (tìm ComposedDoc/ProductLayer trong repo, tái sử dụng).
+- Compose client-side **viết mới** bằng Canvas 2D (repo chưa có composed mode, Q3): nền + product alpha + contact shadow + text layer. Không thêm thư viện canvas (Konva/Fabric).
 - Auto shadow P1: contact shadow mềm dưới đáy alpha bbox, lệch theo `lightDirectionDeg`. Product không alpha → shadow tắt + warning `product-no-alpha` (đã có trong `validate.ts`).
 - Custom: opacity, blurPx, offsetX, offsetY chỉnh trong inspector.
 
@@ -108,7 +110,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 
 ### 5.8 Persistence + migration
 - Bảng/cột lưu `StoredFlowDoc` (JSONB). Migration DB theo cách repo đang làm (tìm helper `pool`).
-- Script migrate project cũ: config cũ → `fromLegacyConfig` → `decompileJob` → lưu. Chạy dry-run trước, log project không migrate được.
+- App cũ không lưu project nên không có dữ liệu migrate (Q5). Thay bằng nút "Mở trong canvas" trên form: state editor → `GenerationRequest` → `fromLegacyConfig` → `decompileJob`.
 
 ### 5.9 Analytics
 Dùng `lib/analytics-events.ts`. Event mới: `flow_opened`, `flow_run_started` (aiCalls), `flow_run_completed` (durationMs, renderMode), `flow_run_failed` (code), `flow_view_switched` (simple/canvas), `flow_template_used`.
@@ -134,11 +136,12 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 ## 8. Task list
 
 ### Bước 1 – Đóng nền domain
-- [ ] **T1.1** Tìm type canvasConfig/TextLayer/UploadedAsset và payload flow form gửi lên API; ghi bảng mapping vào `lib/flow/legacy/README.md`
+- [ ] **T1.1** Đọc `GenerationRequest` và payload form gửi `/api/generate`; ghi bảng mapping vào `lib/flow/legacy/README.md`; sửa `lib/flow/schema.ts` khớp type thật (Q6): `ModelId` → `ImageGenerationModel`, `StyleControls`, `MarketingBrief`, đủ `AssetRole`, `BrandKit` inline, `RatioSpec` theo preset id + `platform`/`name`
+- [ ] **T1.1b** Bỏ node `harmony-pass`; `generate-flat` có `aiCallsPerRatio = 2`; cập nhật compiler/decompiler/`estimateAiCalls`/test (Q4)
 - [ ] **T1.2** `from-legacy-config.ts` + test
 - [ ] **T1.3** `to-legacy-config.ts` + test
-- [ ] **T1.4** Thay fixture giả bằng ≥3 config thật (ẩn dữ liệu nhạy cảm); round-trip `legacy → job → graph → job → legacy` khớp
-- [ ] **T1.5** Bổ sung `typography` trong text-layer theo TextLayer thật (bỏ `Record<string, unknown>`)
+- [ ] **T1.4** Thay fixture giả bằng ≥3 payload `GenerationRequest` thật log từ form chạy local (bỏ `dataUrl`, ẩn dữ liệu nhạy cảm), bổ sung case tự dựng nếu thiếu (Q1); round-trip `legacy → job → graph → job → legacy` khớp
+- [ ] **T1.5** Thiết kế model text layer mới (font family/weight/size, line-height, color, align, max lines…) thay `typography: Record<string, unknown>` (Q2)
 
 ### Bước 2 – Canvas chạy được 1 path
 - [ ] **T2.1** `lib/flow-ui/rf-adapter.ts`: FlowNode/FlowEdge ↔ React Flow node/edge (handle id = port id)
@@ -155,9 +158,9 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 ### Bước 4 – Đủ parity
 - [ ] **T4.1** Layout engine đầy đủ (variant, co giãn, báo lỗi không vừa, override theo ratio) + test
 - [ ] **T4.2** Layout guide image + prompt Generate BG theo 5.3
-- [ ] **T4.3** Compose + auto shadow theo 5.4
-- [ ] **T4.4** Text layer đầy đủ, `renderSource` cho headline
-- [ ] **T4.5** Harmony pass (flat), Brand kit, Reference image
+- [ ] **T4.3** Compose (viết mới, Canvas 2D) + auto shadow theo 5.4
+- [ ] **T4.4** Text renderer Canvas 2D mới (dùng chung preview/export/layout), `renderSource` cho headline
+- [ ] **T4.5** Brand kit, Reference image (harmony pass đã nằm trong `generate-flat`, Q4)
 - [ ] **T4.6** Export nhiều ratio, chọn subset
 - [ ] **T4.7** Executor: cache, stale, Run từ node, hiển thị `estimateAiCalls` trước Run
 
@@ -169,7 +172,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 
 ### Bước 6 – Migration + rollout
 - [ ] **T6.1** Bảng/cột lưu StoredFlowDoc + API lưu/tải graph
-- [ ] **T6.2** Script migrate project cũ (dry-run + log lỗi)
+- [ ] **T6.2** Nút "Mở trong canvas" trên form cũ: state editor → `fromLegacyConfig` → `decompileJob` (Q5)
 - [ ] **T6.3** Analytics events mục 5.9
 - [ ] **T6.4** Flag theo % user (thay allowlist)
 - [ ] **T6.5** Chỉ khi Nghiệp duyệt số liệu: chuyển entry chính sang `/flow`, gỡ form
