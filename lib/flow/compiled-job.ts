@@ -1,19 +1,20 @@
 import type {
-  ModelId, NodeParamsMap, RatioSpec, ShadowConfig, Transform,
+  FlowStyle, ModelId, NodeParamsMap, RatioSpec, ShadowConfig, Transform,
 } from './schema';
+import type { BrandKit } from '@/lib/types';
 
 /**
  * CompiledJob – IR trung gian giữa graph và pipeline hiện có.
- * Graph → CompiledJob (compiler.ts) → canvasConfig (to-legacy-config.ts, viết khi có type thật).
+ * Graph → CompiledJob (compiler.ts) → GenerationRequest (legacy/to-legacy-config.ts).
  */
 export interface CompiledJob {
   schemaVersion: 1;
   renderMode: 'composed' | 'flat';
   ratios: RatioSpec[];
   brief: NodeParamsMap['brief'];
-  style?: NodeParamsMap['style'];
-  brandKitId?: string;
-  referenceAssetIds: string[];
+  style?: FlowStyle;
+  brandKit?: BrandKit;
+  references: NodeParamsMap['reference-image'][];
   model: ModelId;
   products: NodeParamsMap['product-asset'][];
   textLayers: NodeParamsMap['text-layer'][];

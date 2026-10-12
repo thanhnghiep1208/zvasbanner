@@ -36,7 +36,7 @@ describe('canConnect', () => {
   });
   it('port đơn đã có kết nối bị chặn', () => {
     const g = { ...graph, nodes: [...graph.nodes, {
-      id: 'n-brief-2', type: 'brief' as const, params: { prompt: 'x', chips: [] }, position: { x: 0, y: 0 },
+      id: 'n-brief-2', type: 'brief' as const, params: { prompt: 'x', marketingBrief: { campaignIntents: [], focalSubjects: [] } }, position: { x: 0, y: 0 },
     }] };
     expect(canConnect(g, {
       source: 'n-brief-2', sourcePort: 'brief', target: 'n-generate', targetPort: 'brief',
@@ -75,10 +75,10 @@ describe('validateGraph', () => {
     expect(validateGraph(g).map((i) => i.code)).toContain('missing-input');
     expect(compileGraph(g).ok).toBe(false);
   });
-  it('subline render AI → lỗi', () => {
+  it('subheadline render AI → lỗi', () => {
     const g = decompileJob(composedMinimal);
     const t = g.nodes.find((n) => n.type === 'text-layer')!;
-    (t.params as { role: string; renderSource: string }).role = 'subline';
+    (t.params as { role: string; renderSource: string }).role = 'subheadline';
     (t.params as { role: string; renderSource: string }).renderSource = 'ai';
     expect(validateGraph(g).map((i) => i.code)).toContain('ai-text-role');
   });

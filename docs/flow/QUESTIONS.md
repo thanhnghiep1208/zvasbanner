@@ -57,3 +57,19 @@ Lựa chọn:
 - B. Giữ schema, xử lý lệch trong adapter.
 Đề xuất: A, làm trước khi có dữ liệu lưu thật. Tái sử dụng type từ `lib/types.ts` thay vì định nghĩa lại.
 Trạng thái: **đã chốt A** (2026-10-12)
+
+## Q7 – Asset không có kho lưu bền (task T6.1, không chặn bước 1–2)
+Bối cảnh: Khi upload, form tạo `url` dạng `blob:` (mất khi reload) và `dataUrl` giữ trong bộ nhớ (`components/assets/AssetUploader.tsx`, `store/editor.ts`). Repo không có kho lưu file (S3/R2/Vercel Blob). Graph lưu Postgres chỉ giữ `FlowAsset` (`assetId`, `url`…), nên mở lại project đã lưu sẽ không có ảnh.
+Lựa chọn:
+- A. Thêm kho lưu asset (Vercel Blob hoặc S3/R2), upload khi thêm node asset, `url` là URL bền.
+- B. P1 chưa lưu graph có asset: lưu/tải graph nhưng yêu cầu upload lại ảnh khi mở.
+Đề xuất: A, quyết trước T6.1 (là hạ tầng mới, cần duyệt theo mục 6.5 của SPEC).
+Trạng thái: chờ Nghiệp
+
+## Q8 – Composed mode cần Route Handler mới (task T4.2, mục 5.5)
+Bối cảnh: `/api/generate` chỉ sinh ảnh flat hoàn chỉnh từ `GenerationRequest`. Composed cần sinh **chỉ background** từ layout guide image, cấm chữ, không gửi pixel sản phẩm. Body và prompt khác hẳn, nên `toLegacyConfig` không biểu diễn được. Mục 5.5 ghi "Executor gọi API qua Route Handler hiện có".
+Lựa chọn:
+- A. Thêm route mới `app/api/flow/generate-background/route.ts` (không sửa route cũ), dùng lại `createRateLimiter(20, 1h)`, `readJsonWithSizeLimit`, `requireUser`, model profile trong `lib/gemini-server.ts` (chỉ import, không sửa).
+- B. Thêm nhánh `mode: 'background'` vào `/api/generate` (sửa route cũ, trái nguyên tắc 2.2).
+Đề xuất: A. Cần quyết thêm: rate limit dùng chung bucket với `/api/generate` hay bucket riêng (nguyên tắc 2.7: không tạo đường vòng → nên dùng chung).
+Trạng thái: chờ Nghiệp

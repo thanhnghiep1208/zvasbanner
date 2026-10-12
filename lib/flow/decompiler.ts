@@ -26,13 +26,11 @@ export function decompileJob(job: CompiledJob): FlowGraph {
   const brief = add('n-brief', 'brief', job.brief, COL.input);
   const products = job.products.map((p, i) => add(`n-product-${i}`, 'product-asset', p, COL.input));
   const texts = job.textLayers.map((t) => add(`n-text-${t.layerId}`, 'text-layer', t, COL.input));
-  const refs = job.referenceAssetIds.map((assetId, i) =>
-    add(`n-ref-${i}`, 'reference-image', { assetId }, COL.input));
+  const refs = job.references.map((r, i) => add(`n-ref-${i}`, 'reference-image', r, COL.input));
 
   const ratio = add('n-ratio', 'ratio', { ratios: job.ratios }, COL.config);
   const style = job.style ? add('n-style', 'style', job.style, COL.config) : undefined;
-  const brand = job.brandKitId
-    ? add('n-brand', 'brand-kit', { brandKitId: job.brandKitId }, COL.config) : undefined;
+  const brand = job.brandKit ? add('n-brand', 'brand-kit', job.brandKit, COL.config) : undefined;
 
   const exportNode = (x: number) => add('n-export', 'export', job.export, x, 0);
 

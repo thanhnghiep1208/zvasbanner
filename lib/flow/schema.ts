@@ -1,13 +1,26 @@
 /**
  * Flow schema v1 – domain model thuần, KHÔNG phụ thuộc React Flow.
  * React Flow chỉ là lớp hiển thị; adapter sang RF node/edge ở bước 2.
+ *
+ * Type nghiệp vụ dùng lại từ `lib/types.ts` (Q6), không định nghĩa lại.
+ * Mapping với GenerationRequest: xem `lib/flow/legacy/README.md`.
  */
+import type {
+  AssetRole,
+  BrandKit,
+  CanvasConfig,
+  ImageGenerationModel,
+  MarketingBrief,
+  StyleControls,
+  UploadedAsset,
+} from '@/lib/types';
+
 export const FLOW_SCHEMA_VERSION = 1 as const;
 
 /* ── Port types ─────────────────────────────────────────────── */
 export type PortType =
-  | 'product'      // pixel gốc của sản phẩm – KHÔNG bao giờ đi vào executor AI (trừ legacy flat)
-  | 'image'        // ảnh tham chiếu style/mood
+  | 'product'      // asset giữ nguyên pixel (sản phẩm, logo, trang trí) – KHÔNG bao giờ đi vào executor AI (trừ legacy flat)
+  | 'image'        // ảnh gửi cho model làm tham chiếu (style-reference, nền ảnh)
   | 'brief'
   | 'text'         // text layer
   | 'brand'
@@ -15,16 +28,19 @@ export type PortType =
   | 'style'
   | 'layout'       // LayoutPlan: transform theo ratio + layout guide cho Gemini
   | 'background'   // background plate đã sinh, theo ratio
-  | 'composition'  // ComposedDoc theo ratio
+  | 'composition'  // ảnh đã compose theo ratio
   | 'raster';      // ảnh flat (legacy)
 
 /* ── Shared value types ─────────────────────────────────────── */
-export type ModelId = 'gemini-pro' | 'gemini-flash';
+export type ModelId = ImageGenerationModel;
 
-export interface RatioSpec {
-  id: string;        // '1:1', '9:16', 'fb-cover' …
-  width: number;     // px
-  height: number;    // px
+/**
+ * Một kích thước output. = CanvasConfig + id ổn định.
+ * id = preset id trong `lib/canvas-presets.ts` (vd. 'social-zalo-oa-img'),
+ * hoặc `custom-<w>x<h>` cho kích thước tự nhập.
+ */
+export interface RatioSpec extends CanvasConfig {
+  id: string;
 }
 
 /** Toạ độ chuẩn hoá 0–1 theo canvas của từng ratio, neo tại tâm phần tử. */
@@ -44,13 +60,29 @@ export interface ShadowConfig {
   offsetY: number;
 }
 
-export type TextRole = 'headline' | 'subline' | 'cta' | 'custom';
+/** Tên role theo field của form (`headline`, `subheadline`, `ctaText` trong store/editor.ts). */
+export type TextRole = 'headline' | 'subheadline' | 'cta' | 'custom';
+
+/** Role asset giữ nguyên pixel → node product-asset (port 'product'). */
+export type PixelAssetRole = Extract<AssetRole, 'image' | 'logo' | 'decoration'>;
+/** Role asset gửi cho model làm tham chiếu → node reference-image (port 'image'). */
+export type ReferenceAssetRole = Extract<AssetRole, 'style-reference' | 'background'>;
+
+/**
+ * Asset lưu trong graph = UploadedAsset bỏ `dataUrl` (chỉ có lúc chạy, không persist).
+ * `id` đổi tên thành `assetId` để không lẫn với id node.
+ */
+export type FlowAsset<R extends AssetRole = AssetRole> =
+  Omit<UploadedAsset, 'id' | 'dataUrl' | 'role'> & { assetId: string; role: R };
+
+/** StyleControls bỏ `strictPreserveMode` – đó là hành vi executor, nằm ở generate-flat. */
+export type FlowStyle = Omit<StyleControls, 'strictPreserveMode'>;
 
 /* ── Params theo node type ──────────────────────────────────── */
 export interface NodeParamsMap {
-  'product-asset': { assetId: string; hasAlpha: boolean };
-  'reference-image': { assetId: string };
-  'brief': { prompt: string; chips: string[] };
+  'product-asset': FlowAsset<PixelAssetRole>;
+  'reference-image': FlowAsset<ReferenceAssetRole>;
+  'brief': { prompt: string; marketingBrief: MarketingBrief };
   'text-layer': {
     layerId: string;
     role: TextRole;
@@ -60,12 +92,12 @@ export interface NodeParamsMap {
     /** Số nhỏ = ưu tiên cao. Auto Layout giữ đủ mọi layer, priority chỉ quyết định thứ tự co giãn. */
     priority: number;
     minFontSizePx: number;
-    /** Passthrough sang TextLayer model hiện có (typography/fill/stroke/shadow/plate). */
+    /** T1.5 thay bằng model text layer mới (Q2). */
     typography?: Record<string, unknown>;
   };
-  'brand-kit': { brandKitId: string };
+  'brand-kit': BrandKit;
   'ratio': { ratios: RatioSpec[] };
-  'style': { presetId?: string; description?: string };
+  'style': FlowStyle;
   'auto-layout': {
     /** overrides[ratioId][elementId] – elementId = assetId (product) | layerId (text). */
     overrides: Record<string, Record<string, Transform>>;
@@ -79,7 +111,8 @@ export interface NodeParamsMap {
   'generate-flat': { model: ModelId; strictPreserveMode: boolean };
   'harmony-pass': Record<string, never>;
   'compose': { shadow: ShadowConfig };
-  'export': { format: 'png' | 'jpg' | 'webp'; ratioIds: string[] | 'all' };
+  /** Theo `exportBanner()` trong lib/export.ts. `quality` chỉ áp dụng cho jpg. */
+  'export': { format: 'png' | 'jpg'; quality: number; scale: 1 | 2; ratioIds: string[] | 'all' };
 }
 
 export type NodeType = keyof NodeParamsMap;
@@ -110,4 +143,22 @@ export const DEFAULT_SHADOW: ShadowConfig = {
   blurPx: 24,
   offsetX: 0,
   offsetY: 8,
+};
+
+/** Giống defaultStyleControls trong store/editor.ts (bỏ strictPreserveMode). */
+export const DEFAULT_STYLE: FlowStyle = {
+  style: 'minimalist',
+  mood: 'professional',
+  colorPalette: 'auto',
+  fontStyle: 'modern',
+  backgroundConfig: { tones: [], grains: [], shapes: [], effects: [] },
+};
+
+/** Giống canvas mặc định của form (preset 'social-zalo-oa-img'). */
+export const DEFAULT_RATIO: RatioSpec = {
+  id: 'social-zalo-oa-img',
+  width: 1075,
+  height: 645,
+  platform: 'Zalo',
+  name: 'Zalo OA Img',
 };

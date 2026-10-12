@@ -1,73 +1,86 @@
 import type { CompiledJob } from '../compiled-job';
-import { DEFAULT_SHADOW } from '../schema';
+import type { FlowAsset, PixelAssetRole, ReferenceAssetRole } from '../schema';
+import { DEFAULT_RATIO, DEFAULT_SHADOW, DEFAULT_STYLE } from '../schema';
 
 /**
- * TODO: thay 3 fixture này bằng 3 config THẬT lấy từ Postgres (sau khi qua adapter legacy → CompiledJob).
+ * TODO (T1.4): thay bằng ≥3 payload GenerationRequest thật log từ form (Q1),
+ * qua fromLegacyConfig → CompiledJob.
  */
+
+const asset = <R extends PixelAssetRole | ReferenceAssetRole>(
+  assetId: string, role: R, hasAlpha: boolean,
+): FlowAsset<R> => ({
+  assetId, role, hasAlpha,
+  url: `https://example.test/${assetId}.png`,
+  fileName: `${assetId}.png`,
+  originalDims: { width: 1024, height: 1024 },
+});
+
+const NO_BRIEF = { campaignIntents: [], focalSubjects: [] };
 
 /** Composed tối giản: 1 sản phẩm, 1 ratio, chỉ headline. */
 export const composedMinimal: CompiledJob = {
   schemaVersion: 1,
   renderMode: 'composed',
-  ratios: [{ id: '1:1', width: 1080, height: 1080 }],
-  brief: { prompt: 'Nền bếp sáng, tông gỗ ấm', chips: ['lifestyle'] },
-  referenceAssetIds: [],
-  model: 'gemini-flash',
-  products: [{ assetId: 'asset-noi-chien', hasAlpha: true }],
+  ratios: [DEFAULT_RATIO],
+  brief: { prompt: 'Nền bếp sáng, tông gỗ ấm', marketingBrief: { campaignIntents: ['product-launch'], focalSubjects: ['product'] } },
+  references: [],
+  model: 'nano-banana-2',
+  products: [asset('asset-noi-chien', 'image', true)],
   textLayers: [{
     layerId: 'headline', role: 'headline', content: 'Giảm 30% cuối tuần',
     renderSource: 'layer', priority: 1, minFontSizePx: 28,
   }],
   composed: { lightDirectionDeg: 315, strictNoText: true, layoutOverrides: {}, shadow: DEFAULT_SHADOW },
-  export: { format: 'png', ratioIds: 'all' },
+  export: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' },
 };
 
-/** Composed đầy đủ: 2 sản phẩm, 3 ratio, override tay, shadow custom, headline AI, style + brand + ref. */
+/** Composed đầy đủ: sản phẩm + logo, 3 ratio, override tay, shadow custom, headline AI, style + brand + ref. */
 export const composedFull: CompiledJob = {
   schemaVersion: 1,
   renderMode: 'composed',
   ratios: [
-    { id: '1:1', width: 1080, height: 1080 },
-    { id: '9:16', width: 1080, height: 1920 },
-    { id: '16:9', width: 1920, height: 1080 },
+    { id: 'social-zalo-oa-img', width: 1075, height: 645, platform: 'Zalo', name: 'Zalo OA Img' },
+    { id: 'custom-1080x1920', width: 1080, height: 1920, platform: 'Custom', name: 'Custom' },
+    { id: 'custom-1080x1080', width: 1080, height: 1080, platform: 'Custom', name: 'Custom' },
   ],
-  brief: { prompt: 'Campaign Tết, đỏ vàng, sang trọng', chips: ['tet', 'premium'] },
-  style: { presetId: 'luxury-warm' },
-  brandKitId: 'brand-vng',
-  referenceAssetIds: ['ref-1', 'ref-2'],
-  model: 'gemini-pro',
+  brief: { prompt: 'Campaign Tết, đỏ vàng, sang trọng', marketingBrief: { campaignIntents: ['event'], focalSubjects: ['product', 'text'] } },
+  style: { ...DEFAULT_STYLE, style: 'luxury', mood: 'festive', colorPalette: 'warm' },
+  brandKit: { colors: ['#C8102E', '#FFD700'], fontPreference: 'serif' },
+  references: [asset('ref-1', 'style-reference', false), asset('ref-bg', 'background', false)],
+  model: 'nano-banana-pro',
   products: [
-    { assetId: 'asset-hop-qua', hasAlpha: true },
-    { assetId: 'asset-chai', hasAlpha: true },
+    asset('asset-hop-qua', 'image', true),
+    asset('asset-logo', 'logo', true),
   ],
   textLayers: [
     { layerId: 'headline', role: 'headline', content: 'Tết Sum Vầy', renderSource: 'ai', priority: 1, minFontSizePx: 32 },
-    { layerId: 'sub', role: 'subline', content: 'Quà tặng cao cấp từ 499K', renderSource: 'layer', priority: 2, minFontSizePx: 16 },
+    { layerId: 'sub', role: 'subheadline', content: 'Quà tặng cao cấp từ 499K', renderSource: 'layer', priority: 2, minFontSizePx: 16 },
     { layerId: 'cta', role: 'cta', content: 'Mua ngay', renderSource: 'layer', priority: 3, minFontSizePx: 14 },
   ],
   composed: {
     lightDirectionDeg: 45,
     strictNoText: true,
     layoutOverrides: {
-      '9:16': { 'asset-hop-qua': { cx: 0.5, cy: 0.62, w: 0.7, h: 0.4, rotationDeg: 0 } },
+      'custom-1080x1920': { 'asset-hop-qua': { cx: 0.5, cy: 0.62, w: 0.7, h: 0.4, rotationDeg: 0 } },
     },
     shadow: { mode: 'custom', opacity: 0.5, blurPx: 32, offsetX: 6, offsetY: 12 },
   },
-  export: { format: 'jpg', ratioIds: ['9:16', '1:1'] },
+  export: { format: 'jpg', quality: 0.8, scale: 2, ratioIds: ['custom-1080x1920', 'social-zalo-oa-img'] },
 };
 
-/** Flat legacy có harmony pass – dạng project cũ sau migrate. */
+/** Flat legacy có harmony pass – dạng request form hiện tại. */
 export const flatLegacy: CompiledJob = {
   schemaVersion: 1,
   renderMode: 'flat',
-  ratios: [{ id: '4:5', width: 1080, height: 1350 }],
-  brief: { prompt: 'Banner flash sale', chips: [] },
-  referenceAssetIds: [],
-  model: 'gemini-pro',
-  products: [{ assetId: 'asset-giay', hasAlpha: false }],
+  ratios: [{ id: 'custom-1080x1350', width: 1080, height: 1350, platform: 'Custom', name: 'Custom' }],
+  brief: { prompt: 'Banner flash sale', marketingBrief: NO_BRIEF },
+  references: [],
+  model: 'nano-banana-pro',
+  products: [asset('asset-giay', 'image', false)],
   textLayers: [],
   flat: { strictPreserveMode: true, harmonyPass: true },
-  export: { format: 'png', ratioIds: 'all' },
+  export: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' },
 };
 
 export const ALL_FIXTURES = { composedMinimal, composedFull, flatLegacy };

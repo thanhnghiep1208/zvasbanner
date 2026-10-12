@@ -76,7 +76,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - Pure function, deterministic, có unit test cho mỗi ratio class và trường hợp không vừa.
 
 ### 5.3 Generate Background
-- Prompt gồm: brief + chips, style, brand, hướng sáng `lightDirectionDeg`, chỉ dẫn giữ sạch vùng trong guide, negative "no text" khi `strictNoText`.
+- Prompt gồm: brief + `marketingBrief`, style, brand, hướng sáng `lightDirectionDeg`, chỉ dẫn giữ sạch vùng trong guide, negative "no text" khi `strictNoText`.
 - Ngoại lệ: text layer `role=headline, renderSource='ai'` → cho phép chữ **chỉ** trong slot headline, vùng khác vẫn cấm.
 - Gửi guide image dưới dạng reference image; không gửi pixel sản phẩm.
 - Mỗi ratio = 1 lần gọi. Hiển thị `estimateAiCalls()` trước khi Run.
@@ -136,7 +136,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 ## 8. Task list
 
 ### Bước 1 – Đóng nền domain
-- [ ] **T1.1** Đọc `GenerationRequest` và payload form gửi `/api/generate`; ghi bảng mapping vào `lib/flow/legacy/README.md`; sửa `lib/flow/schema.ts` khớp type thật (Q6): `ModelId` → `ImageGenerationModel`, `StyleControls`, `MarketingBrief`, đủ `AssetRole`, `BrandKit` inline, `RatioSpec` theo preset id + `platform`/`name`
+- [x] **T1.1** Đọc `GenerationRequest` và payload form gửi `/api/generate`; ghi bảng mapping vào `lib/flow/legacy/README.md`; sửa `lib/flow/schema.ts` khớp type thật (Q6): `ModelId` → `ImageGenerationModel`, `StyleControls`, `MarketingBrief`, đủ `AssetRole`, `BrandKit` inline, `RatioSpec` theo preset id + `platform`/`name`
 - [ ] **T1.1b** Bỏ node `harmony-pass`; `generate-flat` có `aiCallsPerRatio = 2`; cập nhật compiler/decompiler/`estimateAiCalls`/test (Q4)
 - [ ] **T1.2** `from-legacy-config.ts` + test
 - [ ] **T1.3** `to-legacy-config.ts` + test
@@ -195,3 +195,5 @@ Rồi chuyển sang task khác không phụ thuộc.
 ## 10. Nhật ký phiên
 
 <!-- Claude Code ghi vào đây cuối mỗi phiên: ngày, task đã xong, kết quả test, việc tiếp theo -->
+
+- **2026-10-12** – Xong T1.1. Schema khớp `lib/types.ts` (Q6A): `ModelId = ImageGenerationModel`, `RatioSpec = CanvasConfig + id`, asset node mang `FlowAsset` (role pixel: image/logo/decoration; role tham chiếu: style-reference/background), `brand-kit = BrandKit`, `style = StyleControls` bỏ `strictPreserveMode`, brief có `marketingBrief`, export theo `exportBanner()`. Mapping ở `lib/flow/legacy/README.md`. 21 test pass, tsc pass. Thêm Q7 (kho lưu asset), Q8 (route composed). Tiếp theo: T1.1b.

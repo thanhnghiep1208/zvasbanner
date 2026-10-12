@@ -1,5 +1,5 @@
 import type { NodeParamsMap, NodeType, PortType } from './schema';
-import { DEFAULT_SHADOW } from './schema';
+import { DEFAULT_RATIO, DEFAULT_SHADOW, DEFAULT_STYLE } from './schema';
 
 export type NodeKind = 'input' | 'config' | 'layout' | 'executor' | 'output';
 
@@ -35,17 +35,26 @@ export const NODE_DEFINITIONS: Registry = {
   'product-asset': {
     type: 'product-asset', kind: 'input', label: 'Product asset',
     inputs: [], outputs: [out('product', 'product')],
-    defaultParams: { assetId: '', hasAlpha: false }, aiCallsPerRatio: 0,
+    defaultParams: {
+      assetId: '', url: '', fileName: '', role: 'image', hasAlpha: false,
+      originalDims: { width: 0, height: 0 },
+    },
+    aiCallsPerRatio: 0,
   },
   'reference-image': {
     type: 'reference-image', kind: 'input', label: 'Reference image',
     inputs: [], outputs: [out('image', 'image')],
-    defaultParams: { assetId: '' }, aiCallsPerRatio: 0,
+    defaultParams: {
+      assetId: '', url: '', fileName: '', role: 'style-reference', hasAlpha: false,
+      originalDims: { width: 0, height: 0 },
+    },
+    aiCallsPerRatio: 0,
   },
   'brief': {
     type: 'brief', kind: 'input', label: 'Brief',
     inputs: [], outputs: [out('brief', 'brief')],
-    defaultParams: { prompt: '', chips: [] }, aiCallsPerRatio: 0,
+    defaultParams: { prompt: '', marketingBrief: { campaignIntents: [], focalSubjects: [] } },
+    aiCallsPerRatio: 0,
   },
   'text-layer': {
     type: 'text-layer', kind: 'input', label: 'Text layer',
@@ -59,17 +68,17 @@ export const NODE_DEFINITIONS: Registry = {
   'brand-kit': {
     type: 'brand-kit', kind: 'config', label: 'Brand kit',
     inputs: [], outputs: [out('brand', 'brand')],
-    defaultParams: { brandKitId: '' }, aiCallsPerRatio: 0,
+    defaultParams: { colors: [] }, aiCallsPerRatio: 0,
   },
   'ratio': {
     type: 'ratio', kind: 'config', label: 'Ratio',
     inputs: [], outputs: [out('ratio', 'ratio')],
-    defaultParams: { ratios: [{ id: '1:1', width: 1080, height: 1080 }] }, aiCallsPerRatio: 0,
+    defaultParams: { ratios: [DEFAULT_RATIO] }, aiCallsPerRatio: 0,
   },
   'style': {
     type: 'style', kind: 'config', label: 'Style',
     inputs: [], outputs: [out('style', 'style')],
-    defaultParams: {}, aiCallsPerRatio: 0,
+    defaultParams: DEFAULT_STYLE, aiCallsPerRatio: 0,
   },
   'auto-layout': {
     type: 'auto-layout', kind: 'layout', label: 'Auto layout',
@@ -91,7 +100,7 @@ export const NODE_DEFINITIONS: Registry = {
       inPort('image', 'image', false, true),
     ],
     outputs: [out('background', 'background')],
-    defaultParams: { model: 'gemini-pro', lightDirectionDeg: 315, strictNoText: true },
+    defaultParams: { model: 'nano-banana-pro', lightDirectionDeg: 315, strictNoText: true },
     aiCallsPerRatio: 1,
   },
   'generate-flat': {
@@ -106,7 +115,7 @@ export const NODE_DEFINITIONS: Registry = {
       inPort('image', 'image', false, true),
     ],
     outputs: [out('raster', 'raster')],
-    defaultParams: { model: 'gemini-pro', strictPreserveMode: true },
+    defaultParams: { model: 'nano-banana-pro', strictPreserveMode: true },
     aiCallsPerRatio: 1,
   },
   'harmony-pass': {
@@ -130,7 +139,7 @@ export const NODE_DEFINITIONS: Registry = {
     type: 'export', kind: 'output', label: 'Export',
     inputs: [inPort('composition', 'composition'), inPort('raster', 'raster')],
     outputs: [],
-    defaultParams: { format: 'png', ratioIds: 'all' }, aiCallsPerRatio: 0,
+    defaultParams: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' }, aiCallsPerRatio: 0,
   },
 };
 
