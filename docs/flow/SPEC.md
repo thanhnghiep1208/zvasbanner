@@ -90,7 +90,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - Topological sort; mỗi node có `runState: idle | stale | queued | running | done | error`.
 - `cacheKey = hash(params + cacheKey các node upstream)`; đổi param → đánh dấu `stale` downstream, không chạy lại node không đổi.
 - Hỗ trợ "Run all" và "Run từ node này".
-- Executor gọi API qua Route Handler hiện có. Nếu một lần chạy có thể vượt timeout serverless: ghi vào QUESTIONS.md đề xuất job queue (Inngest/QStash/Vercel Workflow), chưa tự thêm hạ tầng.
+- Executor gọi API qua Route Handler: flat dùng `/api/generate` hiện có; composed dùng route mới `app/api/flow/generate-background/route.ts` (Q8A), tái sử dụng `requireUser`, `createRateLimiter`, `readJsonWithSizeLimit`, model profile trong `lib/gemini-server.ts` (chỉ import, không sửa). Nếu một lần chạy có thể vượt timeout serverless: ghi vào QUESTIONS.md đề xuất job queue (Inngest/QStash/Vercel Workflow), chưa tự thêm hạ tầng.
 
 ### 5.6 UI canvas
 - Layout 3 cột: Node library (trái, kéo thả) · Canvas · Inspector (phải, node đang chọn).
@@ -110,6 +110,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 
 ### 5.8 Persistence + migration
 - Bảng/cột lưu `StoredFlowDoc` (JSONB). Migration DB theo cách repo đang làm (tìm helper `pool`).
+- Asset upload lên kho lưu bền (Q7A) khi thêm node asset; graph chỉ giữ URL bền, không giữ `blob:` hay `dataUrl`.
 - App cũ không lưu project nên không có dữ liệu migrate (Q5). Thay bằng nút "Mở trong canvas" trên form: state editor → `GenerationRequest` → `fromLegacyConfig` → `decompileJob`.
 
 ### 5.9 Analytics
@@ -157,9 +158,9 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 
 ### Bước 4 – Đủ parity
 - [ ] **T4.1** Layout engine đầy đủ (variant, co giãn, báo lỗi không vừa, override theo ratio) + test
-- [ ] **T4.2** Layout guide image + prompt Generate BG theo 5.3
+- [ ] **T4.2** Layout guide image + prompt Generate BG theo 5.3, qua route mới `/api/flow/generate-background` (Q8A); quyết cách dùng chung rate limit với `/api/generate` trước khi code
 - [ ] **T4.3** Compose (viết mới, Canvas 2D) + auto shadow theo 5.4
-- [ ] **T4.4** Text renderer Canvas 2D mới (dùng chung preview/export/layout), `renderSource` cho headline
+- [ ] **T4.4** Text renderer Canvas 2D mới (dùng chung preview/export/layout), `renderSource` cho headline; thêm 4–5 font Google có subset tiếng Việt qua `next/font`, map theo `fontStyle` vào `FLOW_FONTS` (Q10B)
 - [ ] **T4.5** Brand kit, Reference image (harmony pass đã nằm trong `generate-flat`, Q4)
 - [ ] **T4.6** Export nhiều ratio, chọn subset
 - [ ] **T4.7** Executor: cache, stale, Run từ node, hiển thị `estimateAiCalls` trước Run
@@ -171,7 +172,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 - [ ] **T5.4** Mở `/flow` luôn load template, không có canvas trống
 
 ### Bước 6 – Migration + rollout
-- [ ] **T6.1** Bảng/cột lưu StoredFlowDoc + API lưu/tải graph
+- [ ] **T6.1** Kho lưu asset bền (Q7A, chọn Vercel Blob hay S3/R2 trước) + bảng/cột lưu StoredFlowDoc + API lưu/tải graph; `FlowAsset.url` là URL bền thay cho `blob:`
 - [ ] **T6.2** Nút "Mở trong canvas" trên form cũ: state editor → `fromLegacyConfig` → `decompileJob` (Q5)
 - [ ] **T6.3** Analytics events mục 5.9
 - [ ] **T6.4** Flag theo % user (thay allowlist)

@@ -64,7 +64,7 @@ Lựa chọn:
 - A. Thêm kho lưu asset (Vercel Blob hoặc S3/R2), upload khi thêm node asset, `url` là URL bền.
 - B. P1 chưa lưu graph có asset: lưu/tải graph nhưng yêu cầu upload lại ảnh khi mở.
 Đề xuất: A, quyết trước T6.1 (là hạ tầng mới, cần duyệt theo mục 6.5 của SPEC).
-Trạng thái: chờ Nghiệp
+Trạng thái: **đã chốt A** (2026-10-12). Còn chọn nhà cung cấp (Vercel Blob hay S3/R2) trước T6.1.
 
 ## Q8 – Composed mode cần Route Handler mới (task T4.2, mục 5.5)
 Bối cảnh: `/api/generate` chỉ sinh ảnh flat hoàn chỉnh từ `GenerationRequest`. Composed cần sinh **chỉ background** từ layout guide image, cấm chữ, không gửi pixel sản phẩm. Body và prompt khác hẳn, nên `toLegacyConfig` không biểu diễn được. Mục 5.5 ghi "Executor gọi API qua Route Handler hiện có".
@@ -72,7 +72,7 @@ Lựa chọn:
 - A. Thêm route mới `app/api/flow/generate-background/route.ts` (không sửa route cũ), dùng lại `createRateLimiter(20, 1h)`, `readJsonWithSizeLimit`, `requireUser`, model profile trong `lib/gemini-server.ts` (chỉ import, không sửa).
 - B. Thêm nhánh `mode: 'background'` vào `/api/generate` (sửa route cũ, trái nguyên tắc 2.2).
 Đề xuất: A. Cần quyết thêm: rate limit dùng chung bucket với `/api/generate` hay bucket riêng (nguyên tắc 2.7: không tạo đường vòng → nên dùng chung).
-Trạng thái: chờ Nghiệp
+Trạng thái: **đã chốt A** (2026-10-12). Còn chốt cách dùng chung bucket rate limit với `/api/generate` khi làm T4.2: limiter hiện khai báo riêng trong từng route, muốn dùng chung phải tách ra module chung, tức là sửa route cũ.
 
 ## Q9 – Text layer không có chỗ trong request legacy (task T1.3, T2.6)
 Bối cảnh: Form cũ chỉ có 1 headline, 1 subheadline, 1 CTA, ghép vào `userPrompt` bằng `composeUserPrompt()`. Canvas cho phép role `custom` và nhiều layer cùng role. Hiện `toLegacyConfig` lấy layer đầu tiên của mỗi role, phần còn lại không gửi và trả warning `unmapped-text`.
@@ -89,4 +89,4 @@ Lựa chọn:
 - A. P1 chỉ dùng Inter cho mọi text layer.
 - B. Thêm 4–5 font Google có subset tiếng Việt qua `next/font` (không thêm npm dependency), mỗi `fontStyle` một font mặc định. Ví dụ: sans → Be Vietnam Pro, serif → Noto Serif, display → Montserrat, handwritten → Dancing Script, modern → Inter.
 Đề xuất: B, chốt danh sách trước T4.4. Cần kiểm tra license (OFL) và dung lượng tải.
-Trạng thái: chờ Nghiệp
+Trạng thái: **đã chốt B** (2026-10-12). Danh sách font trong phần Lựa chọn là đề xuất; kiểm tra license OFL, subset tiếng Việt và dung lượng khi làm T4.4.
