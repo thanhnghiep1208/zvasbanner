@@ -81,4 +81,4 @@ Lựa chọn:
 - B. Ghép thêm vào cuối prompt dạng `Text: …`. Gemini sẽ vẽ, nhưng format khác form nên không còn parity.
 - C. Chặn Run (lỗi validate) khi graph flat có text layer không map được.
 Đề xuất: A cho P1. Flat chỉ là đường legacy; graph mới mặc định composed, nơi text layer được render riêng.
-Trạng thái: chờ Nghiệp
+Trạng thái: **đã chốt A** (2026-10-12)
