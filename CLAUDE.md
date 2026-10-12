@@ -1,0 +1,1 @@
+Đang xây Flow Canvas thay flow form. Spec và task list: docs/flow/SPEC.md. Đọc trước khi làm bất kỳ việc gì liên quan /flow, lib/flow, components/flow.

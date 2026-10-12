@@ -1,0 +1,28 @@
+.flow-canvas {
+  position: relative;
+  width: 100%;
+  /* Trừ chiều cao header app nếu layout có header cố định */
+  height: calc(100dvh - var(--app-header-height, 0px));
+}
+
+.flow-canvas__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  text-align: center;
+  pointer-events: none; /* không chặn pan/zoom */
+}
+
+.flow-canvas__empty-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.flow-canvas__empty-hint {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.65;
+}

@@ -1,0 +1,194 @@
+# Flow Canvas – Spec vận hành cho Claude Code
+
+> Đặt file này tại `docs/flow/SPEC.md`. Mỗi phiên làm việc: đọc toàn bộ file → làm task chưa xong đầu tiên trong mục 8 → cập nhật checklist → commit.
+
+---
+
+## 1. Mục tiêu
+
+Thay flow form tạo banner hiện tại của zVas Banner AI bằng **node-based canvas** (tham khảo Magnific Spaces, Topview Canvas): user kéo thả node (product, brief, text, ratio, style, model…), nối chúng lại, chạy và xuất banner.
+
+Canvas **thay thế** form. Để không mất người dùng phổ thông, cùng một graph có hai view:
+- **Simple view**: form sinh tự động từ các param được đánh dấu `exposed` của template.
+- **Canvas view**: toàn bộ graph để chỉnh sâu.
+
+Graph là source of truth duy nhất.
+
+## 2. Nguyên tắc không được vi phạm
+
+1. **Asset fidelity**: pixel gốc của sản phẩm không bao giờ đi qua model AI (trừ executor `legacy`). Đã khoá bằng test `rules.test.ts`; không được xoá hoặc nới test này.
+2. **Không viết lại pipeline cũ** trong P1. Graph biên dịch xuống `CompiledJob` → adapter → input mà pipeline hiện tại đã hiểu. Không sửa Route Handler, `lib/prompt-builder.ts`, `lib/export.ts`, `lib/text-layer-render.ts` trừ khi task ghi rõ; nếu buộc phải sửa, dừng lại và ghi câu hỏi (mục 9).
+3. **`lib/flow/` là domain thuần**: không import React, React Flow, Next.js, Zustand.
+4. **Feature flag**: mọi UI mới nằm sau `FLOW_CANVAS` (`lib/flags.ts`). Form cũ giữ nguyên đến bước 6.
+5. **Không persist graph vào localStorage**. Lưu Postgres (JSONB) qua `StoredFlowDoc` với `schemaVersion`.
+6. **Không đoán field**: trước khi dùng type có sẵn (canvasConfig, TextLayer, UploadedAsset, ComposedDoc, ProductLayer, ShadowConfig, LightingProfile…), tìm và đọc định nghĩa thật trong repo.
+7. Rate limit hiện có (20 request/giờ/user) và body size cap phải được tôn trọng; graph không được tạo đường vòng qua chúng.
+
+## 3. Quyết định đã chốt (composed mode)
+
+| # | Quyết định | Hệ quả bắt buộc |
+|---|---|---|
+| 1 | Gemini biết vị trí sản phẩm khi sinh background | Auto Layout chạy **trước** Generate BG. Gửi **layout guide image** (khối xám cho vùng product/text, không phải ảnh sản phẩm thật) + chỉ dẫn "giữ vùng này sạch" |
+| 2 | Tự tối ưu layout theo từng ratio, không mất content | Auto Layout rule-based client-side. Transform chuẩn hoá theo từng ratio; override tay lưu riêng theo ratio. Không đủ chỗ → báo lỗi trên node, **không tự bỏ phần tử** |
+| 3 | Shadow tự động mặc định, có tuỳ chỉnh | `ShadowConfig.mode = 'auto' \| 'custom' \| 'off'`, mặc định `auto`. Hướng shadow lấy từ `lightDirectionDeg` đã chỉ định trong prompt Generate BG |
+| 4 | Mặc định composed | Mọi template đi qua Compose. Flat chỉ cho project migrate và path nâng cao |
+
+## 4. Kiến trúc
+
+```
+Product Asset ─┐
+Text Layers ───┼─→ Auto Layout ─→ Generate BG ─→ Compose ─→ Export
+Ratio(s) ──────┤        │              ↑            ↑
+Brief ─────────┼────────┼──────────────┘            │
+Style/Brand/Ref┘        └──── transforms ───────────┘
+```
+
+| Lớp | Vị trí | Trạng thái |
+|---|---|---|
+| Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có, 21 test pass |
+| IR | `lib/flow/compiled-job.ts` (`CompiledJob`, `estimateAiCalls`) | Có |
+| Adapter legacy | `lib/flow/legacy/to-legacy-config.ts`, `from-legacy-config.ts` | **Chưa có** |
+| Layout engine | `lib/flow/layout/` | **Chưa có** |
+| Executor engine | `lib/flow/executor.ts` | **Chưa có** |
+| RF adapter | `lib/flow-ui/rf-adapter.ts` (FlowNode ↔ React Flow node) | **Chưa có** |
+| Store | `store/flow-store.ts` | Khung, chưa dùng domain |
+| UI | `components/flow/` | Canvas trống |
+| Route | `app/(studio)/flow/page.tsx` (hoặc `src/app/...`) | Có, sau flag |
+
+Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, brief, text-layer, brand-kit, ratio, style, auto-layout, generate-background, generate-flat (legacy), harmony-pass, compose, export.
+
+## 5. Spec chi tiết theo module
+
+### 5.1 Adapter legacy
+- `toLegacyConfig(job: CompiledJob)` → đúng type mà flow form đang gửi lên API.
+- `fromLegacyConfig(config)` → `CompiledJob` (dùng cho migration và để so sánh parity).
+- Bảng mapping field ghi vào đầu file dạng comment. Field không map được: liệt kê trong `docs/flow/QUESTIONS.md`, không bỏ im lặng.
+
+### 5.2 Layout engine (`lib/flow/layout/`)
+- Input: products (kèm kích thước + alpha bbox nếu có), textLayers (content, role, priority, minFontSizePx, typography), ratio, overrides.
+- Phân loại ratio: `landscape` (>1.2), `square` (0.8–1.2), `portrait` (<0.8), `ultra-wide` (>2.5). Mỗi loại có ≥2 layout variant gồm các slot: product, headline, subline, cta, logo.
+- Thuật toán khi không vừa, theo thứ tự: thu nhỏ product tới `minScale` → giảm font tới `minFontSizePx` (layer priority thấp co trước) → thử variant kế tiếp → trả `{ ok: false, reason }`.
+- Đo text bằng cùng logic font metrics của `lib/text-layer-render.ts` để khớp WYSIWYG giữa DOM preview và canvas export.
+- Output `LayoutPlan`: `transforms[ratioId][elementId]`, `guide[ratioId]` (danh sách rect để vẽ layout guide image), `variantId`.
+- Override tay luôn thắng; sửa content chỉ tính lại ratio chưa bị override.
+- Pure function, deterministic, có unit test cho mỗi ratio class và trường hợp không vừa.
+
+### 5.3 Generate Background
+- Prompt gồm: brief + chips, style, brand, hướng sáng `lightDirectionDeg`, chỉ dẫn giữ sạch vùng trong guide, negative "no text" khi `strictNoText`.
+- Ngoại lệ: text layer `role=headline, renderSource='ai'` → cho phép chữ **chỉ** trong slot headline, vùng khác vẫn cấm.
+- Gửi guide image dưới dạng reference image; không gửi pixel sản phẩm.
+- Mỗi ratio = 1 lần gọi. Hiển thị `estimateAiCalls()` trước khi Run.
+
+### 5.4 Compose + auto shadow
+- Compose client-side theo hệ thống composed mode hiện có (tìm ComposedDoc/ProductLayer trong repo, tái sử dụng).
+- Auto shadow P1: contact shadow mềm dưới đáy alpha bbox, lệch theo `lightDirectionDeg`. Product không alpha → shadow tắt + warning `product-no-alpha` (đã có trong `validate.ts`).
+- Custom: opacity, blurPx, offsetX, offsetY chỉnh trong inspector.
+
+### 5.5 Executor engine
+- Topological sort; mỗi node có `runState: idle | stale | queued | running | done | error`.
+- `cacheKey = hash(params + cacheKey các node upstream)`; đổi param → đánh dấu `stale` downstream, không chạy lại node không đổi.
+- Hỗ trợ "Run all" và "Run từ node này".
+- Executor gọi API qua Route Handler hiện có. Nếu một lần chạy có thể vượt timeout serverless: ghi vào QUESTIONS.md đề xuất job queue (Inngest/QStash/Vercel Workflow), chưa tự thêm hạ tầng.
+
+### 5.6 UI canvas
+- Layout 3 cột: Node library (trái, kéo thả) · Canvas · Inspector (phải, node đang chọn).
+- Node card: header (icon + label + run state), ports theo màu của `PortType`, param ngắn inline (ratio, model), param dài ở inspector, vùng preview output.
+- Run state: stale = viền cảnh báo, running = shimmer, error = message + nút Retry tại node, done = preview.
+- Kéo dây sai: dùng `canConnect()` cho `isValidConnection`, hiện `REJECT_MESSAGES` dạng toast (Sonner).
+- Không bao giờ mở canvas trống: mặc định load template.
+- Theo design token/component hiện có của app, không tự đặt bảng màu mới.
+- Accessibility: điều hướng bàn phím giữa node, nối port bằng phím, `aria-label` cho node và port, focus ring rõ, tôn trọng `prefers-reduced-motion`.
+- Copy UI tiếng Việt, kỹ thuật, ngắn, không mơ hồ.
+- Naming: component PascalCase, class CSS kebab-case, BEM trong CSS module.
+
+### 5.7 Simple view
+- Template = graph + danh sách `exposed: { nodeId, paramKey, label }[]`.
+- Simple view render form từ `exposed`; sửa ở đây ghi thẳng vào graph.
+- Nút "Mở canvas" chuyển sang Canvas view cùng graph.
+
+### 5.8 Persistence + migration
+- Bảng/cột lưu `StoredFlowDoc` (JSONB). Migration DB theo cách repo đang làm (tìm helper `pool`).
+- Script migrate project cũ: config cũ → `fromLegacyConfig` → `decompileJob` → lưu. Chạy dry-run trước, log project không migrate được.
+
+### 5.9 Analytics
+Dùng `lib/analytics-events.ts`. Event mới: `flow_opened`, `flow_run_started` (aiCalls), `flow_run_completed` (durationMs, renderMode), `flow_run_failed` (code), `flow_view_switched` (simple/canvas), `flow_template_used`.
+
+## 6. Quy tắc làm việc cho Claude Code
+
+1. Đầu phiên: đọc file này + `docs/flow/QUESTIONS.md`; chạy `npx vitest run lib/flow` để chắc nền đang xanh.
+2. Làm **một task** mỗi lần, theo thứ tự mục 8. Task bị chặn bởi câu hỏi chưa trả lời → bỏ qua, làm task kế tiếp không phụ thuộc.
+3. Trước khi code: tìm và đọc file liên quan trong repo. Không đoán API.
+4. Sau mỗi task: test + `npx tsc --noEmit` pass → tick checklist mục 8 → commit `feat(flow): <task id> <mô tả>`.
+5. Không tự thêm dependency lớn hoặc hạ tầng (queue, DB mới) khi chưa được duyệt trong QUESTIONS.md.
+6. Không sửa file pipeline cũ (mục 2.2) nếu task không ghi rõ.
+7. Khi kết thúc phiên: viết 3–5 dòng tóm tắt vào mục 10.
+
+## 7. Lệnh kiểm tra
+
+```bash
+npx vitest run lib/flow
+npx tsc --noEmit
+npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
+```
+
+## 8. Task list
+
+### Bước 1 – Đóng nền domain
+- [ ] **T1.1** Tìm type canvasConfig/TextLayer/UploadedAsset và payload flow form gửi lên API; ghi bảng mapping vào `lib/flow/legacy/README.md`
+- [ ] **T1.2** `from-legacy-config.ts` + test
+- [ ] **T1.3** `to-legacy-config.ts` + test
+- [ ] **T1.4** Thay fixture giả bằng ≥3 config thật (ẩn dữ liệu nhạy cảm); round-trip `legacy → job → graph → job → legacy` khớp
+- [ ] **T1.5** Bổ sung `typography` trong text-layer theo TextLayer thật (bỏ `Record<string, unknown>`)
+
+### Bước 2 – Canvas chạy được 1 path
+- [ ] **T2.1** `lib/flow-ui/rf-adapter.ts`: FlowNode/FlowEdge ↔ React Flow node/edge (handle id = port id)
+- [ ] **T2.2** `flow-store.ts` giữ `FlowGraph` domain; `onConnect` dùng `canConnect`, lỗi → toast
+- [ ] **T2.3** Node component chung `FlowNodeCard` render từ `NODE_DEFINITIONS` (ports, label, run state)
+- [ ] **T2.4** Node library kéo thả + Inspector cơ bản
+- [ ] **T2.5** Layout engine bản tối thiểu (1 variant/ratio class, chưa co giãn) để path chạy được
+- [ ] **T2.6** Executor tối thiểu: Run all → compile → toLegacyConfig → gọi API hiện có → hiển thị kết quả
+- [ ] **T2.7** Parity check: cùng config, form và canvas cho kết quả tương đương (ghi kết quả vào mục 10)
+
+### Bước 3 – Design (Nghiệp làm trên Figma, Claude Code chỉ đọc)
+- [ ] **T3.1** Khi có link/ảnh Figma trong QUESTIONS.md: cập nhật `FlowNodeCard`, layout 3 cột theo design
+
+### Bước 4 – Đủ parity
+- [ ] **T4.1** Layout engine đầy đủ (variant, co giãn, báo lỗi không vừa, override theo ratio) + test
+- [ ] **T4.2** Layout guide image + prompt Generate BG theo 5.3
+- [ ] **T4.3** Compose + auto shadow theo 5.4
+- [ ] **T4.4** Text layer đầy đủ, `renderSource` cho headline
+- [ ] **T4.5** Harmony pass (flat), Brand kit, Reference image
+- [ ] **T4.6** Export nhiều ratio, chọn subset
+- [ ] **T4.7** Executor: cache, stale, Run từ node, hiển thị `estimateAiCalls` trước Run
+
+### Bước 5 – Simple view + template
+- [ ] **T5.1** Cấu trúc template + `exposed`
+- [ ] **T5.2** `SimpleView` sinh form từ `exposed`, chuyển qua lại với Canvas view
+- [ ] **T5.3** 3–5 template mặc định (product hero, sale đa ratio, social post)
+- [ ] **T5.4** Mở `/flow` luôn load template, không có canvas trống
+
+### Bước 6 – Migration + rollout
+- [ ] **T6.1** Bảng/cột lưu StoredFlowDoc + API lưu/tải graph
+- [ ] **T6.2** Script migrate project cũ (dry-run + log lỗi)
+- [ ] **T6.3** Analytics events mục 5.9
+- [ ] **T6.4** Flag theo % user (thay allowlist)
+- [ ] **T6.5** Chỉ khi Nghiệp duyệt số liệu: chuyển entry chính sang `/flow`, gỡ form
+
+### Ngoài phạm vi P1
+Branching/so sánh variant, outpaint dùng chung background cho nhiều ratio, suy luận hướng sáng, AI relight, agent tự dựng graph, cộng tác realtime.
+
+## 9. Khi bị chặn
+
+Ghi vào `docs/flow/QUESTIONS.md`:
+```
+## Q<n> – <tiêu đề> (task T…)
+Bối cảnh: …
+Lựa chọn: A … / B …
+Đề xuất: …
+Trạng thái: chờ Nghiệp
+```
+Rồi chuyển sang task khác không phụ thuộc.
+
+## 10. Nhật ký phiên
+
+<!-- Claude Code ghi vào đây cuối mỗi phiên: ngày, task đã xong, kết quả test, việc tiếp theo -->
