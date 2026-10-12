@@ -72,14 +72,8 @@ export function decompileJob(job: CompiledJob): FlowGraph {
     if (brand) link(brand.id, 'brand', gen.id, 'brand');
     for (const r of refs) link(r.id, 'image', gen.id, 'image');
 
-    let last = gen.id;
-    if (f.harmonyPass) {
-      const h = add('n-harmony', 'harmony-pass', {}, COL.compose, 0);
-      link(gen.id, 'raster', h.id, 'raster');
-      last = h.id;
-    }
     const ex = exportNode(COL.export);
-    link(last, 'raster', ex.id, 'raster');
+    link(gen.id, 'raster', ex.id, 'raster');
   }
 
   return { nodes, edges };

@@ -48,11 +48,8 @@ export function compileGraph(graph: FlowGraph): CompileResult {
     };
   }
 
-  // Flat (legacy): export ← [harmony-pass] ← generate-flat
-  let src = g.nodeAny(exportEdge.source);
-  const harmonyPass = src.type === 'harmony-pass';
-  if (harmonyPass) src = g.single(src.id, 'raster', 'generate-flat');
-  const flat = src as FlowNode<'generate-flat'>;
+  // Flat (legacy): export ← generate-flat (harmony pass nằm trong generate-flat, Q4)
+  const flat = g.nodeAny(exportEdge.source) as FlowNode<'generate-flat'>;
   if (flat.type !== 'generate-flat') {
     return { ok: false, errors: [{ severity: 'error', code: 'flat-source',
       message: 'Raster phải xuất phát từ Generate (flat).' }] };
@@ -72,7 +69,7 @@ export function compileGraph(graph: FlowGraph): CompileResult {
       model: flat.params.model,
       products: g.many(flat.id, 'product', 'product-asset').map((n) => n.params),
       textLayers: g.many(flat.id, 'text', 'text-layer').map((n) => n.params),
-      flat: { strictPreserveMode: flat.params.strictPreserveMode, harmonyPass },
+      flat: { strictPreserveMode: flat.params.strictPreserveMode },
       export: exportNode.params,
     },
   };

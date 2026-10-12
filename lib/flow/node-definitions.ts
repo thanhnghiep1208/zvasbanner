@@ -116,13 +116,8 @@ export const NODE_DEFINITIONS: Registry = {
     ],
     outputs: [out('raster', 'raster')],
     defaultParams: { model: 'nano-banana-pro', strictPreserveMode: true },
-    aiCallsPerRatio: 1,
-  },
-  'harmony-pass': {
-    type: 'harmony-pass', kind: 'executor', label: 'Harmony pass',
-    inputs: [inPort('raster', 'raster', true)],
-    outputs: [out('raster', 'raster')],
-    defaultParams: {}, aiCallsPerRatio: 1,
+    // Generate + harmony pass server luôn chạy ngay sau (app/api/generate/route.ts) – Q4.
+    aiCallsPerRatio: 2,
   },
   'compose': {
     type: 'compose', kind: 'output', label: 'Compose',

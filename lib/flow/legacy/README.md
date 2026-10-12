@@ -48,9 +48,10 @@ Các field này chỉ dùng trong canvas, `toLegacyConfig` bỏ qua:
 
 - `textLayers[].renderSource`, `priority`, `minFontSizePx`, `typography`, `layerId`. Legacy: Gemini luôn vẽ chữ.
 - `composed.*` (`lightDirectionDeg`, `strictNoText`, `layoutOverrides`, `shadow`). Legacy chỉ có flat; composed cần route mới, xem Q8.
-- `flat.harmonyPass`. Server luôn chạy harmony (Q4: bỏ node ở T1.1b).
 - `export.*` (`format`, `quality`, `scale`, `ratioIds`). Không thuộc request; tương ứng tham số `exportBanner()` trong `lib/export.ts` và `ExportPopover` (mặc định quality 90%, scale 1).
 
 ## Phạm vi của `toLegacyConfig`
 
 Chỉ hợp lệ với `renderMode = 'flat'`. Với `composed` phải trả lỗi rõ ràng, không được âm thầm chuyển sang flat.
+
+Harmony pass không có node riêng (Q4). Server luôn chạy `runHarmonyPass` sau mỗi lần generate Gemini thành công, nên `generate-flat` được tính `aiCallsPerRatio = 2`.

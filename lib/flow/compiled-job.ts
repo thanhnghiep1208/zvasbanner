@@ -2,6 +2,7 @@ import type {
   FlowStyle, ModelId, NodeParamsMap, RatioSpec, ShadowConfig, Transform,
 } from './schema';
 import type { BrandKit } from '@/lib/types';
+import { NODE_DEFINITIONS } from './node-definitions';
 
 /**
  * CompiledJob – IR trung gian giữa graph và pipeline hiện có.
@@ -26,13 +27,12 @@ export interface CompiledJob {
   };
   flat?: {
     strictPreserveMode: boolean;
-    harmonyPass: boolean;
   };
   export: NodeParamsMap['export'];
 }
 
+/** Số lần gọi model AI = số ratio × aiCallsPerRatio của executor tương ứng. */
 export function estimateAiCalls(job: CompiledJob): number {
-  const n = job.ratios.length;
-  if (job.renderMode === 'composed') return n;
-  return n * (job.flat?.harmonyPass ? 2 : 1);
+  const executor = job.renderMode === 'composed' ? 'generate-background' : 'generate-flat';
+  return job.ratios.length * NODE_DEFINITIONS[executor].aiCallsPerRatio;
 }

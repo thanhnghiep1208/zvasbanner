@@ -30,5 +30,5 @@ describe('warnings', () => {
 
 describe('estimateAiCalls', () => {
   it('composed = 1 call / ratio', () => expect(estimateAiCalls(composedFull)).toBe(3));
-  it('flat + harmony = 2 call / ratio', () => expect(estimateAiCalls(flatLegacy)).toBe(2));
+  it('flat = 2 call / ratio (generate + harmony)', () => expect(estimateAiCalls(flatLegacy)).toBe(2));
 });

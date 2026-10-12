@@ -109,7 +109,6 @@ export interface NodeParamsMap {
     strictNoText: boolean;
   };
   'generate-flat': { model: ModelId; strictPreserveMode: boolean };
-  'harmony-pass': Record<string, never>;
   'compose': { shadow: ShadowConfig };
   /** Theo `exportBanner()` trong lib/export.ts. `quality` chỉ áp dụng cho jpg. */
   'export': { format: 'png' | 'jpg'; quality: number; scale: 1 | 2; ratioIds: string[] | 'all' };

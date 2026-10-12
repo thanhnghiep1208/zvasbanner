@@ -69,7 +69,7 @@ export const composedFull: CompiledJob = {
   export: { format: 'jpg', quality: 0.8, scale: 2, ratioIds: ['custom-1080x1920', 'social-zalo-oa-img'] },
 };
 
-/** Flat legacy có harmony pass – dạng request form hiện tại. */
+/** Flat legacy – dạng request form hiện tại (harmony pass luôn chạy server-side). */
 export const flatLegacy: CompiledJob = {
   schemaVersion: 1,
   renderMode: 'flat',
@@ -79,7 +79,7 @@ export const flatLegacy: CompiledJob = {
   model: 'nano-banana-pro',
   products: [asset('asset-giay', 'image', false)],
   textLayers: [],
-  flat: { strictPreserveMode: true, harmonyPass: true },
+  flat: { strictPreserveMode: true },
   export: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' },
 };
 
