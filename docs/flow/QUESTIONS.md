@@ -73,3 +73,12 @@ Lựa chọn:
 - B. Thêm nhánh `mode: 'background'` vào `/api/generate` (sửa route cũ, trái nguyên tắc 2.2).
 Đề xuất: A. Cần quyết thêm: rate limit dùng chung bucket với `/api/generate` hay bucket riêng (nguyên tắc 2.7: không tạo đường vòng → nên dùng chung).
 Trạng thái: chờ Nghiệp
+
+## Q9 – Text layer không có chỗ trong request legacy (task T1.3, T2.6)
+Bối cảnh: Form cũ chỉ có 1 headline, 1 subheadline, 1 CTA, ghép vào `userPrompt` bằng `composeUserPrompt()`. Canvas cho phép role `custom` và nhiều layer cùng role. Hiện `toLegacyConfig` lấy layer đầu tiên của mỗi role, phần còn lại không gửi và trả warning `unmapped-text`.
+Lựa chọn:
+- A. Giữ như hiện tại: không gửi, hiện warning trên node khi chạy flat.
+- B. Ghép thêm vào cuối prompt dạng `Text: …`. Gemini sẽ vẽ, nhưng format khác form nên không còn parity.
+- C. Chặn Run (lỗi validate) khi graph flat có text layer không map được.
+Đề xuất: A cho P1. Flat chỉ là đường legacy; graph mới mặc định composed, nơi text layer được render riêng.
+Trạng thái: chờ Nghiệp

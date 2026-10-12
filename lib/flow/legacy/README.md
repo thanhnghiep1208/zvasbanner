@@ -63,4 +63,10 @@ Harmony pass không có node riêng (Q4). Server luôn chạy `runHarmonyPass` s
   - Text: có `form` thì dùng thẳng 3 field (lossless); không có thì `splitComposedPrompt()` tách các dòng `Headline:` / `Subheadline:` / `CTA:` ở cuối prompt. Chỉ nhận nhãn đúng thứ tự, mỗi nhãn tối đa 1 lần.
   - Flat: `renderSource` của text layer để mặc định `'layer'` và bị bỏ qua, vì Gemini vẽ mọi chữ.
   - Request thiếu `marketingBrief` → mảng rỗng. Vì vậy request đi round-trip sẽ có thêm field này; form luôn gửi nên không ảnh hưởng.
-- `to-legacy-config.ts` (T1.3): chưa có.
+- `to-legacy-config.ts` (T1.3): `toLegacyConfig(job, runtime) → { ok, requests: { ratioId, request }[], warnings }`.
+  - Mỗi ratio cho ra 1 request. `runtime.layoutAdaptationFromBanner` gắn vào mọi request; khi chạy nhiều ratio, executor tự đặt theo từng lần gọi (T4.6).
+  - `assets`: products trước rồi references. Thứ tự giữa hai nhóm khác request gốc, nhưng server tự tách theo role (`gemini-server.ts`, `prompt-builder.ts`) nên không ảnh hưởng kết quả. Test round-trip so sánh sau khi sắp xếp theo id.
+  - `composed` → lỗi `composed-not-supported` (Q8).
+  - Warning `missing-asset-data`: asset không có `dataUrl` thì server bỏ qua ảnh mà không báo lỗi. Executor phải chặn Run hoặc yêu cầu tải lại ảnh.
+  - Warning `unmapped-text`: layer role `custom` và layer trùng role không được gửi (Q9).
+  - `composeLegacyPrompt()` là bản sao format của `composeUserPrompt()`. Không import bản gốc vì file đó kéo theo Zustand store. Có test so sánh với bản gốc.
