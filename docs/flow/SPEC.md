@@ -45,10 +45,10 @@ Style/Brand/Ref┘        └──── transforms ─────────
 
 | Lớp | Vị trí | Trạng thái |
 |---|---|---|
-| Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có, 21 test pass |
+| Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có, 82 test pass |
 | IR | `lib/flow/compiled-job.ts` (`CompiledJob`, `estimateAiCalls`) | Có |
-| Adapter legacy | `lib/flow/legacy/to-legacy-config.ts`, `from-legacy-config.ts` (legacy = `GenerationRequest`) | **Chưa có** |
-| Text layer + renderer | `lib/flow/text/` (model) + renderer Canvas 2D | **Chưa có, xây mới (Q2)** |
+| Adapter legacy | `lib/flow/legacy/to-legacy-config.ts`, `from-legacy-config.ts` (legacy = `GenerationRequest`) | Có (T1.2–T1.4) |
+| Text layer + renderer | `lib/flow/text/` (model) + renderer Canvas 2D | Model có (`text-style.ts`); renderer chưa có (T4.4) |
 | Compose | `lib/flow/compose/` (Canvas 2D) | **Chưa có, xây mới (Q3)** |
 | Layout engine | `lib/flow/layout/` | **Chưa có** |
 | Executor engine | `lib/flow/executor.ts` | **Chưa có** |
@@ -141,7 +141,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 - [x] **T1.2** `from-legacy-config.ts` + test
 - [x] **T1.3** `to-legacy-config.ts` + test
 - [x] **T1.4** Thay fixture giả bằng ≥3 payload `GenerationRequest` thật log từ form chạy local (bỏ `dataUrl`, ẩn dữ liệu nhạy cảm), bổ sung case tự dựng nếu thiếu (Q1); round-trip `legacy → job → graph → job → legacy` khớp
-- [ ] **T1.5** Thiết kế model text layer mới (font family/weight/size, line-height, color, align, max lines…) thay `typography: Record<string, unknown>` (Q2)
+- [x] **T1.5** Thiết kế model text layer mới (font family/weight/size, line-height, color, align, max lines…) thay `typography: Record<string, unknown>` (Q2)
 
 ### Bước 2 – Canvas chạy được 1 path
 - [ ] **T2.1** `lib/flow-ui/rf-adapter.ts`: FlowNode/FlowEdge ↔ React Flow node/edge (handle id = port id)
@@ -201,3 +201,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 - **2026-10-12** – Xong T1.2. `lib/flow/legacy/from-legacy-config.ts`: `fromLegacyConfig(request, { form? }) → { job, runtime }`, tách text bằng `splitComposedPrompt()` (test đối chiếu với `composeUserPrompt` thật), asset chia theo role, `dataUrl`/`layoutAdaptationFromBanner` vào `runtime`. Thêm `vitest.config.mts` (alias `@/`). 38 test pass, tsc pass. Tiếp theo: T1.3.
 - **2026-10-12** – Xong T1.3. `lib/flow/legacy/to-legacy-config.ts`: `toLegacyConfig(job, runtime)` → 1 `GenerationRequest`/ratio + warnings (`missing-asset-data`, `unmapped-text`), composed → lỗi. Round-trip request → job → graph → job → request khớp; request sinh ra qua `parseGenerationRequest` của server. Thêm Q9 (text layer không map được). 50 test pass, tsc pass. Tiếp theo: T1.4 (cần log payload thật từ form, Q1).
 - **2026-10-12** – Xong T1.4. 4 payload thật log từ form (làm sạch id/url/fileName/dataUrl) + 1 payload tự dựng phủ đủ 5 asset role, backgroundConfig, brand kit, canvas custom, `layoutAdaptationFromBanner` (`lib/flow/__tests__/fixtures/legacy/`). Mỗi fixture: server parse được, tách text từ prompt = lấy từ form, round-trip legacy → job → graph → job → legacy khớp. `flatLegacy` giờ sinh từ payload thật. Đã gỡ route và khối log tạm. 71 test pass, tsc pass. Tiếp theo: T1.5.
+- **2026-10-12** – Xong T1.5, đóng bước 1. `lib/flow/text/text-style.ts`: `TextStyle` (font registry `FLOW_FONTS`, weight, italic, cỡ/giãn dòng/letter-spacing, transform, align, maxLines, fill, stroke, shadow, plate), mặc định theo role, `validateTextStyle` → lỗi `text-style-invalid` trong `validateGraph`. `text-layer.style` thay `typography`. Thêm Q10 (bộ font). 82 test pass, tsc pass. Tiếp theo: T2.1.

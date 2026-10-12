@@ -24,6 +24,7 @@ import type {
   FlowAsset, NodeParamsMap, PixelAssetRole, RatioSpec, ReferenceAssetRole, TextRole,
 } from '../schema';
 import { FLOW_SCHEMA_VERSION } from '../schema';
+import { defaultTextStyle, TEXT_ROLE_DEFAULTS } from '../text/text-style';
 
 /** Field text của form trong store/editor.ts – có khi gọi từ state editor (lossless). */
 export interface LegacyFormText {
@@ -128,12 +129,17 @@ export function splitComposedPrompt(userPrompt: string): SplitText {
 }
 
 function toTextLayers(text: SplitText): NodeParamsMap['text-layer'][] {
-  const base = NODE_DEFINITIONS['text-layer'].defaultParams;
   const layers: NodeParamsMap['text-layer'][] = [];
   const add = (role: TextRole, content: string, priority: number) => {
     const c = content.trim();
-    // Flat: Gemini vẽ mọi chữ, renderSource bị bỏ qua → để mặc định 'layer'.
-    if (c) layers.push({ ...base, layerId: role, role, content: c, priority });
+    // Flat: Gemini vẽ mọi chữ, renderSource và style bị bỏ qua → để mặc định theo role.
+    if (c) {
+      layers.push({
+        layerId: role, role, content: c, renderSource: 'layer', priority,
+        minFontSizePx: TEXT_ROLE_DEFAULTS[role].minFontSizePx,
+        style: defaultTextStyle(role),
+      });
+    }
   };
   add('headline', text.headline, 1);
   add('subheadline', text.subheadline, 2);

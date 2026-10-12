@@ -82,3 +82,11 @@ Lựa chọn:
 - C. Chặn Run (lỗi validate) khi graph flat có text layer không map được.
 Đề xuất: A cho P1. Flat chỉ là đường legacy; graph mới mặc định composed, nơi text layer được render riêng.
 Trạng thái: **đã chốt A** (2026-10-12)
+
+## Q10 – Bộ font cho text layer (task T4.4, không chặn bước 1–2)
+Bối cảnh: App chỉ tải Inter (`next/font/google`, subset latin + vietnamese, weight 400–700) trong `app/layout.tsx`. Text layer mới (`lib/flow/text/text-style.ts`) dùng `FontId` từ registry `FLOW_FONTS`, hiện chỉ có `inter`. Trong khi đó `StyleControls.fontStyle` có 5 lựa chọn (sans, serif, display, handwritten, modern) và `BrandKit.fontPreference` là chuỗi tự do. Renderer Canvas 2D cần font đã tải xong trước khi vẽ/export; CSP `font-src 'self' data:` cho phép font self-host qua `next/font`.
+Lựa chọn:
+- A. P1 chỉ dùng Inter cho mọi text layer.
+- B. Thêm 4–5 font Google có subset tiếng Việt qua `next/font` (không thêm npm dependency), mỗi `fontStyle` một font mặc định. Ví dụ: sans → Be Vietnam Pro, serif → Noto Serif, display → Montserrat, handwritten → Dancing Script, modern → Inter.
+Đề xuất: B, chốt danh sách trước T4.4. Cần kiểm tra license (OFL) và dung lượng tải.
+Trạng thái: chờ Nghiệp

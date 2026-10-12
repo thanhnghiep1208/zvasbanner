@@ -46,7 +46,7 @@ CTA: …
 
 Các field này chỉ dùng trong canvas, `toLegacyConfig` bỏ qua:
 
-- `textLayers[].renderSource`, `priority`, `minFontSizePx`, `typography`, `layerId`. Legacy: Gemini luôn vẽ chữ.
+- `textLayers[].renderSource`, `priority`, `minFontSizePx`, `style` (TextStyle), `layerId`. Legacy: Gemini luôn vẽ chữ.
 - `composed.*` (`lightDirectionDeg`, `strictNoText`, `layoutOverrides`, `shadow`). Legacy chỉ có flat; composed cần route mới, xem Q8.
 - `export.*` (`format`, `quality`, `scale`, `ratioIds`). Không thuộc request; tương ứng tham số `exportBanner()` trong `lib/export.ts` và `ExportPopover` (mặc định quality 90%, scale 1).
 

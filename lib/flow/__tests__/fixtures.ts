@@ -2,6 +2,7 @@ import type { CompiledJob } from '../compiled-job';
 import type { FlowAsset, PixelAssetRole, ReferenceAssetRole } from '../schema';
 import { DEFAULT_RATIO, DEFAULT_SHADOW, DEFAULT_STYLE } from '../schema';
 import { fromLegacyConfig } from '../legacy/from-legacy-config';
+import { defaultTextStyle } from '../text/text-style';
 import { LEGACY_FIXTURES } from './fixtures/legacy';
 
 /**
@@ -29,7 +30,7 @@ export const composedMinimal: CompiledJob = {
   products: [asset('asset-noi-chien', 'image', true)],
   textLayers: [{
     layerId: 'headline', role: 'headline', content: 'Giảm 30% cuối tuần',
-    renderSource: 'layer', priority: 1, minFontSizePx: 28,
+    renderSource: 'layer', priority: 1, minFontSizePx: 28, style: defaultTextStyle('headline'),
   }],
   composed: { lightDirectionDeg: 315, strictNoText: true, layoutOverrides: {}, shadow: DEFAULT_SHADOW },
   export: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' },
@@ -54,9 +55,12 @@ export const composedFull: CompiledJob = {
     asset('asset-logo', 'logo', true),
   ],
   textLayers: [
-    { layerId: 'headline', role: 'headline', content: 'Tết Sum Vầy', renderSource: 'ai', priority: 1, minFontSizePx: 32 },
-    { layerId: 'sub', role: 'subheadline', content: 'Quà tặng cao cấp từ 499K', renderSource: 'layer', priority: 2, minFontSizePx: 16 },
-    { layerId: 'cta', role: 'cta', content: 'Mua ngay', renderSource: 'layer', priority: 3, minFontSizePx: 14 },
+    { layerId: 'headline', role: 'headline', content: 'Tết Sum Vầy', renderSource: 'ai', priority: 1, minFontSizePx: 32,
+      style: { ...defaultTextStyle('headline'), fontSizePx: 88, fill: { kind: 'solid', color: '#FFD700' },
+        stroke: { color: '#7A0019', widthPx: 3 }, shadow: { color: '#00000080', blurPx: 12, offsetX: 0, offsetY: 4 } } },
+    { layerId: 'sub', role: 'subheadline', content: 'Quà tặng cao cấp từ 499K', renderSource: 'layer', priority: 2, minFontSizePx: 16, style: defaultTextStyle('subheadline') },
+    { layerId: 'cta', role: 'cta', content: 'Mua ngay', renderSource: 'layer', priority: 3, minFontSizePx: 14,
+      style: { ...defaultTextStyle('cta'), plate: { color: '#C8102E', paddingX: 40, paddingY: 18, radiusPx: 999 } } },
   ],
   composed: {
     lightDirectionDeg: 45,

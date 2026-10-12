@@ -1,5 +1,6 @@
 import type { NodeParamsMap, NodeType, PortType } from './schema';
 import { DEFAULT_RATIO, DEFAULT_SHADOW, DEFAULT_STYLE } from './schema';
+import { TEXT_ROLE_DEFAULTS } from './text/text-style';
 
 export type NodeKind = 'input' | 'config' | 'layout' | 'executor' | 'output';
 
@@ -61,7 +62,8 @@ export const NODE_DEFINITIONS: Registry = {
     inputs: [], outputs: [out('text', 'text')],
     defaultParams: {
       layerId: '', role: 'headline', content: '', renderSource: 'layer',
-      priority: 1, minFontSizePx: 14,
+      priority: 1, minFontSizePx: TEXT_ROLE_DEFAULTS.headline.minFontSizePx,
+      style: TEXT_ROLE_DEFAULTS.headline.style,
     },
     aiCallsPerRatio: 0,
   },

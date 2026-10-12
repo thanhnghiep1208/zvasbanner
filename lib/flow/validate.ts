@@ -1,5 +1,6 @@
 import type { FlowGraph, FlowNode } from './schema';
 import { getDefinition } from './node-definitions';
+import { validateTextStyle } from './text/text-style';
 
 export interface ValidationIssue {
   severity: 'error' | 'warning';
@@ -81,6 +82,9 @@ export function validateGraph(graph: FlowGraph): ValidationIssue[] {
     if (p.renderSource === 'ai' && feedsCompose(graph, n.id)) {
       issues.push({ severity: 'warning', code: 'ai-text-in-composed', nodeId: n.id,
         message: 'Headline AI: prompt chỉ cho phép chữ trong slot headline, vùng khác vẫn cấm chữ. Kết quả chữ có thể sai chính tả.' });
+    }
+    for (const message of validateTextStyle(p.style, p.minFontSizePx)) {
+      issues.push({ severity: 'error', code: 'text-style-invalid', nodeId: n.id, message });
     }
   }
 

@@ -13,7 +13,7 @@
  * | brief.marketingBrief                | marketingBrief                                      |
  * | runtime.layoutAdaptationFromBanner  | layoutAdaptationFromBanner (mọi request)            |
  *
- * Bỏ qua (chỉ dùng trong canvas): textLayers[].renderSource/priority/minFontSizePx/typography,
+ * Bỏ qua (chỉ dùng trong canvas): textLayers[].renderSource/priority/minFontSizePx/style,
  * composed.*, export.*.
  */
 import type { GenerationRequest, UploadedAsset } from '@/lib/types';

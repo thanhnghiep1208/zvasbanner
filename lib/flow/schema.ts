@@ -15,6 +15,8 @@ import type {
   UploadedAsset,
 } from '@/lib/types';
 
+import type { TextStyle } from './text/text-style';
+
 export const FLOW_SCHEMA_VERSION = 1 as const;
 
 /* ── Port types ─────────────────────────────────────────────── */
@@ -92,8 +94,8 @@ export interface NodeParamsMap {
     /** Số nhỏ = ưu tiên cao. Auto Layout giữ đủ mọi layer, priority chỉ quyết định thứ tự co giãn. */
     priority: number;
     minFontSizePx: number;
-    /** T1.5 thay bằng model text layer mới (Q2). */
-    typography?: Record<string, unknown>;
+    /** Model text layer mới (Q2), xem lib/flow/text/text-style.ts. */
+    style: TextStyle;
   };
   'brand-kit': BrandKit;
   'ratio': { ratios: RatioSpec[] };
