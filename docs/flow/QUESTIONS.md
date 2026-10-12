@@ -1,0 +1,59 @@
+# Flow Canvas – Câu hỏi chờ quyết định
+
+> Theo mục 9 của `SPEC.md`. Mỗi câu hỏi: bối cảnh, lựa chọn, đề xuất, trạng thái.
+> Khi Nghiệp trả lời: ghi quyết định vào dòng "Trạng thái", rồi cập nhật SPEC nếu cần.
+
+## Q1 – Không có config thật trong Postgres để làm fixture (task T1.4)
+Bối cảnh: DB chỉ có bảng analytics `banner_events` (`db/banner_events.sql`). App không lưu project hay `GenerationRequest`; form giữ state trong `store/editor.ts` (Zustand, không persist) và gửi thẳng lên `/api/generate`. Vì vậy không có "config thật từ Postgres".
+Lựa chọn:
+- A. Lấy 3–5 payload `GenerationRequest` thật bằng cách log body ở client (`lib/client-generation.ts`) khi dùng form local, ẩn `dataUrl`/ảnh, lưu thành fixture JSON.
+- B. Tự dựng 3–5 `GenerationRequest` theo các trường hợp thường gặp (1 sản phẩm, có logo + style-reference, có headline/subheadline/CTA, bật/tắt `strictPreserveMode`).
+- C. Thêm log payload phía server vào `/api/generate` (đụng nguyên tắc 2.2).
+Đề xuất: A, bổ sung bằng B cho các trường hợp hiếm. Sửa câu chữ T1.4 thành "≥3 payload GenerationRequest thật".
+Trạng thái: chờ Nghiệp
+
+## Q2 – Không có model `TextLayer` / `lib/text-layer-render.ts` (task T1.5, T4.4, mục 2.6, 5.2)
+Bối cảnh: Repo không có `TextLayer` cũng không có `lib/text-layer-render.ts` (đã grep toàn bộ code và lịch sử git). Text hiện chỉ là các string `headline`, `subheadline` (và CTA) trong `store/editor.ts`, được đưa vào prompt để Gemini vẽ chữ luôn vào ảnh. Mục 5.2 yêu cầu đo text "bằng cùng logic font metrics của `lib/text-layer-render.ts`", điều này không làm được.
+Lựa chọn:
+- A. Thiết kế mới model text layer trong `lib/flow/schema.ts` (font family, weight, size, line-height, color, align, max lines…) và viết text renderer mới (Canvas 2D, dùng chung cho preview và export).
+- B. P1 giữ text do AI vẽ như form hiện tại (`renderSource: 'ai'` cho mọi role), hoãn text layer thật sang sau P1.
+Đề xuất: A, vì composed mode cần chữ là layer riêng để không bị Gemini viết sai chính tả. Nhưng đây là việc lớn, cần ghi rõ trong SPEC là phải xây mới, đồng thời sửa danh sách type ở mục 2.6.
+Trạng thái: chờ Nghiệp
+
+## Q3 – Không có composed mode / `ComposedDoc` / `ProductLayer` để tái sử dụng (task T4.3, mục 5.4)
+Bối cảnh: Mục 5.4 viết "Compose client-side theo hệ thống composed mode hiện có (tìm ComposedDoc/ProductLayer trong repo, tái sử dụng)". Repo không có các type này, và cũng không có `ShadowConfig`, `LightingProfile` (ngoài bản mới trong `lib/flow/schema.ts`). Pipeline hiện tại chỉ có flat: Gemini sinh một ảnh hoàn chỉnh. `lib/export.ts` export ảnh đã có, không compose layer.
+Lựa chọn:
+- A. Viết mới Compose (Canvas 2D: nền + product có alpha + contact shadow + text layer) trong `lib/flow/compose/` hoặc `lib/compose/`; export từ canvas đó.
+- B. Dùng thư viện canvas (Konva/Fabric) cho Compose và editor layer.
+Đề xuất: A cho P1 (không thêm dependency lớn, theo mục 6.5). Sửa mục 5.4 thành "viết mới".
+Trạng thái: chờ Nghiệp
+
+## Q4 – Không tắt được harmony pass cho flat (task T4.5)
+Bối cảnh: `app/api/generate/route.ts` luôn chạy `runHarmonyPass` ngay sau mỗi lần generate Gemini thành công (best-effort, timeout ~30s). Không có tham số nào để tắt. Graph có node `harmony-pass` tuỳ chọn và `flat.harmonyPass: boolean`, nên `harmonyPass = false` không thực hiện được nếu không sửa route (nguyên tắc 2.2). Ngoài ra `estimateAiCalls` đang tính flat không harmony là 1 call/ratio, trong khi thực tế luôn là 2.
+Lựa chọn:
+- A. Thêm field tuỳ chọn `skipHarmony` vào request `/api/generate` (mặc định `false`, form cũ không đổi hành vi).
+- B. Bỏ node `harmony-pass`; coi harmony là một phần cố định của `generate-flat` (luôn 2 call/ratio).
+Đề xuất: B cho P1 (không đụng pipeline cũ, và estimate đúng thực tế). Nếu sau này cần bật/tắt thì làm A.
+Trạng thái: chờ Nghiệp
+
+## Q5 – Không có project cũ để migrate (task T6.2, mục 5.8)
+Bối cảnh: Vì app không lưu project (xem Q1), script "migrate project cũ: config cũ → fromLegacyConfig → decompileJob → lưu" không có dữ liệu đầu vào. `fromLegacyConfig` vẫn hữu ích để chuyển state form đang mở thành graph, và để so sánh parity ở T2.7.
+Lựa chọn:
+- A. Bỏ T6.2. Thay bằng "nút Mở trong canvas trên form cũ: state editor → GenerationRequest → fromLegacyConfig → decompileJob".
+- B. Giữ T6.2 để phòng khi bước 6 có lưu project trước khi gỡ form.
+Đề xuất: A.
+Trạng thái: chờ Nghiệp
+
+## Q6 – Schema lệch type thật trong `lib/types.ts` (task T1.1–T1.3)
+Bối cảnh: Các điểm lệch tìm được khi đối chiếu với `GenerationRequest`:
+- `ModelId = 'gemini-pro' | 'gemini-flash'`, nhưng type thật là `ImageGenerationModel = 'nano-banana-pro' | 'nano-banana-2'`.
+- Node `style` chỉ có `presetId`/`description`; thiếu `StyleControls` (style, mood, colorPalette, fontStyle, strictPreserveMode, backgroundConfig).
+- Thiếu `marketingBrief` (campaignIntents, focalSubjects).
+- Asset role thật gồm `logo | image | background | decoration | style-reference`; schema chỉ có `product-asset` và `reference-image`.
+- `BrandKit` thật là `{ colors, fontPreference?, logoPosition? }` gửi inline; schema dùng `brandKitId`, mà app không có bảng brand kit.
+- `CanvasConfig` thật là `{ width, height, platform, name }`, một kích thước mỗi request; `RatioSpec` thiếu `platform`/`name`. `id` nên dùng preset id trong `lib/canvas-presets.ts`.
+Lựa chọn:
+- A. Sửa schema ngay trong T1.1–T1.3 cho khớp type thật (schema v1 chưa lưu dữ liệu nào nên chưa cần migration).
+- B. Giữ schema, xử lý lệch trong adapter.
+Đề xuất: A, làm trước khi có dữ liệu lưu thật. Tái sử dụng type từ `lib/types.ts` thay vì định nghĩa lại.
+Trạng thái: chờ Nghiệp
