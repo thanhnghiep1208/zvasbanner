@@ -140,7 +140,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 - [x] **T1.1b** Bỏ node `harmony-pass`; `generate-flat` có `aiCallsPerRatio = 2`; cập nhật compiler/decompiler/`estimateAiCalls`/test (Q4)
 - [x] **T1.2** `from-legacy-config.ts` + test
 - [x] **T1.3** `to-legacy-config.ts` + test
-- [ ] **T1.4** Thay fixture giả bằng ≥3 payload `GenerationRequest` thật log từ form chạy local (bỏ `dataUrl`, ẩn dữ liệu nhạy cảm), bổ sung case tự dựng nếu thiếu (Q1); round-trip `legacy → job → graph → job → legacy` khớp
+- [x] **T1.4** Thay fixture giả bằng ≥3 payload `GenerationRequest` thật log từ form chạy local (bỏ `dataUrl`, ẩn dữ liệu nhạy cảm), bổ sung case tự dựng nếu thiếu (Q1); round-trip `legacy → job → graph → job → legacy` khớp
 - [ ] **T1.5** Thiết kế model text layer mới (font family/weight/size, line-height, color, align, max lines…) thay `typography: Record<string, unknown>` (Q2)
 
 ### Bước 2 – Canvas chạy được 1 path
@@ -200,3 +200,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 - **2026-10-12** – Xong T1.1b (Q4B). Bỏ node `harmony-pass` khỏi schema/registry/compiler/decompiler; `generate-flat.aiCallsPerRatio = 2`; `estimateAiCalls` đọc `aiCallsPerRatio` từ `NODE_DEFINITIONS`; bỏ `CompiledJob.flat.harmonyPass`. 21 test pass, tsc pass. Tiếp theo: T1.2.
 - **2026-10-12** – Xong T1.2. `lib/flow/legacy/from-legacy-config.ts`: `fromLegacyConfig(request, { form? }) → { job, runtime }`, tách text bằng `splitComposedPrompt()` (test đối chiếu với `composeUserPrompt` thật), asset chia theo role, `dataUrl`/`layoutAdaptationFromBanner` vào `runtime`. Thêm `vitest.config.mts` (alias `@/`). 38 test pass, tsc pass. Tiếp theo: T1.3.
 - **2026-10-12** – Xong T1.3. `lib/flow/legacy/to-legacy-config.ts`: `toLegacyConfig(job, runtime)` → 1 `GenerationRequest`/ratio + warnings (`missing-asset-data`, `unmapped-text`), composed → lỗi. Round-trip request → job → graph → job → request khớp; request sinh ra qua `parseGenerationRequest` của server. Thêm Q9 (text layer không map được). 50 test pass, tsc pass. Tiếp theo: T1.4 (cần log payload thật từ form, Q1).
+- **2026-10-12** – Xong T1.4. 4 payload thật log từ form (làm sạch id/url/fileName/dataUrl) + 1 payload tự dựng phủ đủ 5 asset role, backgroundConfig, brand kit, canvas custom, `layoutAdaptationFromBanner` (`lib/flow/__tests__/fixtures/legacy/`). Mỗi fixture: server parse được, tách text từ prompt = lấy từ form, round-trip legacy → job → graph → job → legacy khớp. `flatLegacy` giờ sinh từ payload thật. Đã gỡ route và khối log tạm. 71 test pass, tsc pass. Tiếp theo: T1.5.

@@ -92,7 +92,7 @@ describe('toLegacyConfig', () => {
   it('thiếu dataUrl → warning missing-asset-data, request vẫn hợp lệ', () => {
     const res = toLegacyConfig(flatLegacy);
     if (!res.ok) throw new Error(res.error.message);
-    expect(res.warnings.map((w) => [w.code, w.refs])).toEqual([['missing-asset-data', ['asset-giay']]]);
+    expect(res.warnings.map((w) => [w.code, w.refs])).toEqual([['missing-asset-data', ['asset-product', 'asset-logo']]]);
     expect(res.requests[0]!.request.assets[0]).not.toHaveProperty('dataUrl');
   });
 

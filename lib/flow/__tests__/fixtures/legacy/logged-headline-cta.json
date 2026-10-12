@@ -1,0 +1,57 @@
+{
+  "source": "logged",
+  "loggedAt": "2026-10-12T04-45-02",
+  "description": "Preset mặc định, 1 sản phẩm, headline + CTA (không subheadline), nano-banana-pro, giữ nguyên chủ thể.",
+  "request": {
+    "canvasConfig": {
+      "width": 1075,
+      "height": 645,
+      "platform": "Zalo",
+      "name": "Zalo OA Img"
+    },
+    "assets": [
+      {
+        "id": "asset-product",
+        "url": "blob:http://localhost:3000/asset-product",
+        "fileName": "product.png",
+        "role": "image",
+        "hasAlpha": true,
+        "originalDims": {
+          "width": 1536,
+          "height": 1024
+        },
+        "dataUrl": "data:image/png;base64,FIXTURE"
+      }
+    ],
+    "brandKit": {
+      "colors": []
+    },
+    "userPrompt": "mua 2 gói kiki pre và ZMP3 plus, với giá ưu đãi 199K\nHeadline: Giảm giá 50%\nCTA: mua ngay",
+    "styleControls": {
+      "style": "minimalist",
+      "mood": "professional",
+      "colorPalette": "auto",
+      "fontStyle": "modern",
+      "strictPreserveMode": true,
+      "backgroundConfig": {
+        "tones": [],
+        "grains": [],
+        "shapes": [],
+        "effects": []
+      }
+    },
+    "imageModel": "nano-banana-pro",
+    "marketingBrief": {
+      "campaignIntents": [
+        "flash-sale"
+      ],
+      "focalSubjects": []
+    }
+  },
+  "form": {
+    "userPrompt": "mua 2 gói kiki pre và ZMP3 plus, với giá ưu đãi 199K",
+    "headline": "Giảm giá 50%",
+    "subheadline": "",
+    "ctaText": "mua ngay"
+  }
+}

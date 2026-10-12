@@ -1,10 +1,12 @@
 import type { CompiledJob } from '../compiled-job';
 import type { FlowAsset, PixelAssetRole, ReferenceAssetRole } from '../schema';
 import { DEFAULT_RATIO, DEFAULT_SHADOW, DEFAULT_STYLE } from '../schema';
+import { fromLegacyConfig } from '../legacy/from-legacy-config';
+import { LEGACY_FIXTURES } from './fixtures/legacy';
 
 /**
- * TODO (T1.4): thay bằng ≥3 payload GenerationRequest thật log từ form (Q1),
- * qua fromLegacyConfig → CompiledJob.
+ * Composed: chưa có pipeline thật (Q3, Q8) nên 2 fixture composed là mẫu tự dựng.
+ * Flat: lấy từ payload thật của form, xem ./fixtures/legacy.
  */
 
 const asset = <R extends PixelAssetRole | ReferenceAssetRole>(
@@ -15,8 +17,6 @@ const asset = <R extends PixelAssetRole | ReferenceAssetRole>(
   fileName: `${assetId}.png`,
   originalDims: { width: 1024, height: 1024 },
 });
-
-const NO_BRIEF = { campaignIntents: [], focalSubjects: [] };
 
 /** Composed tối giản: 1 sản phẩm, 1 ratio, chỉ headline. */
 export const composedMinimal: CompiledJob = {
@@ -69,18 +69,7 @@ export const composedFull: CompiledJob = {
   export: { format: 'jpg', quality: 0.8, scale: 2, ratioIds: ['custom-1080x1920', 'social-zalo-oa-img'] },
 };
 
-/** Flat legacy – dạng request form hiện tại (harmony pass luôn chạy server-side). */
-export const flatLegacy: CompiledJob = {
-  schemaVersion: 1,
-  renderMode: 'flat',
-  ratios: [{ id: 'custom-1080x1350', width: 1080, height: 1350, platform: 'Custom', name: 'Custom' }],
-  brief: { prompt: 'Banner flash sale', marketingBrief: NO_BRIEF },
-  references: [],
-  model: 'nano-banana-pro',
-  products: [asset('asset-giay', 'image', false)],
-  textLayers: [],
-  flat: { strictPreserveMode: true },
-  export: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' },
-};
+/** Flat legacy – job sinh từ payload thật của form (fixture logged-full-text-logo). */
+export const flatLegacy: CompiledJob = fromLegacyConfig(LEGACY_FIXTURES['logged-full-text-logo']!.request).job;
 
 export const ALL_FIXTURES = { composedMinimal, composedFull, flatLegacy };
