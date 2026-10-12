@@ -133,6 +133,11 @@ export interface FlowEdge {
   targetPort: string;
 }
 
+/** Id edge xác định từ 2 đầu nối: cùng cặp port → cùng id (dùng để phát hiện trùng, diff ổn định). */
+export function makeEdgeId(source: string, sourcePort: string, target: string, targetPort: string): string {
+  return `e-${source}.${sourcePort}-${target}.${targetPort}`;
+}
+
 export interface FlowGraph {
   nodes: FlowNode[];
   edges: FlowEdge[];

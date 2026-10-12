@@ -52,7 +52,7 @@ Style/Brand/Ref┘        └──── transforms ─────────
 | Compose | `lib/flow/compose/` (Canvas 2D) | **Chưa có, xây mới (Q3)** |
 | Layout engine | `lib/flow/layout/` | **Chưa có** |
 | Executor engine | `lib/flow/executor.ts` | **Chưa có** |
-| RF adapter | `lib/flow-ui/rf-adapter.ts` (FlowNode ↔ React Flow node) | **Chưa có** |
+| RF adapter | `lib/flow-ui/rf-adapter.ts` (FlowNode ↔ React Flow node) | Có (T2.1) |
 | Store | `store/flow-store.ts` | Khung, chưa dùng domain |
 | UI | `components/flow/` | Canvas trống |
 | Route | `app/(studio)/flow/page.tsx` (hoặc `src/app/...`) | Có, sau flag |
@@ -129,7 +129,7 @@ Dùng `lib/analytics-events.ts`. Event mới: `flow_opened`, `flow_run_started` 
 ## 7. Lệnh kiểm tra
 
 ```bash
-npx vitest run lib/flow
+npx vitest run lib/flow   # khớp cả lib/flow-ui (lọc theo chuỗi con của đường dẫn)
 npx tsc --noEmit
 npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 ```
@@ -145,7 +145,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 - [x] **T1.5** Thiết kế model text layer mới (font family/weight/size, line-height, color, align, max lines…) thay `typography: Record<string, unknown>` (Q2)
 
 ### Bước 2 – Canvas chạy được 1 path
-- [ ] **T2.1** `lib/flow-ui/rf-adapter.ts`: FlowNode/FlowEdge ↔ React Flow node/edge (handle id = port id)
+- [x] **T2.1** `lib/flow-ui/rf-adapter.ts`: FlowNode/FlowEdge ↔ React Flow node/edge (handle id = port id)
 - [ ] **T2.2** `flow-store.ts` giữ `FlowGraph` domain; `onConnect` dùng `canConnect`, lỗi → toast
 - [ ] **T2.3** Node component chung `FlowNodeCard` render từ `NODE_DEFINITIONS` (ports, label, run state)
 - [ ] **T2.4** Node library kéo thả + Inspector cơ bản
@@ -203,3 +203,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 - **2026-10-12** – Xong T1.3. `lib/flow/legacy/to-legacy-config.ts`: `toLegacyConfig(job, runtime)` → 1 `GenerationRequest`/ratio + warnings (`missing-asset-data`, `unmapped-text`), composed → lỗi. Round-trip request → job → graph → job → request khớp; request sinh ra qua `parseGenerationRequest` của server. Thêm Q9 (text layer không map được). 50 test pass, tsc pass. Tiếp theo: T1.4 (cần log payload thật từ form, Q1).
 - **2026-10-12** – Xong T1.4. 4 payload thật log từ form (làm sạch id/url/fileName/dataUrl) + 1 payload tự dựng phủ đủ 5 asset role, backgroundConfig, brand kit, canvas custom, `layoutAdaptationFromBanner` (`lib/flow/__tests__/fixtures/legacy/`). Mỗi fixture: server parse được, tách text từ prompt = lấy từ form, round-trip legacy → job → graph → job → legacy khớp. `flatLegacy` giờ sinh từ payload thật. Đã gỡ route và khối log tạm. 71 test pass, tsc pass. Tiếp theo: T1.5.
 - **2026-10-12** – Xong T1.5, đóng bước 1. `lib/flow/text/text-style.ts`: `TextStyle` (font registry `FLOW_FONTS`, weight, italic, cỡ/giãn dòng/letter-spacing, transform, align, maxLines, fill, stroke, shadow, plate), mặc định theo role, `validateTextStyle` → lỗi `text-style-invalid` trong `validateGraph`. `text-layer.style` thay `typography`. Thêm Q10 (bộ font). 82 test pass, tsc pass. Tiếp theo: T2.1.
+- **2026-10-12** – Xong T2.1. `lib/flow-ui/rf-adapter.ts`: `toRFNode`/`fromRFNode` (RF `type` = NodeType, `data.params`), `toRFEdge`/`fromRFEdge` (handle id = port id), `graphToRF`/`rfToGraph`, `toConnectionAttempt` (cho `isValidConnection`/`onConnect`), `attemptToEdge`. Thêm `makeEdgeId` vào `schema.ts` (decompiler dùng chung). Field riêng của RF không đi ngược vào domain. 91 test pass, tsc pass. Tiếp theo: T2.2.

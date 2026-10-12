@@ -1,4 +1,5 @@
 import type { FlowEdge, FlowGraph, FlowNode, NodeParamsMap, NodeType } from './schema';
+import { makeEdgeId } from './schema';
 import type { CompiledJob } from './compiled-job';
 
 /**
@@ -20,7 +21,7 @@ export function decompileJob(job: CompiledJob): FlowGraph {
     return node;
   };
   const link = (source: string, sourcePort: string, target: string, targetPort: string) => {
-    edges.push({ id: `e-${source}.${sourcePort}-${target}.${targetPort}`, source, sourcePort, target, targetPort });
+    edges.push({ id: makeEdgeId(source, sourcePort, target, targetPort), source, sourcePort, target, targetPort });
   };
 
   const brief = add('n-brief', 'brief', job.brief, COL.input);
