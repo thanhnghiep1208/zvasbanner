@@ -130,6 +130,6 @@ describe('fromLegacyConfig', () => {
     const res = compileGraph(decompileJob(job));
     if (!res.ok) throw new Error(JSON.stringify(res.errors));
     expect(res.job).toEqual(job);
-    expect(res.warnings.map((w) => w.code)).toEqual(['product-no-alpha']);
+    expect(res.warnings).toEqual([]);
   });
 });

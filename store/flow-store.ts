@@ -15,6 +15,7 @@ import { checkConnection } from '@/lib/flow-ui/connection-feedback';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeRunInfo } from '@/lib/flow/run-state';
+import type { RatioResult } from '@/lib/flow/executor';
 
 type NodeUi = Pick<Node, 'selected' | 'dragging' | 'measured'>;
 type EdgeUi = Pick<Edge, 'selected'>;
@@ -27,6 +28,13 @@ type FlowState = {
   runInfo: Record<string, NodeRunInfo>;
   /** dataUrl theo assetId – chỉ có lúc chạy, không persist (= LegacyRuntime.dataUrls). */
   assetData: Record<string, string>;
+  /** Kết quả lần chạy gần nhất theo ratio (ảnh data URL, không persist). */
+  results: RatioResult[];
+  isRunning: boolean;
+  setRunInfo: (nodeId: string, info: NodeRunInfo) => void;
+  /** Bắt đầu lần chạy mới: xoá trạng thái + kết quả cũ. */
+  startRun: () => void;
+  finishRun: (results: RatioResult[]) => void;
   setGraph: (graph: FlowGraph) => void;
   /** Thêm node với params mặc định, chọn node mới; trả id. */
   addNode: (type: NodeType, position: XYPosition) => string;
@@ -48,8 +56,14 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   edgeUi: {},
   runInfo: {},
   assetData: {},
+  results: [],
+  isRunning: false,
 
-  setGraph: (graph) => set({ graph, nodeUi: {}, edgeUi: {}, runInfo: {} }),
+  setRunInfo: (nodeId, info) => set((s) => ({ runInfo: { ...s.runInfo, [nodeId]: info } })),
+  startRun: () => set({ runInfo: {}, results: [], isRunning: true }),
+  finishRun: (results) => set({ results, isRunning: false }),
+
+  setGraph: (graph) => set({ graph, nodeUi: {}, edgeUi: {}, runInfo: {}, results: [] }),
 
   addNode: (type, position) => {
     const { graph, nodeUi } = get();
@@ -141,7 +155,7 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     return result;
   },
 
-  reset: () => set({ graph: EMPTY_GRAPH, nodeUi: {}, edgeUi: {}, runInfo: {}, assetData: {} }),
+  reset: () => set({ graph: EMPTY_GRAPH, nodeUi: {}, edgeUi: {}, runInfo: {}, assetData: {}, results: [], isRunning: false }),
 }));
 
 /** Id node ổn định, dễ đọc: `n-<type>-<k>` với k nhỏ nhất chưa dùng. */

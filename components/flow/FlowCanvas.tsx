@@ -6,6 +6,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
@@ -26,7 +27,10 @@ import {
 } from '@/store/flow-store';
 import { Inspector } from './inspector/Inspector';
 import { NODE_DRAG_MIME, NodeLibrary } from './NodeLibrary';
-import { FLOW_NODE_TYPES } from './nodes/FlowNodeCard';
+import { FLOW_NODE_TYPES, FlowNodeActionsContext } from './nodes/FlowNodeCard';
+import { useFlowRun } from './use-flow-run';
+import { Button } from '@/components/ui/button';
+import { Play, LoaderCircle } from 'lucide-react';
 import styles from './flow-canvas.module.css';
 
 /** Kích thước node card (flow-node-card.module.css) – để căn node mới vào giữa điểm thả. */
@@ -46,11 +50,14 @@ function FlowCanvasInner() {
     })),
   );
   const { screenToFlowPosition } = useReactFlow();
+  const { run, isRunning, aiCalls } = useFlowRun();
+  const nodeActions = useMemo(() => ({ onRetry: () => void run() }), [run]);
   const paneRef = useRef<HTMLDivElement>(null);
 
   const nodes = useMemo(() => selectRFNodes(graph, nodeUi, runInfo), [graph, nodeUi, runInfo]);
   const edges = useMemo(() => selectRFEdges(graph, edgeUi), [graph, edgeUi]);
   const selected = useMemo(() => selectSingleSelectedNode(graph, nodeUi), [graph, nodeUi]);
+  const isEmpty = nodes.length === 0;
 
   // Đọc graph mới nhất từ store: các callback này được gọi liên tục khi đang kéo dây.
   const isValidConnection = useCallback<IsValidConnection>(
@@ -106,13 +113,12 @@ function FlowCanvasInner() {
     [addAt],
   );
 
-  const isEmpty = nodes.length === 0;
-
   return (
     <div className={styles['flow-studio']}>
       <NodeLibrary onAdd={onAddFromLibrary} />
 
       <section ref={paneRef} className={styles['flow-canvas']} aria-label="Flow canvas">
+        <FlowNodeActionsContext.Provider value={nodeActions}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -132,7 +138,19 @@ function FlowCanvasInner() {
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls showInteractive={false} />
           <MiniMap pannable zoomable />
+          <Panel position="top-right">
+            <Button type="button" onClick={() => void run()} disabled={isRunning || isEmpty} aria-busy={isRunning}>
+              {isRunning
+                ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+                : <Play className="size-4" aria-hidden />}
+              {isRunning ? 'Đang chạy…' : 'Chạy tất cả'}
+              {!isRunning && aiCalls !== null && (
+                <span className="text-xs opacity-75">· {aiCalls} lượt AI</span>
+              )}
+            </Button>
+          </Panel>
         </ReactFlow>
+        </FlowNodeActionsContext.Provider>
 
         {isEmpty && (
           <div className={styles['flow-canvas__empty']} role="status">

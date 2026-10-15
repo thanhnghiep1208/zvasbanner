@@ -11,3 +11,4 @@ export * from './legacy/from-legacy-config';
 export * from './legacy/to-legacy-config';
 export * from './run-state';
 export * from './layout';
+export * from './executor';

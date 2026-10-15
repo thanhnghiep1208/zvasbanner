@@ -16,6 +16,7 @@ import { validateGraph } from '@/lib/flow/validate';
 import { MODEL_LABELS } from '@/lib/flow-ui/node-summary';
 import { useFlowStore } from '@/store/flow-store';
 import { AssetEditor } from './AssetEditor';
+import { RunResults } from './RunResults';
 import {
   CheckboxField, NumberField, SelectField, TextAreaField, TextField, ToggleGroupField,
 } from './fields';
@@ -185,6 +186,7 @@ function NodeEditor({ node }: { node: FlowNode }) {
           <SelectField label="Tỉ lệ xuất" value={String(p.scale) as '1' | '2'}
             options={[{ value: '1', label: '1x' }, { value: '2', label: '2x' }]}
             onChange={(v) => set<'export'>({ scale: v === '2' ? 2 : 1 })} />
+          <RunResults exportParams={p} />
         </>
       );
     }

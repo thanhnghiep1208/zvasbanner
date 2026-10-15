@@ -230,6 +230,14 @@
   background: var(--muted);
 }
 
+.inspector__result {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
 .inspector__issues {
   display: flex;
   flex-direction: column;

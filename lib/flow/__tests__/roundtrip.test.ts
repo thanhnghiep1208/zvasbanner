@@ -3,7 +3,7 @@ import { compileGraph } from '../compiler';
 import { decompileJob } from '../decompiler';
 import { validateGraph } from '../validate';
 import { estimateAiCalls } from '../compiled-job';
-import { ALL_FIXTURES, composedFull, flatLegacy } from './fixtures';
+import { ALL_FIXTURES, composedFull, composedMinimal, flatLegacy } from './fixtures';
 
 describe('round-trip CompiledJob → graph → CompiledJob', () => {
   for (const [name, job] of Object.entries(ALL_FIXTURES)) {
@@ -22,9 +22,14 @@ describe('warnings', () => {
     const res = compileGraph(decompileJob(composedFull));
     expect(res.ok && res.warnings.map((w) => w.code)).toContain('ai-text-in-composed');
   });
-  it('product không alpha → warning', () => {
-    const res = compileGraph(decompileJob(flatLegacy));
+  it('product không alpha đi vào Compose → warning', () => {
+    const job = { ...composedMinimal, products: [{ ...composedMinimal.products[0]!, hasAlpha: false }] };
+    const res = compileGraph(decompileJob(job));
     expect(res.ok && res.warnings.map((w) => w.code)).toContain('product-no-alpha');
+  });
+  it('flat: product không alpha → không cảnh báo (không có auto shadow)', () => {
+    const res = compileGraph(decompileJob(flatLegacy));
+    expect(res.ok && res.warnings.map((w) => w.code)).not.toContain('product-no-alpha');
   });
 });
 
