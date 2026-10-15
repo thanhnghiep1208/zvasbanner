@@ -1,7 +1,9 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { CircleAlert, MousePointerClick, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { NodeIconChip } from '../nodes/FlowNodeCard';
 import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
@@ -20,7 +22,6 @@ import { RunResults } from './RunResults';
 import {
   CheckboxField, NumberField, SelectField, TextAreaField, TextField, ToggleGroupField,
 } from './fields';
-import styles from '../flow-canvas.module.css';
 
 const MODEL_OPTIONS = (Object.keys(MODEL_LABELS) as (keyof typeof MODEL_LABELS)[])
   .map((value) => ({ value, label: MODEL_LABELS[value] }));
@@ -121,7 +122,7 @@ function NodeEditor({ node }: { node: FlowNode }) {
     case 'auto-layout': {
       const p = node.params as NodeParamsMap['auto-layout'];
       const n = Object.keys(p.overrides).length;
-      return <p className={styles['flow-studio__hint']}>
+      return <p className="text-xs text-muted-foreground">
         {n ? `Có chỉnh tay ở ${n} kích thước.` : 'Tự động. Chỉnh tay vị trí từng phần tử được thêm ở bước 4.'}
       </p>;
     }
@@ -206,10 +207,10 @@ function RatioEditor({ node }: { node: FlowNode<'ratio'> }) {
 
   return (
     <>
-      <ul className={styles['inspector__list']}>
+      <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {ratios.map((r) => (
-          <li key={r.id} className={styles['inspector__list-item']}>
-            <span>{r.name} <span className={styles['flow-studio__hint']}>{r.width}×{r.height}</span></span>
+          <li key={r.id} className="flex items-center justify-between gap-2 text-sm">
+            <span>{r.name} <span className="text-xs text-muted-foreground">{r.width}×{r.height}</span></span>
             <Button type="button" variant="ghost" size="icon-sm" aria-label={`Bỏ ${r.name}`}
               disabled={ratios.length === 1}
               onClick={() => update<'ratio'>(node.id, { ratios: ratios.filter((x) => x.id !== r.id) })}>
@@ -247,28 +248,51 @@ export function Inspector({ node }: { node: FlowNode | null }) {
     [graph, node],
   );
 
+  if (!node) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+        <span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground" aria-hidden>
+          <MousePointerClick className="size-5" />
+        </span>
+        <h2 className="text-sm font-semibold">Chưa chọn node</h2>
+        <p className="text-xs text-muted-foreground">Chọn một node trên canvas để chỉnh thông số.</p>
+      </div>
+    );
+  }
+
+  const def = NODE_DEFINITIONS[node.type];
   return (
-    <aside className={styles['flow-studio__panel']} aria-label="Inspector">
-      {!node ? (
-        <>
-          <h2 className={styles['flow-studio__panel-title']}>Inspector</h2>
-          <p className={styles['flow-studio__hint']}>Chọn một node để chỉnh thông số.</p>
-        </>
-      ) : (
-        <>
-          <h2 className={styles['flow-studio__panel-title']}>{NODE_DEFINITIONS[node.type].label}</h2>
-          {issues.length > 0 && (
-            <ul className={styles['inspector__issues']} aria-label="Vấn đề của node">
-              {issues.map((i, k) => (
-                <li key={k} className={styles[`inspector__issue--${i.severity}`]}>{i.message}</li>
-              ))}
-            </ul>
-          )}
-          <div className={styles['inspector__body']}>
-            <NodeEditor node={node} />
-          </div>
-        </>
-      )}
-    </aside>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex items-start gap-2.5 border-b p-3">
+        <NodeIconChip type={node.type} />
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold">{def.label}</h2>
+          <p className="text-xs text-muted-foreground">{def.description}</p>
+        </div>
+      </header>
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+        {issues.length > 0 && (
+          <ul className="space-y-1.5" aria-label="Vấn đề của node">
+            {issues.map((i, k) => (
+              <li
+                key={k}
+                className={cn(
+                  'flex gap-1.5 rounded-lg p-2 text-xs',
+                  i.severity === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-run-stale/12 text-foreground',
+                )}
+              >
+                {i.severity === 'error'
+                  ? <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+                  : <TriangleAlert className="mt-px size-3.5 shrink-0 text-run-stale" aria-hidden />}
+                <span>{i.message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-col gap-4">
+          <NodeEditor node={node} />
+        </div>
+      </div>
+    </div>
   );
 }

@@ -2,11 +2,11 @@
 
 import { useId, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import styles from '../flow-canvas.module.css';
 
 /** Field có nhãn; `children` nhận id để gắn `htmlFor`. */
 export function Field({ label, hint, children }: {
@@ -16,10 +16,10 @@ export function Field({ label, hint, children }: {
 }) {
   const id = useId();
   return (
-    <div className={styles['inspector__field']}>
-      <label htmlFor={id} className={styles['inspector__label']}>{label}</label>
+    <div className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+      <label htmlFor={id} className="p-0 text-xs font-medium text-foreground">{label}</label>
       {children(id)}
-      {hint && <p className={styles['flow-studio__hint']}>{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -102,12 +102,12 @@ export function CheckboxField({ label, checked, onChange, hint }: {
 }) {
   const id = useId();
   return (
-    <div className={styles['inspector__field']}>
-      <label htmlFor={id} className={styles['inspector__check']}>
+    <div className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+      <label htmlFor={id} className="flex items-center gap-2 text-sm">
         <input id={id} type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
         {label}
       </label>
-      {hint && <p className={styles['flow-studio__hint']}>{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -117,9 +117,9 @@ export function ToggleGroupField<V extends string>({ label, values, options, onC
   label: string; values: V[]; options: readonly { value: V; label: string }[]; onChange: (v: V[]) => void;
 }) {
   return (
-    <fieldset className={styles['inspector__field']}>
-      <legend className={styles['inspector__label']}>{label}</legend>
-      <div className={styles['inspector__chips']}>
+    <fieldset className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0">
+      <legend className="p-0 text-xs font-medium text-foreground">{label}</legend>
+      <div className="flex flex-wrap gap-1.5">
         {options.map((o) => {
           const on = values.includes(o.value);
           return (
@@ -127,7 +127,10 @@ export function ToggleGroupField<V extends string>({ label, values, options, onC
               key={o.value}
               type="button"
               aria-pressed={on}
-              className={`${styles['inspector__chip']} ${on ? styles['inspector__chip--on'] : ''}`}
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                on ? 'border-primary bg-primary text-primary-foreground' : 'bg-background hover:bg-accent',
+              )}
               onClick={() => onChange(on ? values.filter((v) => v !== o.value) : [...values, o.value])}
             >
               {o.label}

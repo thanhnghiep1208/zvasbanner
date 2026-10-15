@@ -22,6 +22,8 @@ type EdgeUi = Pick<Edge, 'selected'>;
 
 type FlowState = {
   graph: FlowGraph;
+  /** Tăng mỗi lần thay cả graph (setGraph/reset) – canvas dùng để fitView lại. */
+  graphVersion: number;
   nodeUi: Record<string, NodeUi>;
   edgeUi: Record<string, EdgeUi>;
   /** Trạng thái chạy theo node; executor ghi (T2.6). */
@@ -52,6 +54,7 @@ const EMPTY_GRAPH: FlowGraph = { nodes: [], edges: [] };
 
 export const useFlowStore = create<FlowState>()((set, get) => ({
   graph: EMPTY_GRAPH,
+  graphVersion: 0,
   nodeUi: {},
   edgeUi: {},
   runInfo: {},
@@ -63,7 +66,8 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   startRun: () => set({ runInfo: {}, results: [], isRunning: true }),
   finishRun: (results) => set({ results, isRunning: false }),
 
-  setGraph: (graph) => set({ graph, nodeUi: {}, edgeUi: {}, runInfo: {}, results: [] }),
+  setGraph: (graph) =>
+    set((s) => ({ graph, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, results: [] })),
 
   addNode: (type, position) => {
     const { graph, nodeUi } = get();
@@ -155,7 +159,11 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     return result;
   },
 
-  reset: () => set({ graph: EMPTY_GRAPH, nodeUi: {}, edgeUi: {}, runInfo: {}, assetData: {}, results: [], isRunning: false }),
+  reset: () =>
+    set((s) => ({
+      graph: EMPTY_GRAPH, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, assetData: {},
+      results: [], isRunning: false,
+    })),
 }));
 
 /** Id node ổn định, dễ đọc: `n-<type>-<k>` với k nhỏ nhất chưa dùng. */

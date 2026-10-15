@@ -16,6 +16,8 @@ export interface NodeDefinition<T extends NodeType = NodeType> {
   type: T;
   kind: NodeKind;
   label: string;
+  /** Mô tả 1 dòng cho thư viện node và Inspector. */
+  description: string;
   inputs: PortDef[];
   outputs: { id: string; type: PortType }[];
   defaultParams: NodeParamsMap[T];
@@ -50,6 +52,7 @@ type Registry = { [K in NodeType]: NodeDefinition<K> };
 export const NODE_DEFINITIONS: Registry = {
   'product-asset': {
     type: 'product-asset', kind: 'input', label: 'Asset (giữ pixel)',
+    description: 'Ảnh sản phẩm, logo, trang trí – giữ nguyên pixel.',
     inputs: [], outputs: [out('product', 'product')],
     defaultParams: {
       assetId: '', url: '', fileName: '', role: 'image', hasAlpha: false,
@@ -59,6 +62,7 @@ export const NODE_DEFINITIONS: Registry = {
   },
   'reference-image': {
     type: 'reference-image', kind: 'input', label: 'Ảnh tham chiếu',
+    description: 'Ảnh tham chiếu style hoặc nền cho AI.',
     inputs: [], outputs: [out('image', 'image')],
     defaultParams: {
       assetId: '', url: '', fileName: '', role: 'style-reference', hasAlpha: false,
@@ -68,12 +72,14 @@ export const NODE_DEFINITIONS: Registry = {
   },
   'brief': {
     type: 'brief', kind: 'input', label: 'Brief',
+    description: 'Mô tả banner và mục tiêu chiến dịch.',
     inputs: [], outputs: [out('brief', 'brief')],
     defaultParams: { prompt: '', marketingBrief: { campaignIntents: [], focalSubjects: [] } },
     aiCallsPerRatio: 0,
   },
   'text-layer': {
     type: 'text-layer', kind: 'input', label: 'Text',
+    description: 'Tiêu đề, tiêu đề phụ, CTA hoặc text khác.',
     inputs: [], outputs: [out('text', 'text')],
     defaultParams: {
       layerId: '', role: 'headline', content: '', renderSource: 'layer',
@@ -84,21 +90,25 @@ export const NODE_DEFINITIONS: Registry = {
   },
   'brand-kit': {
     type: 'brand-kit', kind: 'config', label: 'Brand kit',
+    description: 'Màu, font, vị trí logo của thương hiệu.',
     inputs: [], outputs: [out('brand', 'brand')],
     defaultParams: { colors: [] }, aiCallsPerRatio: 0,
   },
   'ratio': {
     type: 'ratio', kind: 'config', label: 'Kích thước',
+    description: 'Các kích thước banner cần xuất.',
     inputs: [], outputs: [out('ratio', 'ratio')],
     defaultParams: { ratios: [DEFAULT_RATIO] }, aiCallsPerRatio: 0,
   },
   'style': {
     type: 'style', kind: 'config', label: 'Phong cách',
+    description: 'Phong cách, mood, bảng màu, kiểu chữ.',
     inputs: [], outputs: [out('style', 'style')],
     defaultParams: DEFAULT_STYLE, aiCallsPerRatio: 0,
   },
   'auto-layout': {
     type: 'auto-layout', kind: 'layout', label: 'Auto layout',
+    description: 'Tự xếp sản phẩm và chữ theo từng kích thước.',
     inputs: [
       inPort('ratio', 'ratio', true),
       inPort('product', 'product', false, true),
@@ -109,6 +119,7 @@ export const NODE_DEFINITIONS: Registry = {
   },
   'generate-background': {
     type: 'generate-background', kind: 'executor', label: 'Sinh nền',
+    description: 'AI sinh nền, chừa chỗ cho sản phẩm và chữ.',
     inputs: [
       inPort('layout', 'layout', true),
       inPort('brief', 'brief', true),
@@ -122,6 +133,7 @@ export const NODE_DEFINITIONS: Registry = {
   },
   'generate-flat': {
     type: 'generate-flat', kind: 'executor', label: 'Sinh banner (flat)', legacy: true,
+    description: 'AI sinh cả banner như form hiện tại.',
     inputs: [
       inPort('ratio', 'ratio', true),
       inPort('brief', 'brief', true),
@@ -138,6 +150,7 @@ export const NODE_DEFINITIONS: Registry = {
   },
   'compose': {
     type: 'compose', kind: 'output', label: 'Ghép layer',
+    description: 'Ghép nền, sản phẩm, chữ và bóng đổ.',
     inputs: [
       inPort('background', 'background', true),
       inPort('layout', 'layout', true),
@@ -149,6 +162,7 @@ export const NODE_DEFINITIONS: Registry = {
   },
   'export': {
     type: 'export', kind: 'output', label: 'Xuất ảnh',
+    description: 'Định dạng, chất lượng, tải ảnh kết quả.',
     inputs: [inPort('composition', 'composition'), inPort('raster', 'raster')],
     outputs: [],
     defaultParams: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' }, aiCallsPerRatio: 0,

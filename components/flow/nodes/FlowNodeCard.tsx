@@ -19,12 +19,14 @@ import {
   WandSparkles,
   type LucideIcon,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { NODE_DEFINITIONS, PORT_TYPE_LABELS, type PortDef } from '@/lib/flow/node-definitions';
 import { RUN_STATE_LABELS } from '@/lib/flow/run-state';
 import type { FlowNode, NodeType, PortType } from '@/lib/flow/schema';
 import type { FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
-import styles from './flow-node-card.module.css';
+import { KIND_CHIP, PORT_HANDLE, RUN_BORDER, RUN_DOT, RUN_PILL } from '../flow-styles';
 
 export const NODE_ICONS: Record<NodeType, LucideIcon> = {
   'product-asset': Package,
@@ -44,101 +46,120 @@ export const NODE_ICONS: Record<NodeType, LucideIcon> = {
 /** Hành động tại node do canvas cung cấp (executor gắn ở T2.6). Không có → ẩn nút. */
 export const FlowNodeActionsContext = createContext<{ onRetry?: (nodeId: string) => void }>({});
 
-function portAriaLabel(direction: 'Input' | 'Output', port: { type: PortType }, extra = '') {
-  return `${direction} ${PORT_TYPE_LABELS[port.type]}${extra}`;
-}
-
-function InputRow({ port }: { port: PortDef }) {
-  const marks = `${port.required ? ' (bắt buộc)' : ''}${port.multiple ? ' (nhiều kết nối)' : ''}`;
+/** Chip icon vuông theo nhóm node – dùng chung cho card, thư viện, inspector. */
+export function NodeIconChip({ type, size = 'md' }: { type: NodeType; size?: 'sm' | 'md' }) {
+  const Icon = NODE_ICONS[type];
   return (
-    <li className={styles['flow-node__port']}>
-      <Handle
-        type="target"
-        position={Position.Left}
-        id={port.id}
-        className={`${styles['flow-node__handle']} ${styles[`flow-node__handle--${port.type}`]}`}
-        aria-label={portAriaLabel('Input', port, marks)}
-      />
-      <span className={styles['flow-node__port-label']}>
-        {PORT_TYPE_LABELS[port.type]}
-        {port.required && <span className={styles['flow-node__required']} aria-hidden>*</span>}
-        {port.multiple && <span className={styles['flow-node__multiple']} aria-hidden>+</span>}
-      </span>
-    </li>
+    <span
+      className={cn(
+        'grid shrink-0 place-items-center rounded-md',
+        size === 'sm' ? 'size-6 [&>svg]:size-3.5' : 'size-7 [&>svg]:size-4',
+        KIND_CHIP[NODE_DEFINITIONS[type].kind],
+      )}
+      aria-hidden
+    >
+      <Icon />
+    </span>
   );
 }
 
-function OutputRow({ port }: { port: { id: string; type: PortType } }) {
+function PortRow({ port, direction }: { port: { id: string; type: PortType } & Partial<PortDef>; direction: 'in' | 'out' }) {
+  const isIn = direction === 'in';
+  const marks = `${port.required ? ' (bắt buộc)' : ''}${port.multiple ? ' (nhiều kết nối)' : ''}`;
   return (
-    <li className={`${styles['flow-node__port']} ${styles['flow-node__port--output']}`}>
-      <span className={styles['flow-node__port-label']}>{PORT_TYPE_LABELS[port.type]}</span>
+    <li className={cn('relative flex h-6 items-center px-3 text-xs', !isIn && 'justify-end')}>
       <Handle
-        type="source"
-        position={Position.Right}
+        type={isIn ? 'target' : 'source'}
+        position={isIn ? Position.Left : Position.Right}
         id={port.id}
-        className={`${styles['flow-node__handle']} ${styles[`flow-node__handle--${port.type}`]}`}
-        aria-label={portAriaLabel('Output', port)}
+        className={PORT_HANDLE[port.type]}
+        aria-label={`${isIn ? 'Input' : 'Output'} ${PORT_TYPE_LABELS[port.type]}${marks}`}
       />
+      <span className="inline-flex items-center gap-1 text-muted-foreground">
+        {PORT_TYPE_LABELS[port.type]}
+        {port.required && <span className="text-destructive" aria-hidden>*</span>}
+        {port.multiple && (
+          <span className="rounded bg-muted px-1 text-[10px] leading-4 text-muted-foreground" aria-hidden>
+            nhiều
+          </span>
+        )}
+      </span>
     </li>
   );
 }
 
 function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
   const def = NODE_DEFINITIONS[type];
-  const Icon = NODE_ICONS[type];
   const run = data.run ?? { state: 'idle' as const };
   const summary = summarizeNode({ id, type, params: data.params, position: { x: 0, y: 0 } } as FlowNode);
   const { onRetry } = useContext(FlowNodeActionsContext);
 
   return (
     <div
-      className={[
-        styles['flow-node'],
-        styles[`flow-node--${def.kind}`],
-        styles[`flow-node--${run.state}`],
-        selected ? styles['flow-node--selected'] : '',
-      ].join(' ')}
+      className={cn(
+        'relative w-64 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-shadow',
+        'hover:shadow-md',
+        RUN_BORDER[run.state],
+        selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
+      )}
       aria-busy={run.state === 'running' || undefined}
     >
-      <header className={styles['flow-node__header']}>
-        <Icon className={styles['flow-node__icon']} aria-hidden />
-        <span className={styles['flow-node__title']}>{def.label}</span>
+      {run.state === 'running' && (
+        <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-run-running/20" aria-hidden>
+          <div className="flow-shimmer h-full w-1/3 bg-run-running" />
+        </div>
+      )}
+
+      <header className="flex items-start gap-2.5 px-3 pt-3 pb-2">
+        <NodeIconChip type={type} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm leading-5 font-semibold">{def.label}</p>
+          <p className="truncate text-xs text-muted-foreground" title={summary ?? def.description}>
+            {summary ?? def.description}
+          </p>
+        </div>
         {run.state !== 'idle' && (
-          <span className={styles['flow-node__status']} role="status">
+          <span
+            className={cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', RUN_PILL[run.state])}
+            role="status"
+          >
+            <span className={cn('size-1.5 rounded-full', RUN_DOT[run.state])} aria-hidden />
             {RUN_STATE_LABELS[run.state]}
           </span>
         )}
       </header>
 
-      {summary && <p className={styles['flow-node__summary']} title={summary}>{summary}</p>}
-
       {(def.inputs.length > 0 || def.outputs.length > 0) && (
-        <ul className={styles['flow-node__ports']}>
-          {def.inputs.map((p) => <InputRow key={`in-${p.id}`} port={p} />)}
-          {def.outputs.map((p) => <OutputRow key={`out-${p.id}`} port={p} />)}
+        <ul className="border-t py-1.5">
+          {def.inputs.map((p) => <PortRow key={`in-${p.id}`} port={p} direction="in" />)}
+          {def.outputs.map((p) => <PortRow key={`out-${p.id}`} port={p} direction="out" />)}
         </ul>
       )}
 
       {run.state === 'error' && (
-        <div className={styles['flow-node__error']} role="alert">
-          <CircleAlert className={styles['flow-node__icon']} aria-hidden />
-          <span>{run.message ?? 'Chạy node thất bại.'}</span>
+        <div className="mx-3 mb-3 flex flex-col gap-2 rounded-lg bg-destructive/10 p-2 text-xs text-destructive" role="alert">
+          <p className="flex gap-1.5">
+            <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+            <span className="line-clamp-4">{run.message ?? 'Chạy node thất bại.'}</span>
+          </p>
           {onRetry && (
-            <button
-              type="button"
-              className={`nodrag ${styles['flow-node__retry']}`}
-              onClick={() => onRetry(id)}
-            >
-              <RotateCcw className={styles['flow-node__icon']} aria-hidden />
+            <Button type="button" size="xs" variant="outline" className="nodrag self-end" onClick={() => onRetry(id)}>
+              <RotateCcw aria-hidden />
               Thử lại
-            </button>
+            </Button>
           )}
         </div>
       )}
 
-      {run.state === 'done' && run.previewUrl && (
-        // eslint-disable-next-line @next/next/no-img-element -- data/blob URL, không qua next/image
-        <img className={styles['flow-node__preview']} src={run.previewUrl} alt={`Kết quả ${def.label}`} />
+      {run.previewUrl && (run.state === 'done' || run.state === 'running' || run.state === 'error') && (
+        <div className="px-3 pb-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- data/blob URL, không qua next/image */}
+          <img
+            className="block max-h-48 w-full rounded-lg border bg-muted object-contain"
+            src={run.previewUrl}
+            alt={`Kết quả ${def.label}`}
+          />
+        </div>
       )}
     </div>
   );

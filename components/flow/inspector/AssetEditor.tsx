@@ -11,7 +11,6 @@ import { ASSET_ROLE_OPTIONS } from '@/lib/types';
 import type { FlowAsset, PixelAssetRole, ReferenceAssetRole } from '@/lib/flow/schema';
 import { useFlowStore } from '@/store/flow-store';
 import { SelectField } from './fields';
-import styles from '../flow-canvas.module.css';
 
 const ACCEPT = 'image/png,image/jpeg,image/svg+xml,image/webp,.png,.jpg,.jpeg,.svg,.webp';
 
@@ -61,16 +60,16 @@ export function AssetEditor<R extends PixelAssetRole | ReferenceAssetRole>({ nod
     <>
       {params.url && (
         // eslint-disable-next-line @next/next/no-img-element -- blob URL của file vừa chọn
-        <img src={params.url} alt={params.fileName} className={styles['inspector__thumb']} />
+        <img src={params.url} alt={params.fileName} className="block max-h-40 w-full rounded-lg border bg-muted object-contain" />
       )}
       {params.fileName ? (
-        <p className={styles['flow-studio__hint']}>
+        <p className="text-xs text-muted-foreground">
           {params.fileName} · {params.originalDims.width}×{params.originalDims.height}
           {params.hasAlpha ? ' · có nền trong suốt' : ' · không có nền trong suốt'}
           {!hasData && ' · cần tải lại ảnh để chạy'}
         </p>
       ) : (
-        <p className={styles['flow-studio__hint']}>Chưa có ảnh.</p>
+        <p className="text-xs text-muted-foreground">Chưa có ảnh.</p>
       )}
       <input
         ref={inputRef}
