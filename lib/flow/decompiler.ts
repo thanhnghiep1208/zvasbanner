@@ -9,15 +9,18 @@ import type { CompiledJob } from './compiled-job';
 export function decompileJob(job: CompiledJob): FlowGraph {
   const nodes: FlowNode[] = [];
   const edges: FlowEdge[] = [];
+  /** Toạ độ y kế tiếp của mỗi cột (px). */
   const col = { input: 0, config: 0 };
 
   const add = <T extends NodeType>(
     id: string, type: T, params: NodeParamsMap[T], x: number, y?: number,
   ): FlowNode<T> => {
-    const isInput = x === COL.input;
-    const row = isInput ? col.input++ : x === COL.config ? col.config++ : 0;
+    const key = x === COL.input ? 'input' : x === COL.config ? 'config' : null;
+    const rowY = key ? col[key] : 0;
+    // Node ảnh hiện thumbnail khi đã upload → cao gấp ~2 node thường, chiếm 2 hàng để không đè node bên dưới.
+    if (key) col[key] += ASSET_TYPES.has(type) ? ROW_GAP * 2 : ROW_GAP;
     // Sao chép: graph không được dùng chung object với job (sửa node sẽ làm đổi job/fixture).
-    const node: FlowNode<T> = { id, type, params: structuredClone(params), position: { x, y: y ?? row * ROW_GAP } };
+    const node: FlowNode<T> = { id, type, params: structuredClone(params), position: { x, y: y ?? rowY } };
     nodes.push(node as FlowNode);
     return node;
   };
@@ -82,4 +85,5 @@ export function decompileJob(job: CompiledJob): FlowGraph {
 }
 
 const ROW_GAP = 140;
+const ASSET_TYPES: ReadonlySet<NodeType> = new Set(['product-asset', 'reference-image']);
 const COL = { input: 0, config: 280, layout: 560, exec: 840, compose: 1120, export: 1400 } as const;

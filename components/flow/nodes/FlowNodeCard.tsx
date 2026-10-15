@@ -26,7 +26,37 @@ import { RUN_STATE_LABELS } from '@/lib/flow/run-state';
 import type { FlowNode, NodeType, PortType } from '@/lib/flow/schema';
 import type { FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
+import { useFlowStore } from '@/store/flow-store';
 import { KIND_CHIP, PORT_HANDLE, RUN_BORDER, RUN_DOT, RUN_PILL } from '../flow-styles';
+
+type AssetParams = { assetId: string; url: string; fileName: string };
+
+/**
+ * Thumbnail ảnh đã upload trên node Asset / Ảnh tham chiếu. Nguồn: blob URL lúc upload; không có (project mở lại,
+ * "Mở trong canvas" từ form) thì dùng ảnh còn trong bộ nhớ. Không còn ảnh → nhắc tải lại.
+ */
+function AssetThumb({ params }: { params: AssetParams }) {
+  const dataUrl = useFlowStore((s) => (params.assetId ? s.assetData[params.assetId] : undefined));
+  const src = params.url || dataUrl;
+  if (!params.fileName) return null;
+  return (
+    <div className="px-3 pb-3">
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element -- blob/data URL, không qua next/image
+        <img
+          className="flow-checker block h-28 w-full rounded-lg border object-contain"
+          src={src}
+          alt={params.fileName}
+          draggable={false}
+        />
+      ) : (
+        <p className="rounded-lg border border-dashed px-2 py-3 text-center text-xs text-muted-foreground">
+          Cần tải lại ảnh
+        </p>
+      )}
+    </div>
+  );
+}
 
 export const NODE_ICONS: Record<NodeType, LucideIcon> = {
   'product-asset': Package,
@@ -141,6 +171,8 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
           {def.outputs.map((p) => <PortRow key={`out-${p.id}`} port={p} direction="out" />)}
         </ul>
       )}
+
+      {(type === 'product-asset' || type === 'reference-image') && <AssetThumb params={data.params as AssetParams} />}
 
       {run.state === 'error' && (
         <div className="mx-3 mb-3 flex flex-col gap-2 rounded-lg bg-destructive/10 p-2 text-xs text-destructive" role="alert">
