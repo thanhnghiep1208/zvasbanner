@@ -110,7 +110,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 
 ### 5.8 Persistence + migration
 - Bảng/cột lưu `StoredFlowDoc` (JSONB). Migration DB theo cách repo đang làm (tìm helper `pool`).
-- Asset upload lên kho lưu bền (Q7A) khi thêm node asset; graph chỉ giữ URL bền, không giữ `blob:` hay `dataUrl`.
+- Không có kho lưu asset trong P1 (Q7B): graph lưu metadata asset (`assetId`, `fileName`, `role`, `hasAlpha`, `originalDims`) nhưng không lưu `blob:` hay `dataUrl`; mở lại project → node asset báo "Cần tải lại ảnh", user upload lại rồi mới chạy.
 - App cũ không lưu project nên không có dữ liệu migrate (Q5). Thay bằng nút "Mở trong canvas" trên form: state editor → `GenerationRequest` → `fromLegacyConfig` → `decompileJob`.
 
 ### 5.9 Analytics
@@ -173,7 +173,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 - [x] **T5.4** Mở `/flow` luôn load template, không có canvas trống
 
 ### Bước 6 – Migration + rollout
-- [ ] **T6.1** Kho lưu asset bền (Q7A, chọn Vercel Blob hay S3/R2 trước) + bảng/cột lưu StoredFlowDoc + API lưu/tải graph; `FlowAsset.url` là URL bền thay cho `blob:`
+- [ ] **T6.1** Bảng lưu StoredFlowDoc (JSONB) + API lưu/tải graph. Không lưu ảnh (Q7B): bỏ `url` `blob:` khi lưu, mở lại thì yêu cầu upload lại ảnh
 - [ ] **T6.2** Nút "Mở trong canvas" trên form cũ: state editor → `fromLegacyConfig` → `decompileJob` (Q5)
 - [ ] **T6.3** Analytics events mục 5.9
 - [ ] **T6.4** Flag theo % user (thay allowlist)
