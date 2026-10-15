@@ -32,3 +32,29 @@ describe('flow-store khởi tạo (T5.4)', () => {
     expect(s().templateBaseline).toBeNull();
   });
 });
+
+describe('project đã lưu (T6.1)', () => {
+  it('loadDoc: graph + exposed của project, Simple view, chưa có thay đổi; sửa → có thay đổi; markSaved → hết', async () => {
+    const store = await freshStore();
+    const s = () => store.getState();
+    const t = getTemplate('social-post')!;
+    s().loadDoc({ id: 'd1', title: 'Bài Tết', doc: { schemaVersion: 1, graph: t.graph, templateId: t.id, exposed: t.exposed } });
+    expect(s()).toMatchObject({ docId: 'd1', docTitle: 'Bài Tết', templateId: 'social-post', view: 'simple' });
+    expect(s().graph).toBe(s().savedGraph);
+    s().setExposed(s().exposed.find((e) => e.id === 'headline')!, 'Mới');
+    expect(s().graph).not.toBe(s().savedGraph);
+    const g = s().graph;
+    s().markSaved({ id: 'd1', title: 'Bài Tết', graph: g });
+    expect(s().graph).toBe(s().savedGraph);
+  });
+
+  it('nạp template khi đang mở project → project mới chưa lưu, tên = tên template', async () => {
+    const store = await freshStore();
+    const s = () => store.getState();
+    const t = getTemplate('social-post')!;
+    s().loadDoc({ id: 'd1', title: 'Bài Tết', doc: { schemaVersion: 1, graph: t.graph } });
+    expect(s().view).toBe('canvas'); // doc không có exposed
+    s().loadTemplate(getTemplate('event-brand')!);
+    expect(s()).toMatchObject({ docId: null, savedGraph: null, docTitle: 'Sự kiện theo thương hiệu' });
+  });
+});

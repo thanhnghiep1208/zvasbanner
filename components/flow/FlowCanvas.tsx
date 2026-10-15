@@ -40,6 +40,8 @@ import { EDGE_CLASS } from './flow-styles';
 import { FLOW_FONT_VARIABLES } from './flow-fonts';
 import { Inspector } from './inspector/Inspector';
 import { TemplatePicker } from './TemplatePicker';
+import { ProjectMenu } from './ProjectMenu';
+import { useFlowDocs } from './use-flow-docs';
 import { SimpleView } from './simple/SimpleView';
 import { NODE_DRAG_MIME, NodeLibrary } from './NodeLibrary';
 import { FLOW_NODE_TYPES, FlowNodeActionsContext } from './nodes/FlowNodeCard';
@@ -225,7 +227,8 @@ function FlowCanvasInner() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 justify-self-end">
+        <div className="flex min-w-0 items-center gap-2 justify-self-end">
+          <ProjectMenu />
           <Button type="button" size="sm" onClick={() => void run()} disabled={isRunning || isEmpty} aria-busy={isRunning}>
             {isRunning
               ? <LoaderCircle className="animate-spin motion-reduce:animate-none" aria-hidden />
@@ -325,15 +328,22 @@ function FlowCanvasInner() {
 const noopSubscribe = () => () => {};
 
 /**
- * `initialTemplateId` (từ `/flow?template=<id>`): mở thẳng template đó. Không có/không hợp lệ → template mặc định
- * mà store đã nạp sẵn (T5.4 – không bao giờ mở canvas trống).
+ * Mở `/flow`:
+ * - `initialDocId` (`?doc=<id>`, T6.1): tải project đã lưu; lỗi → báo và giữ template mặc định.
+ * - `initialTemplateId` (`?template=<id>`): mở thẳng template đó.
+ * - Không có/không hợp lệ → template mặc định mà store đã nạp sẵn (T5.4 – không bao giờ mở canvas trống).
  */
-export default function FlowCanvas({ initialTemplateId }: { initialTemplateId?: string }) {
+export default function FlowCanvas({ initialTemplateId, initialDocId }: { initialTemplateId?: string; initialDocId?: string }) {
+  const { open } = useFlowDocs();
   // Chỉ chạy ở client: store là singleton module, nạp lúc render server sẽ dùng chung giữa các request.
   useEffect(() => {
+    if (initialDocId) {
+      if (useFlowStore.getState().docId !== initialDocId) void open(initialDocId);
+      return;
+    }
     const t = initialTemplateId ? getTemplate(initialTemplateId) : undefined;
     if (t && useFlowStore.getState().templateId !== t.id) useFlowStore.getState().loadTemplate(t);
-  }, [initialTemplateId]);
+  }, [initialTemplateId, initialDocId, open]);
 
   // Studio đo chữ/vẽ bằng Canvas 2D (validate, ước tính lượt AI) – chỉ có ở trình duyệt. Graph mặc định đã có chữ
   // (T5.4) nên không render ở server; server trả khung trống cùng nền để không nháy.

@@ -33,7 +33,10 @@ export function AssetEditor<R extends PixelAssetRole | ReferenceAssetRole>({ nod
   const [busy, setBusy] = useState(false);
   const update = useFlowStore((s) => s.updateNodeParams);
   const setAssetData = useFlowStore((s) => s.setAssetData);
-  const hasData = useFlowStore((s) => Boolean(params.assetId && s.assetData[params.assetId]));
+  const dataUrl = useFlowStore((s) => (params.assetId ? s.assetData[params.assetId] : undefined));
+  const hasData = Boolean(dataUrl);
+  // Project mở lại (T6.1) không có url (ảnh không được lưu – Q7B); cùng phiên thì ảnh vẫn còn trong bộ nhớ.
+  const previewSrc = params.url || dataUrl;
 
   const onFile = async (file: File) => {
     if (!isAllowedAssetType(file)) return toast.error(`${file.name}: định dạng không được hỗ trợ (PNG, JPG, SVG, WebP).`);
@@ -58,9 +61,9 @@ export function AssetEditor<R extends PixelAssetRole | ReferenceAssetRole>({ nod
 
   return (
     <>
-      {params.url && (
-        // eslint-disable-next-line @next/next/no-img-element -- blob URL của file vừa chọn
-        <img src={params.url} alt={params.fileName} className="block max-h-40 w-full rounded-lg border bg-muted object-contain" />
+      {previewSrc && (
+        // eslint-disable-next-line @next/next/no-img-element -- blob/data URL của file vừa chọn
+        <img src={previewSrc} alt={params.fileName} className="block max-h-40 w-full rounded-lg border bg-muted object-contain" />
       )}
       {params.fileName ? (
         <p className="text-xs text-muted-foreground">

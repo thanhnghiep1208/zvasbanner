@@ -10,6 +10,7 @@ import { compileGraph } from '@/lib/flow/compiler';
 import type { NodeParamsMap } from '@/lib/flow/schema';
 import { cn } from '@/lib/utils';
 import { useFlowStore } from '@/store/flow-store';
+import { setDocUrl } from './use-flow-docs';
 
 function summary(t: FlowTemplate): string {
   const r = t.graph.nodes.find((n) => n.type === 'ratio');
@@ -21,11 +22,12 @@ const SUMMARIES = new Map(DEFAULT_TEMPLATES.map((t) => [t.id, summary(t)]));
 
 /**
  * Chọn template (T5.4). Graph đã sửa so với lúc nạp template → hỏi lại trước khi thay, vì đổi template bỏ hết
- * thay đổi (graph chưa lưu được tới T6.1).
+ * thay đổi chưa lưu.
  */
 export function TemplatePicker() {
   const templateId = useFlowStore((s) => s.templateId);
-  const edited = useFlowStore((s) => s.graph !== s.templateBaseline);
+  // Có thay đổi chưa lưu: khác lúc nạp template và khác lần lưu gần nhất (T6.1).
+  const edited = useFlowStore((s) => s.graph !== s.templateBaseline && s.graph !== s.savedGraph);
   const isRunning = useFlowStore((s) => s.isRunning);
   const loadTemplate = useFlowStore((s) => s.loadTemplate);
   const [open, setOpen] = useState(false);
@@ -34,6 +36,7 @@ export function TemplatePicker() {
   const current = DEFAULT_TEMPLATES.find((t) => t.id === templateId);
   const apply = (t: FlowTemplate) => {
     loadTemplate(t);
+    setDocUrl(null); // project mới, chưa lưu
     setPending(null);
     setOpen(false);
   };
@@ -55,7 +58,7 @@ export function TemplatePicker() {
         {pending ? (
           <div className="flex flex-col gap-3 rounded-md bg-muted/60 p-3" role="alertdialog" aria-label="Xác nhận đổi template">
             <p className="text-sm">
-              Mở <span className="font-medium">“{pending.name}”</span> sẽ bỏ mọi thay đổi hiện tại (ảnh, chữ, node đã sửa).
+              Mở <span className="font-medium">“{pending.name}”</span> sẽ bỏ thay đổi chưa lưu (ảnh, chữ, node đã sửa).
             </p>
             <div className="flex justify-end gap-2">
               <Button type="button" size="sm" variant="ghost" onClick={() => setPending(null)}>Huỷ</Button>
