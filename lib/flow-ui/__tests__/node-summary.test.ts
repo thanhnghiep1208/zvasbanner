@@ -16,9 +16,9 @@ describe('summarizeNode', () => {
     }
   });
 
-  it('ratio: kích thước đầu + số còn lại', () => {
-    const g = decompileJob(composedFull);
-    expect(summarizeNode(g.nodes.find((n) => n.type === 'ratio')!)).toBe('Zalo OA Img 1075×645 +2');
+  it('ratio: 1 kích thước → tên + cỡ; nhiều → số lượng (card liệt kê đủ)', () => {
+    expect(summarizeNode(decompileJob(composedFull).nodes.find((n) => n.type === 'ratio')!)).toBe('3 kích thước');
+    expect(summarizeNode(decompileJob(flatLegacy).nodes.find((n) => n.type === 'ratio')!)).toMatch(/^.+ \d+×\d+$/);
   });
 
   it('generate: nhãn model giống form', () => {

@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { NODE_DEFINITIONS, PORT_TYPE_LABELS, type PortDef } from '@/lib/flow/node-definitions';
 import { RUN_STATE_LABELS } from '@/lib/flow/run-state';
-import type { FlowNode, NodeType, PortType } from '@/lib/flow/schema';
+import type { FlowNode, NodeParamsMap, NodeType, PortType } from '@/lib/flow/schema';
 import type { FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { checkConnection } from '@/lib/flow-ui/connection-feedback';
@@ -31,6 +31,40 @@ import { useFlowStore } from '@/store/flow-store';
 import { KIND_CHIP, PORT_HANDLE, RUN_BORDER, RUN_DOT, RUN_PILL } from '../flow-styles';
 
 type AssetParams = { assetId: string; url: string; fileName: string };
+
+/**
+ * Node Kích thước: liệt kê đủ mọi kích thước (header chỉ có chỗ cho 1). Hình chữ nhật nhỏ theo đúng tỉ lệ để nhận ra
+ * ngang/dọc/vuông. Kích thước bị bỏ chọn ở node Xuất ảnh (T4.6) hiện mờ + "không xuất".
+ */
+function RatioList({ ratios }: { ratios: NodeParamsMap['ratio']['ratios'] }) {
+  const exportIds = useFlowStore((s) => {
+    const ex = s.graph.nodes.find((n) => n.type === 'export');
+    return ex ? (ex.params as NodeParamsMap['export']).ratioIds : 'all';
+  });
+  if (!ratios.length) return null;
+  return (
+    <ul className="flex flex-col gap-1 border-t px-3 py-2" aria-label="Các kích thước">
+      {ratios.map((r) => {
+        const exported = exportIds === 'all' || exportIds.includes(r.id);
+        const k = 16 / Math.max(r.width, r.height);
+        return (
+          <li key={r.id} className={cn('flex items-center gap-2 text-xs', !exported && 'opacity-50')}>
+            <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
+              <span
+                className="rounded-[2px] border border-current text-muted-foreground"
+                style={{ width: Math.max(4, r.width * k), height: Math.max(4, r.height * k) }}
+              />
+            </span>
+            <span className="min-w-0 flex-1 truncate" title={r.name}>{r.name}</span>
+            <span className="shrink-0 text-muted-foreground tabular-nums">
+              {r.width}×{r.height}{!exported && ' · không xuất'}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 /**
  * Thumbnail ảnh đã upload trên node Asset / Ảnh tham chiếu. Nguồn: blob URL lúc upload; không có (project mở lại,
@@ -193,6 +227,7 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
       )}
 
       {(type === 'product-asset' || type === 'reference-image') && <AssetThumb params={data.params as AssetParams} />}
+      {type === 'ratio' && <RatioList ratios={(data.params as NodeParamsMap['ratio']).ratios} />}
 
       {run.state === 'error' && (
         <div className="mx-3 mb-3 flex flex-col gap-2 rounded-lg bg-destructive/10 p-2 text-xs text-destructive" role="alert">

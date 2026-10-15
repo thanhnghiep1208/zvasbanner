@@ -17,8 +17,7 @@ export function decompileJob(job: CompiledJob): FlowGraph {
   ): FlowNode<T> => {
     const key = x === COL.input ? 'input' : x === COL.config ? 'config' : null;
     const rowY = key ? col[key] : 0;
-    // Node ảnh hiện thumbnail khi đã upload → cao gấp ~2 node thường, chiếm 2 hàng để không đè node bên dưới.
-    if (key) col[key] += ASSET_TYPES.has(type) ? ROW_GAP * 2 : ROW_GAP;
+    if (key) col[key] += ROW_GAP * rowsFor(type, params);
     // Sao chép: graph không được dùng chung object với job (sửa node sẽ làm đổi job/fixture).
     const node: FlowNode<T> = { id, type, params: structuredClone(params), position: { x, y: y ?? rowY } };
     nodes.push(node as FlowNode);
@@ -85,5 +84,22 @@ export function decompileJob(job: CompiledJob): FlowGraph {
 }
 
 const ROW_GAP = 140;
+/** Card node thường ~92px; danh sách kích thước thêm ~16 + 20px/size. */
+const RATIO_ROW_PX = 20;
 const ASSET_TYPES: ReadonlySet<NodeType> = new Set(['product-asset', 'reference-image']);
 const COL = { input: 0, config: 280, layout: 560, exec: 840, compose: 1120, export: 1400 } as const;
+
+/**
+ * Số hàng (ROW_GAP) node chiếm trong cột để không đè node bên dưới:
+ * - node ảnh hiện thumbnail khi đã upload → ~2 node thường;
+ * - node Kích thước liệt kê mọi size (FlowNodeCard) → cao theo số size.
+ */
+function rowsFor(type: NodeType, params: unknown): number {
+  if (ASSET_TYPES.has(type)) return 2;
+  if (type === 'ratio') {
+    const n = (params as NodeParamsMap['ratio']).ratios.length;
+    return Math.max(1, Math.ceil((92 + 16 + RATIO_ROW_PX * n + 12) / ROW_GAP));
+  }
+  return 1;
+}
+

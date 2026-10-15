@@ -33,11 +33,11 @@ const SUMMARIZERS: Summarizers = {
   'brief': (p) => (p.prompt ? truncate(p.prompt) : null),
   'text-layer': (p) => `${TEXT_ROLE_LABELS[p.role]}: ${p.content ? truncate(p.content, 28) : '(trống)'}`,
   'brand-kit': (p) => (p.colors.length ? `${p.colors.length} màu` : null),
+  // Nhiều kích thước: card liệt kê đủ bên dưới (FlowNodeCard → RatioList), header chỉ cần số lượng.
   'ratio': (p) => {
-    const [first, ...rest] = p.ratios;
+    const [first] = p.ratios;
     if (!first) return null;
-    const head = `${first.name} ${first.width}×${first.height}`;
-    return rest.length ? `${head} +${rest.length}` : head;
+    return p.ratios.length > 1 ? `${p.ratios.length} kích thước` : `${first.name} ${first.width}×${first.height}`;
   },
   'style': (p) => `${STYLE_SELECT_ITEMS[p.style]} · ${MOOD_SELECT_ITEMS[p.mood]}`,
   'auto-layout': (p) => {
