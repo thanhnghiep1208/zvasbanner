@@ -7,6 +7,8 @@ export interface NodeRunInfo {
   message?: string;
   /** Ảnh kết quả (URL / data URL) khi `state = 'done'`. Không persist (SPEC 2.5). */
   previewUrl?: string;
+  /** Cache key của node lúc chạy xong (T4.7). Key hiện tại khác → node "Cần chạy lại" (stale). */
+  key?: string;
 }
 
 export const RUN_STATE_LABELS: Record<RunState, string> = {

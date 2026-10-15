@@ -1,12 +1,12 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { requestGenerationWithPayload } from '@/lib/client-generation';
-import { estimateAiCalls } from '@/lib/flow/compiled-job';
-import { compileGraph } from '@/lib/flow/compiler';
 import type { BackgroundRequest } from '@/lib/flow/background/request';
-import { runAll, type BackgroundResult, type GenerateResult } from '@/lib/flow/executor';
+import { pendingAiCalls, runAll, type BackgroundResult, type GenerateResult } from '@/lib/flow/executor';
+import { downstreamOf } from '@/lib/flow/cache-keys';
+import { imageCache, imageCacheVersion, subscribeImageCache } from '@/lib/flow-ui/image-cache';
 import { renderGuideImage } from '@/lib/flow-ui/guide-image';
 import { canvasMeasurer, composeRatio, ensureFonts } from '@/lib/flow-ui/compose-render';
 import type { NodeParamsMap } from '@/lib/flow/schema';
@@ -47,19 +47,30 @@ async function generateBackground(request: BackgroundRequest): Promise<Backgroun
   }
 }
 
-/** Run all (T2.6) + số lượt gọi AI ước tính, hiển thị trước khi chạy (SPEC 5.3). */
+/**
+ * Run all / Chạy lại từ node (T2.6, T4.7) + số lượt AI THỰC SỰ cần (trừ kết quả có sẵn trong cache), hiện trước khi
+ * chạy (SPEC 5.3).
+ */
 export function useFlowRun() {
   const graph = useFlowStore((s) => s.graph);
+  const assetData = useFlowStore((s) => s.assetData);
   const isRunning = useFlowStore((s) => s.isRunning);
+  const cacheVersion = useSyncExternalStore(subscribeImageCache, imageCacheVersion, () => 0);
 
-  const aiCalls = useMemo(() => {
-    const compiled = compileGraph(graph);
-    return compiled.ok ? estimateAiCalls(compiled.job) : null;
-  }, [graph]);
+  const pending = useMemo(
+    () => pendingAiCalls(graph, { dataUrls: assetData }, imageCache, { guideStyle: GUIDE_STYLE, measurer: canvasMeasurer }),
+    // cacheVersion: cache đổi sau mỗi lần chạy → tính lại số lượt còn cần.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [graph, assetData, cacheVersion],
+  );
+  const aiCalls = pending?.calls ?? null;
+  const reusable = pending?.reused ?? 0;
 
-  const run = useCallback(async () => {
+  /** `fromNodeId`: bỏ qua cache cho node đó + mọi node phía sau (lấy biến thể mới). */
+  const run = useCallback(async (fromNodeId?: string) => {
     const store = useFlowStore.getState();
     if (store.isRunning) return;
+    const forceNodes = fromNodeId ? downstreamOf(store.graph, fromNodeId) : undefined;
     store.startRun();
     // Font phải tải xong trước khi đo/vẽ chữ, nếu không Canvas đo bằng font dự phòng.
     await ensureFonts(store.graph.nodes
@@ -72,12 +83,16 @@ export function useFlowRun() {
       guideStyle: GUIDE_STYLE,
       measurer: canvasMeasurer,
       composeRatio,
+      cache: imageCache,
+      forceNodes,
       onRunInfo: (nodeId, info) => useFlowStore.getState().setRunInfo(nodeId, info),
     });
     useFlowStore.getState().finishRun(outcome.results);
 
     if (outcome.ok) {
-      toast.success(`Đã tạo ${outcome.results.length} ảnh.`);
+      toast.success(outcome.reused
+        ? `Đã tạo ${outcome.results.length} ảnh (${outcome.reused} dùng lại kết quả trước, không tốn lượt AI).`
+        : `Đã tạo ${outcome.results.length} ảnh.`);
       if (outcome.warnings.length) toast.warning(`${outcome.warnings.length} cảnh báo: ${outcome.warnings[0]!.message}`);
       return;
     }
@@ -86,5 +101,5 @@ export function useFlowRun() {
     toast.error(general[0]?.message ?? `Chạy thất bại: ${outcome.errors[0]?.message ?? 'lỗi không xác định.'}`);
   }, []);
 
-  return { run, isRunning, aiCalls };
+  return { run, isRunning, aiCalls, reusable };
 }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { decompileJob } from '@/lib/flow/decompiler';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import { flatLegacy } from '@/lib/flow/__tests__/fixtures';
-import { freePosition, nextNodeId, selectRFEdges, selectRFNodes, selectSingleSelectedNode, useFlowStore } from '../flow-store';
+import { displayRunInfo, freePosition, nextNodeId, selectRFEdges, selectRFNodes, selectSingleSelectedNode, useFlowStore } from '../flow-store';
 
 const store = () => useFlowStore.getState();
 
@@ -132,5 +132,14 @@ describe('flow-store', () => {
     store().updateNodeParams<'brand-kit'>(brandId, { fontPreference: 'Montserrat' });
     const id = store().addNode('text-layer', { x: 0, y: 0 });
     expect((store().graph.nodes.find((n) => n.id === id)!.params as { style: { fontFamily: string } }).style.fontFamily).toBe('montserrat');
+  });
+
+  it('displayRunInfo: done + key khác key hiện tại → stale (giữ preview); key trùng / chưa có key → giữ nguyên', () => {
+    const done = { state: 'done' as const, key: 'k1', previewUrl: 'p' };
+    expect(displayRunInfo(done, 'k2')).toEqual({ state: 'stale', key: 'k1', previewUrl: 'p' });
+    expect(displayRunInfo(done, 'k1')).toBe(done);
+    expect(displayRunInfo({ state: 'done' }, 'k2')).toEqual({ state: 'done' });
+    expect(displayRunInfo({ state: 'error', key: 'k1', message: 'x' }, 'k2')).toMatchObject({ state: 'error' });
+    expect(displayRunInfo(undefined, 'k1')).toBeUndefined();
   });
 });

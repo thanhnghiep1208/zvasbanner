@@ -204,19 +204,30 @@ export function selectSingleSelectedNode(graph: FlowGraph, nodeUi: Record<string
 
 /* ── Selectors (gọi trong useMemo theo graph + ui) ──────────── */
 
+/**
+ * Trạng thái hiển thị: node đã chạy xong mà key hiện tại (Merkle, cache-keys.ts) khác key lúc chạy → "Cần chạy lại"
+ * (T4.7). Giữ preview cũ để so.
+ */
+export function displayRunInfo(info: NodeRunInfo | undefined, currentKey: string | undefined): NodeRunInfo | undefined {
+  if (info?.state === 'done' && info.key && currentKey && info.key !== currentKey) return { ...info, state: 'stale' };
+  return info;
+}
+
 export function selectRFNodes(
   graph: FlowGraph,
   nodeUi: Record<string, NodeUi>,
   runInfo: Record<string, NodeRunInfo> = {},
+  currentKeys: Record<string, string> = {},
 ): FlowRFNode[] {
   return graph.nodes.map((n) => {
     const rf = toRFNode(n);
     const label = NODE_DEFINITIONS[n.type].label;
     const summary = summarizeNode(n);
+    const run = displayRunInfo(runInfo[n.id], currentKeys[n.id]);
     return {
       ...rf,
       ...nodeUi[n.id],
-      data: runInfo[n.id] ? { ...rf.data, run: runInfo[n.id] } : rf.data,
+      data: run ? { ...rf.data, run } : rf.data,
       ariaLabel: summary ? `${label}: ${summary}` : label,
     };
   });

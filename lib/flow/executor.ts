@@ -13,12 +13,14 @@
 import type { CanvasConfig, GenerationRequest } from '@/lib/types';
 import type { CompiledJob } from './compiled-job';
 import { compileGraph } from './compiler';
-import { toBackgroundRequests, type BackgroundRequest, type GuideStyle } from './background/request';
+import { toBackgroundRequests, type BackgroundRequest, type BackgroundRequestDraft, type GuideStyle } from './background/request';
 import { planLayoutForJob } from './layout/engine';
 import type { TextMeasurer } from './layout/measure';
 import type { GuideRect, LayoutPlan } from './layout/types';
 import { adaptationRetryPrompt, toLegacyConfig, type LegacyIssue } from './legacy/to-legacy-config';
 import { exportedRatios } from './compiled-job';
+import { hashParts, hashString, nodeKeys } from './cache-keys';
+import { NODE_DEFINITIONS } from './node-definitions';
 import type { LegacyRuntime } from './legacy/from-legacy-config';
 import type { NodeRunInfo } from './run-state';
 import type { FlowGraph } from './schema';
@@ -46,6 +48,44 @@ export interface ExecutorDeps {
   composeRatio?: (args: {
     job: CompiledJob; plan: LayoutPlan; ratioId: string; background: string; dataUrls: Record<string, string>;
   }) => Promise<string>;
+  /** Cache ảnh theo step key (T4.7): trúng → không gọi API, 0 lượt AI. */
+  cache?: ImageCache;
+  /** "Chạy lại từ node này": các node (node + downstream) bỏ qua cache để lấy biến thể mới. */
+  forceNodes?: ReadonlySet<string>;
+}
+
+export interface ImageCache {
+  get(key: string): string | undefined;
+  set(key: string, image: string): void;
+}
+
+/*
+ * ── Step key (T4.7) ───────────────────────────────────────────────
+ * Key cache của bước tốn AI = hash NỘI DUNG request gửi đi (ảnh lớn thay bằng hash của nó): kết quả chỉ phụ thuộc
+ * request. Nhờ vậy đổi thứ không vào request (vd. màu chữ – chỉ ảnh hưởng bước ghép) vẫn trúng cache nền.
+ * Key Merkle theo node (cache-keys.ts) chỉ dùng hiển thị "Cần chạy lại". Dùng chung executor & pendingAiCalls.
+ */
+const stripAssets = (r: GenerationRequest) => ({
+  ...r,
+  assets: r.assets.map(({ dataUrl, ...a }) => ({ ...a, data: dataUrl ? hashString(dataUrl) : null })),
+  layoutAdaptationFromBanner: r.layoutAdaptationFromBanner ? hashString(r.layoutAdaptationFromBanner) : undefined,
+});
+/** Flat kích thước đầu. */
+export const flatStepKey = (request: GenerationRequest) => hashParts('flat', stripAssets(request));
+/** Flat kích thước phụ: request đã thích nghi (ảnh đầu nằm trong layoutAdaptationFromBanner → được hash). */
+export const flatAdaptStepKey = (adapted: GenerationRequest) => hashParts('flat-adapt', stripAssets(adapted));
+/** Composed: request sinh nền (không gồm guide image – vẽ từ `guide`) + cách truyền vùng trống. */
+export const backgroundStepKey = (draft: BackgroundRequestDraft, guideStyle: GuideStyle) =>
+  hashParts('bg', guideStyle, { ...draft, references: draft.references.map((r) => ({ ...r, dataUrl: hashString(r.dataUrl) })) });
+
+/** Request kích thước phụ – giống "Biến thể kích thước" của form (AdditionalCanvasSizesPanel). */
+function adaptRequest(request: GenerationRequest, firstImage: string): GenerationRequest {
+  return {
+    ...request,
+    imageModel: 'nano-banana-2',
+    styleControls: { ...request.styleControls, strictPreserveMode: true },
+    layoutAdaptationFromBanner: firstImage,
+  };
 }
 
 export interface RatioResult {
@@ -60,7 +100,8 @@ export interface RunIssue {
 }
 
 export type RunOutcome =
-  | { ok: true; results: RatioResult[]; warnings: RunIssue[] }
+  /** `reused` = số kích thước lấy từ cache (không tốn lượt AI). */
+  | { ok: true; results: RatioResult[]; warnings: RunIssue[]; reused: number }
   | { ok: false; errors: RunIssue[]; results: RatioResult[] };
 
 export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: ExecutorDeps): Promise<RunOutcome> {
@@ -110,25 +151,32 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
   deps.onRunInfo(execNode.id, { state: 'running' });
   deps.onRunInfo(exportNode.id, { state: 'queued' });
 
+  const keys = nodeKeys(graph);
+  const force = deps.forceNodes?.has(execNode.id) ?? false;
+  let reused = 0;
+  let called = 0;
   const results: RatioResult[] = [];
   const retryPrompt = adaptationRetryPrompt(compiled.job);
   for (const [i, { ratioId, request }] of requests.entries()) {
     const first = results[0];
-    if (i > 0) await pause(deps);
+    const adapted = first ? adaptRequest(request, first.image) : undefined;
+    const stepKey = adapted ? flatAdaptStepKey(adapted) : flatStepKey(request);
+    const hit = force ? undefined : deps.cache?.get(stepKey);
+    if (hit) {
+      reused++;
+      results.push({ ratioId, canvasConfig: request.canvasConfig, image: hit });
+      deps.onRunInfo(execNode.id, { state: 'running', previewUrl: results[0]!.image });
+      continue;
+    }
+    if (called++ > 0) await pause(deps);
     let res: GenerateResult;
     if (!first) {
       res = await deps.generate(request);
     } else {
-      // Kích thước phụ: giống "Biến thể kích thước" của form (AdditionalCanvasSizesPanel) – thích nghi từ ảnh đầu,
-      // ép Nano Banana 2 + giữ nguyên chủ thể; lỗi/placeholder thì thử lại 1 lần với prompt "layout translation".
-      const adapted: GenerationRequest = {
-        ...request,
-        imageModel: 'nano-banana-2',
-        styleControls: { ...request.styleControls, strictPreserveMode: true },
-        layoutAdaptationFromBanner: first.image,
-      };
-      res = await deps.generate(adapted);
-      if (!res.ok || res.source === 'placeholder') res = await deps.generate({ ...adapted, userPrompt: retryPrompt });
+      // Kích thước phụ: thích nghi từ ảnh đầu, ép Nano Banana 2 + giữ nguyên chủ thể; lỗi/placeholder thì thử lại
+      // 1 lần với prompt "layout translation" (giống form).
+      res = await deps.generate(adapted!);
+      if (!res.ok || res.source === 'placeholder') res = await deps.generate({ ...adapted!, userPrompt: retryPrompt });
     }
     const error = !res.ok ? res.error
       : res.source === 'placeholder' ? (res.placeholderError ?? 'AI không trả ảnh, server dùng ảnh tạm.')
@@ -139,13 +187,14 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
       deps.onRunInfo(exportNode.id, { state: 'idle' });
       return { ok: false, errors: [{ message, nodeId: execNode.id }], results };
     }
+    deps.cache?.set(stepKey, res.image);
     results.push({ ratioId, canvasConfig: request.canvasConfig, image: res.image });
     deps.onRunInfo(execNode.id, { state: 'running', previewUrl: results[0]!.image });
   }
 
-  deps.onRunInfo(execNode.id, { state: 'done', previewUrl: results[0]!.image });
-  deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image });
-  return { ok: true, results, warnings };
+  deps.onRunInfo(execNode.id, { state: 'done', previewUrl: results[0]!.image, key: keys[execNode.id] });
+  deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image, key: keys[exportNode.id] });
+  return { ok: true, results, warnings, reused };
 }
 
 /* ── Composed (T4.2) ────────────────────────────────────────── */
@@ -164,9 +213,10 @@ async function runComposed(
     return fail(deps, [{ nodeId: genNode.id, message: 'Môi trường hiện tại chưa hỗ trợ sinh nền.' }]);
   }
 
+  const keys = nodeKeys(graph);
   const layout = planLayoutForJob(job, { measurer: deps.measurer });
   if (!layout.ok) return fail(deps, [{ nodeId: layoutNode.id, message: layout.message }]);
-  deps.onRunInfo(layoutNode.id, { state: 'done' });
+  deps.onRunInfo(layoutNode.id, { state: 'done', key: keys[layoutNode.id] });
 
   const drafts = toBackgroundRequests({ ...job, ratios: exportedRatios(job) }, layout.plan, runtime);
   if (!drafts.ok) return fail(deps, [{ nodeId: genNode.id, message: drafts.message }]);
@@ -191,15 +241,25 @@ async function runComposed(
   deps.onRunInfo(composeNode.id, { state: 'queued' });
   const results: RatioResult[] = [];
   const backgrounds: string[] = [];
+  const force = deps.forceNodes?.has(genNode.id) ?? false;
+  let reused = 0;
   for (const [i, { ratioId, request }] of drafts.drafts.entries()) {
     const prefix = drafts.drafts.length > 1 ? `Kích thước ${i + 1}/${drafts.drafts.length}: ` : '';
+    const stepKey = backgroundStepKey(request, guideStyle);
+    const hit = force ? undefined : deps.cache?.get(stepKey);
     let res: BackgroundResult;
-    try {
-      res = await deps.generateBackground(guideStyle === 'natural'
-        ? { ...request, guideStyle }
-        : { ...request, guideStyle, guideImage: await deps.renderGuide!(request.canvasConfig, request.guide) });
-    } catch (e) {
-      res = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    if (hit) {
+      reused++;
+      res = { ok: true, image: hit };
+    } else {
+      try {
+        res = await deps.generateBackground(guideStyle === 'natural'
+          ? { ...request, guideStyle }
+          : { ...request, guideStyle, guideImage: await deps.renderGuide!(request.canvasConfig, request.guide) });
+      } catch (e) {
+        res = { ok: false, error: e instanceof Error ? e.message : String(e) };
+      }
+      if (res.ok) deps.cache?.set(stepKey, res.image);
     }
     if (!res.ok) {
       const message = prefix + res.error;
@@ -226,15 +286,59 @@ async function runComposed(
     }
   }
 
-  deps.onRunInfo(genNode.id, { state: 'done', previewUrl: backgrounds[0] });
+  deps.onRunInfo(genNode.id, { state: 'done', previewUrl: backgrounds[0], key: keys[genNode.id] });
   if (!deps.composeRatio) {
     deps.onRunInfo(composeNode.id, { state: 'idle' });
-    deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image });
-    return { ok: true, results, warnings: [...warnings, { nodeId: composeNode.id, message: 'Môi trường hiện tại chưa ghép layer: kết quả là ảnh nền.' }] };
+    deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image, key: keys[exportNode.id] });
+    return { ok: true, reused, results, warnings: [...warnings, { nodeId: composeNode.id, message: 'Môi trường hiện tại chưa ghép layer: kết quả là ảnh nền.' }] };
   }
-  deps.onRunInfo(composeNode.id, { state: 'done', previewUrl: results[0]!.image });
-  deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image });
-  return { ok: true, results, warnings };
+  deps.onRunInfo(composeNode.id, { state: 'done', previewUrl: results[0]!.image, key: keys[composeNode.id] });
+  deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image, key: keys[exportNode.id] });
+  return { ok: true, results, warnings, reused };
+}
+
+/**
+ * Số lượt AI thực sự cần cho lần chạy tới (T4.7): như estimateAiCalls nhưng trừ kích thước đã có trong cache.
+ * Cùng step key với executor. Flat: kích thước phụ chỉ biết key khi ảnh đầu có trong cache.
+ * `null` = graph chưa chạy được (lỗi compile).
+ */
+export function pendingAiCalls(
+  graph: FlowGraph,
+  runtime: LegacyRuntime,
+  cache: Pick<ImageCache, 'get'> | undefined,
+  opts: { guideStyle?: GuideStyle; forceNodes?: ReadonlySet<string>; measurer?: TextMeasurer } = {},
+): { calls: number; reused: number } | null {
+  const compiled = compileGraph(graph);
+  if (!compiled.ok) return null;
+  const job = compiled.job;
+  const exported = exportedRatios(job);
+  const forced = (type: string) => graph.nodes.some((n) => n.type === type && opts.forceNodes?.has(n.id));
+
+  if (job.renderMode === 'composed') {
+    const per = NODE_DEFINITIONS['generate-background'].aiCallsPerRatio;
+    const layout = planLayoutForJob(job, { measurer: opts.measurer });
+    const drafts = layout.ok ? toBackgroundRequests({ ...job, ratios: exported }, layout.plan, runtime) : null;
+    if (!drafts?.ok) return { calls: exported.length * per, reused: 0 };
+    const skip = forced('generate-background');
+    const hits = skip ? 0 : drafts.drafts.filter((d) => cache?.get(backgroundStepKey(d.request, opts.guideStyle ?? 'hatched'))).length;
+    return { calls: (drafts.drafts.length - hits) * per, reused: hits };
+  }
+  const per = NODE_DEFINITIONS['generate-flat'].aiCallsPerRatio;
+  const legacy = toLegacyConfig(job, runtime);
+  if (!legacy.ok) return { calls: exported.length * per, reused: 0 };
+  const ids = new Set(exported.map((r) => r.id));
+  const requests = legacy.requests.filter((r) => ids.has(r.ratioId));
+  if (forced('generate-flat')) return { calls: requests.length * per, reused: 0 };
+  let hits = 0;
+  let first: string | undefined;
+  for (const [i, { request }] of requests.entries()) {
+    // Kích thước phụ chỉ tính được key khi đã có ảnh đầu (từ cache).
+    const img = i === 0 ? cache?.get(flatStepKey(request))
+      : first !== undefined ? cache?.get(flatAdaptStepKey(adaptRequest(request, first))) : undefined;
+    if (i === 0) first = img;
+    if (img) hits++;
+  }
+  return { calls: (requests.length - hits) * per, reused: hits };
 }
 
 /**

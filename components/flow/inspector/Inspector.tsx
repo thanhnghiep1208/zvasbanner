@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
-import { CircleAlert, MousePointerClick, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { useContext, useMemo } from 'react';
+import { CircleAlert, MousePointerClick, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { NodeIconChip } from '../nodes/FlowNodeCard';
+import { FlowNodeActionsContext, NodeIconChip } from '../nodes/FlowNodeCard';
 import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import { Button } from '@/components/ui/button';
 import {
@@ -200,6 +200,7 @@ function RatioEditor({ node }: { node: FlowNode<'ratio'> }) {
 
 export function Inspector({ node }: { node: FlowNode | null }) {
   const graph = useFlowStore((s) => s.graph);
+  const actions = useContext(FlowNodeActionsContext);
   const issues = useMemo(
     () => (node ? validateGraph(graph, { measurer: canvasMeasurer }).filter((i) => i.nodeId === node.id) : []),
     [graph, node],
@@ -220,12 +221,22 @@ export function Inspector({ node }: { node: FlowNode | null }) {
   const def = NODE_DEFINITIONS[node.type];
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-start gap-2.5 border-b p-3">
-        <NodeIconChip type={node.type} />
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold">{def.label}</h2>
-          <p className="text-xs text-muted-foreground">{def.description}</p>
+      <header className="flex flex-col gap-2 border-b p-3">
+        <div className="flex items-start gap-2.5">
+          <NodeIconChip type={node.type} />
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold">{def.label}</h2>
+            <p className="text-xs text-muted-foreground">{def.description}</p>
+          </div>
         </div>
+        {actions.onRunFrom && (
+          <Button type="button" size="sm" variant="outline" className="self-start"
+            disabled={actions.isRunning} onClick={() => actions.onRunFrom!(node.id)}
+            title="Bỏ qua kết quả đã lưu của node này và các node phía sau, tạo biến thể mới.">
+            <RefreshCw aria-hidden />
+            Chạy lại từ node này
+          </Button>
+        )}
       </header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
         {issues.length > 0 && (

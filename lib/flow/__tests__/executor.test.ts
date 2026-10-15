@@ -31,7 +31,7 @@ describe('runAll', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]!.userPrompt).toBe(fx.request.userPrompt);
     expect(calls[0]!.layoutAdaptationFromBanner).toBeUndefined();
-    expect(last('n-generate-flat')).toEqual({ state: 'done', previewUrl: 'data:image/png;base64,R1' });
+    expect(last('n-generate-flat')).toMatchObject({ state: 'done', previewUrl: 'data:image/png;base64,R1' });
     expect(last('n-export')).toMatchObject({ state: 'done' });
   });
 
@@ -141,8 +141,8 @@ describe('runAll – composed (T4.2)', () => {
       expect(r.references.map((x) => x.role)).toEqual(['style-reference', 'background']);
       expect(r.guide.some((g) => g.kind === 'product')).toBe(true);
     }
-    expect(last('n-layout')).toEqual({ state: 'done' });
-    expect(last('n-generate')).toEqual({ state: 'done', previewUrl: 'bg-1' });
+    expect(last('n-layout')).toMatchObject({ state: 'done' });
+    expect(last('n-generate')).toMatchObject({ state: 'done', previewUrl: 'bg-1' });
   });
 
   it('headline AI → request có aiHeadline trỏ đúng vùng trong guide', async () => {
@@ -197,7 +197,7 @@ describe('runAll – composed (T4.2)', () => {
     expect(out.ok && out.results.map((r) => r.image)).toEqual(['composed-social-zalo-oa-img', 'composed-custom-1080x1920']);
     expect(out.ok && out.warnings.map((w) => w.nodeId)).not.toContain('n-compose');
     expect(last('n-compose')).toMatchObject({ state: 'done' });
-    expect(last('n-generate')).toEqual({ state: 'done', previewUrl: 'bg-1' });
+    expect(last('n-generate')).toMatchObject({ state: 'done', previewUrl: 'bg-1' });
   });
 
   it('thiếu ảnh sản phẩm → chặn trước khi gọi AI, báo trên node sản phẩm', async () => {
@@ -217,7 +217,7 @@ describe('runAll – composed (T4.2)', () => {
     });
     expect(out.ok).toBe(false);
     expect(last('n-compose')).toMatchObject({ state: 'error', message: 'Không đọc được ảnh.' });
-    expect(last('n-generate')).toEqual({ state: 'done', previewUrl: 'bg-1' });
+    expect(last('n-generate')).toMatchObject({ state: 'done', previewUrl: 'bg-1' });
   });
 
   it("guideStyle 'natural': không vẽ guide, request không có guideImage", async () => {

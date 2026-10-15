@@ -30,6 +30,7 @@ import { getDefinition, NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeType } from '@/lib/flow/schema';
 import { validateGraph } from '@/lib/flow/validate';
 import { checkConnection, rejectMessageForConnectionEnd } from '@/lib/flow-ui/connection-feedback';
+import { nodeKeys } from '@/lib/flow/cache-keys';
 import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import {
   freePosition, selectRFEdges, selectRFNodes, selectSingleSelectedNode, useFlowStore,
@@ -71,10 +72,15 @@ function FlowCanvasInner() {
   const paneRef = useRef<HTMLDivElement>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const { run, isRunning, aiCalls } = useFlowRun();
-  const nodeActions = useMemo(() => ({ onRetry: () => void run() }), [run]);
+  const { run, isRunning, aiCalls, reusable } = useFlowRun();
+  const nodeActions = useMemo(
+    () => ({ onRetry: (id: string) => void run(id), onRunFrom: (id: string) => void run(id), isRunning }),
+    [run, isRunning],
+  );
 
-  const nodes = useMemo(() => selectRFNodes(graph, nodeUi, runInfo), [graph, nodeUi, runInfo]);
+  // Key Merkle hiện tại – node đã chạy mà key đổi → "Cần chạy lại" (T4.7).
+  const currentKeys = useMemo(() => nodeKeys(graph), [graph]);
+  const nodes = useMemo(() => selectRFNodes(graph, nodeUi, runInfo, currentKeys), [graph, nodeUi, runInfo, currentKeys]);
   // Dây tô theo kiểu port nguồn (flow-theme.css).
   const edges = useMemo(() => {
     const typeOf = new Map(graph.nodes.map((n) => [n.id, n.type] as const));
@@ -148,6 +154,7 @@ function FlowCanvasInner() {
   );
 
   return (
+    <FlowNodeActionsContext.Provider value={nodeActions}>
     <div data-flow-fonts className={`flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground ${FLOW_FONT_VARIABLES}`}>
       <header className="relative grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4">
         {isRunning && (
@@ -196,7 +203,12 @@ function FlowCanvasInner() {
               : <Play aria-hidden />}
             {isRunning ? 'Đang chạy…' : 'Chạy tất cả'}
             {!isRunning && aiCalls !== null && (
-              <span className="rounded-sm bg-primary-foreground/15 px-1 text-[11px] tabular-nums">{aiCalls} lượt AI</span>
+              <span
+                className="rounded-sm bg-primary-foreground/15 px-1 text-[11px] tabular-nums"
+                title={reusable ? `${reusable} kích thước có sẵn kết quả trước (không tốn lượt AI)` : undefined}
+              >
+                {aiCalls} lượt AI{reusable ? ` · ${reusable} có sẵn` : ''}
+              </span>
             )}
           </Button>
           <Show when="signed-in"><UserButton /></Show>
@@ -212,7 +224,6 @@ function FlowCanvasInner() {
         </aside>
 
         <section ref={paneRef} className="relative min-h-0 min-w-0" aria-label="Flow canvas">
-          <FlowNodeActionsContext.Provider value={nodeActions}>
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -233,7 +244,6 @@ function FlowCanvasInner() {
               <Controls showInteractive={false} position="bottom-left" />
               <MiniMap pannable zoomable position="bottom-right" />
             </ReactFlow>
-          </FlowNodeActionsContext.Provider>
 
           {isEmpty && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center p-6" role="status">
@@ -269,6 +279,7 @@ function FlowCanvasInner() {
         </SheetContent>
       </Sheet>
     </div>
+    </FlowNodeActionsContext.Provider>
   );
 }
 

@@ -43,8 +43,14 @@ export const NODE_ICONS: Record<NodeType, LucideIcon> = {
   'export': Download,
 };
 
-/** Hành động tại node do canvas cung cấp (executor gắn ở T2.6). Không có → ẩn nút. */
-export const FlowNodeActionsContext = createContext<{ onRetry?: (nodeId: string) => void }>({});
+/** Hành động tại node do canvas cung cấp. Không có → ẩn nút. */
+export const FlowNodeActionsContext = createContext<{
+  /** Node lỗi: chạy lại từ node này (T4.7). */
+  onRetry?: (nodeId: string) => void;
+  /** Inspector: "Chạy lại từ node này" – bỏ qua cache cho node + downstream (T4.7). */
+  onRunFrom?: (nodeId: string) => void;
+  isRunning?: boolean;
+}>({});
 
 /** Chip icon vuông theo nhóm node – dùng chung cho card, thư viện, inspector. */
 export function NodeIconChip({ type, size = 'md' }: { type: NodeType; size?: 'sm' | 'md' }) {
