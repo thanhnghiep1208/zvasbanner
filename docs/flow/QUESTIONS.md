@@ -64,7 +64,7 @@ Lựa chọn:
 - A. Thêm kho lưu asset (Vercel Blob hoặc S3/R2), upload khi thêm node asset, `url` là URL bền.
 - B. P1 chưa lưu graph có asset: lưu/tải graph nhưng yêu cầu upload lại ảnh khi mở.
 Đề xuất: A, quyết trước T6.1 (là hạ tầng mới, cần duyệt theo mục 6.5 của SPEC).
-Trạng thái: **đã chốt A** (2026-10-12). Còn chọn nhà cung cấp (Vercel Blob hay S3/R2) trước T6.1.
+Trạng thái: **đã chốt A** (2026-10-12). Nhà cung cấp: **Cloudflare R2, storage class Standard** (2026-10-15).
 
 ## Q8 – Composed mode cần Route Handler mới (task T4.2, mục 5.5)
 Bối cảnh: `/api/generate` chỉ sinh ảnh flat hoàn chỉnh từ `GenerationRequest`. Composed cần sinh **chỉ background** từ layout guide image, cấm chữ, không gửi pixel sản phẩm. Body và prompt khác hẳn, nên `toLegacyConfig` không biểu diễn được. Mục 5.5 ghi "Executor gọi API qua Route Handler hiện có".
