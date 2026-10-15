@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { loadEditorStateIntoFlow } from "@/components/flow/open-from-form";
+import { markFlowOpenSource } from "@/components/flow/flow-analytics";
 import { useEditorStore } from "@/store/editor";
 
 /** T6.2: chuyển cấu hình form đang mở sang Flow canvas. Chỉ render khi user có flag FLOW_CANVAS. */
@@ -20,6 +21,7 @@ export function OpenInCanvasButton() {
       toast.error(`Không mở được canvas: ${(e as Error).message}`);
       return;
     }
+    markFlowOpenSource("form");
     // Điều hướng client-side: flow store (module singleton) giữ graph vừa nạp; /flow không có ?doc/?template nên
     // không nạp gì đè lên.
     router.push("/flow");

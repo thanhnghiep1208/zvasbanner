@@ -106,3 +106,11 @@ Lựa chọn:
 Đề xuất: A. Lỗi của E (đồ vật lấn vùng sản phẩm) phần lớn bị sản phẩm thật che; lỗi của guide (chữ/nhãn trên nền) phá hỏng banner. Đổi = 1 dòng `GUIDE_STYLE` trong `components/flow/use-flow-run.ts`.
 Trạng thái: **đã chốt A** (2026-10-15) – mặc định `natural`, SPEC 3 #1 đã sửa.
 
+## Q12 – Event Flow canvas ghi vào đâu (task T6.3, mục 5.9)
+Bối cảnh: Event flow có field riêng (ai_calls, render_mode, mã lỗi, view, template_id). `/api/track` cũ chỉ nhận 8 event cũ (allowlist) và `banner_events` có cột cố định; sửa route cũ trái nguyên tắc 2.2.
+Lựa chọn:
+- A. Route mới `/api/flow/track` + bảng `flow_events` (props JSONB), tự tạo như `flow_docs`. Dashboard cũ chưa hiện – xem bằng SQL.
+- B. Sửa `/api/track` + thêm cột props JSONB vào `banner_events`.
+Đề xuất: A.
+Trạng thái: **đã chốt A** (2026-10-15)
+

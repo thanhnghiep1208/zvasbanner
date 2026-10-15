@@ -42,6 +42,7 @@ import { Inspector } from './inspector/Inspector';
 import { TemplatePicker } from './TemplatePicker';
 import { ProjectMenu } from './ProjectMenu';
 import { useFlowDocs } from './use-flow-docs';
+import { takeFlowOpenSource, trackFlow } from './flow-analytics';
 import { SimpleView } from './simple/SimpleView';
 import { NODE_DRAG_MIME, NodeLibrary } from './NodeLibrary';
 import { FLOW_NODE_TYPES, FlowNodeActionsContext } from './nodes/FlowNodeCard';
@@ -67,6 +68,12 @@ function FlowCanvasInner() {
   const graphVersion = useFlowStore((s) => s.graphVersion);
   const view = useFlowStore((s) => s.view);
   const setView = useFlowStore((s) => s.setView);
+  // User tự đổi view (header / "Mở canvas") → analytics; loadTemplate/loadDoc đổi view thì không tính.
+  const switchView = useCallback((v: 'simple' | 'canvas') => {
+    if (useFlowStore.getState().view === v) return;
+    setView(v);
+    if (useFlowStore.getState().view === v) trackFlow('flow_view_switched', { view: v });
+  }, [setView]);
   const hasExposed = useFlowStore((s) => s.exposed.length > 0);
   const nodesInitialized = useNodesInitialized();
   const fittedVersion = useRef(-1);
@@ -199,7 +206,7 @@ function FlowCanvasInner() {
                   type="button"
                   role="tab"
                   aria-selected={view === v}
-                  onClick={() => setView(v)}
+                  onClick={() => switchView(v)}
                   className="rounded-md px-2.5 py-1 font-medium text-muted-foreground transition-colors aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-xs focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
                   {v === 'simple' ? 'Đơn giản' : 'Canvas'}
@@ -251,7 +258,7 @@ function FlowCanvasInner() {
       </header>
 
       {view === 'simple' ? (
-        <SimpleView onOpenCanvas={() => setView('canvas')} />
+        <SimpleView onOpenCanvas={() => switchView('canvas')} />
       ) : (
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)_320px] xl:grid-cols-[272px_minmax(0,1fr)_340px]">
         <aside className="hidden min-h-0 flex-col border-r bg-card lg:flex" aria-label="Thư viện node">
@@ -293,7 +300,10 @@ function FlowCanvasInner() {
                   Kéo node từ thư viện vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Brief, Kích thước và Sinh banner.
                 </p>
                 <Button type="button" size="sm" variant="outline" className="pointer-events-auto mt-1"
-                  onClick={() => useFlowStore.getState().loadTemplate(DEFAULT_TEMPLATES[0]!)}>
+                  onClick={() => {
+                    useFlowStore.getState().loadTemplate(DEFAULT_TEMPLATES[0]!);
+                    trackFlow('flow_template_used', { source: 'empty_canvas' });
+                  }}>
                   Nạp template mặc định
                 </Button>
               </div>
@@ -335,14 +345,29 @@ const noopSubscribe = () => () => {};
  */
 export default function FlowCanvas({ initialTemplateId, initialDocId }: { initialTemplateId?: string; initialDocId?: string }) {
   const { open } = useFlowDocs();
+  // flow_opened chỉ 1 lần mỗi lần mount (StrictMode chạy effect 2 lần với cùng ref).
+  const openedTracked = useRef(false);
   // Chỉ chạy ở client: store là singleton module, nạp lúc render server sẽ dùng chung giữa các request.
   useEffect(() => {
+    const first = !openedTracked.current;
+    openedTracked.current = true;
+    const fromForm = first ? takeFlowOpenSource() : null;
     if (initialDocId) {
-      if (useFlowStore.getState().docId !== initialDocId) void open(initialDocId);
+      const loaded = useFlowStore.getState().docId !== initialDocId ? open(initialDocId) : Promise.resolve(true);
+      // Đợi tải xong để event mang doc_id/template_id của project.
+      if (first) void loaded.then(() => trackFlow('flow_opened', { source: 'doc' }));
       return;
     }
     const t = initialTemplateId ? getTemplate(initialTemplateId) : undefined;
     if (t && useFlowStore.getState().templateId !== t.id) useFlowStore.getState().loadTemplate(t);
+    if (!first) return;
+    const source = fromForm ?? (t ? 'template_url' : 'direct');
+    trackFlow('flow_opened', { source });
+    // Graph đúng là template vừa nạp (chưa sửa) → tính 1 lần dùng template.
+    const s = useFlowStore.getState();
+    if (source !== 'form' && s.templateId && s.graph === s.templateBaseline) {
+      trackFlow('flow_template_used', { source: t ? 'url' : 'default' });
+    }
   }, [initialTemplateId, initialDocId, open]);
 
   // Studio đo chữ/vẽ bằng Canvas 2D (validate, ước tính lượt AI) – chỉ có ở trình duyệt. Graph mặc định đã có chữ

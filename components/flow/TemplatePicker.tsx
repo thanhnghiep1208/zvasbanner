@@ -11,6 +11,7 @@ import type { NodeParamsMap } from '@/lib/flow/schema';
 import { cn } from '@/lib/utils';
 import { useFlowStore } from '@/store/flow-store';
 import { setDocUrl } from './use-flow-docs';
+import { trackFlow } from './flow-analytics';
 
 function summary(t: FlowTemplate): string {
   const r = t.graph.nodes.find((n) => n.type === 'ratio');
@@ -37,6 +38,7 @@ export function TemplatePicker() {
   const apply = (t: FlowTemplate) => {
     loadTemplate(t);
     setDocUrl(null); // project mới, chưa lưu
+    trackFlow('flow_template_used', { source: 'picker' });
     setPending(null);
     setOpen(false);
   };

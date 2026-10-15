@@ -10,6 +10,9 @@ import { imageCache, imageCacheVersion, subscribeImageCache } from '@/lib/flow-u
 import { renderGuideImage } from '@/lib/flow-ui/guide-image';
 import { canvasMeasurer, composeRatio, ensureFonts } from '@/lib/flow-ui/compose-render';
 import type { NodeParamsMap } from '@/lib/flow/schema';
+import { exportedRatios } from '@/lib/flow/compiled-job';
+import { compileGraph } from '@/lib/flow/compiler';
+import { runErrorCode, trackFlow } from './flow-analytics';
 import { useFlowStore } from '@/store/flow-store';
 
 /** Gọi /api/generate qua client hiện có (timeout, map lỗi HTTP → message tiếng Việt giữ nguyên như form). */
@@ -71,6 +74,18 @@ export function useFlowRun() {
     const store = useFlowStore.getState();
     if (store.isRunning) return;
     const forceNodes = fromNodeId ? downstreamOf(store.graph, fromNodeId) : undefined;
+    // Analytics (T6.3): graph lỗi compile → không có render mode, chỉ ghi flow_run_failed.
+    const compiled = compileGraph(store.graph);
+    const renderMode = compiled.ok ? compiled.job.renderMode : null;
+    if (compiled.ok) {
+      const p = pendingAiCalls(store.graph, { dataUrls: store.assetData }, imageCache,
+        { guideStyle: GUIDE_STYLE, measurer: canvasMeasurer, forceNodes });
+      trackFlow('flow_run_started', {
+        ai_calls: p?.calls ?? 0, reusable: p?.reused ?? 0, render_mode: compiled.job.renderMode,
+        ratio_count: exportedRatios(compiled.job).length, from_node: Boolean(fromNodeId),
+      });
+    }
+    const startedAt = performance.now();
     store.startRun();
     // Font phải tải xong trước khi đo/vẽ chữ, nếu không Canvas đo bằng font dự phòng.
     await ensureFonts(store.graph.nodes
@@ -88,6 +103,14 @@ export function useFlowRun() {
       onRunInfo: (nodeId, info) => useFlowStore.getState().setRunInfo(nodeId, info),
     });
     useFlowStore.getState().finishRun(outcome.results);
+    const durationMs = Math.round(performance.now() - startedAt);
+    if (outcome.ok && renderMode) {
+      trackFlow('flow_run_completed', {
+        duration_ms: durationMs, render_mode: renderMode, image_count: outcome.results.length, reused: outcome.reused,
+      });
+    } else if (!outcome.ok) {
+      trackFlow('flow_run_failed', { code: runErrorCode(outcome.errors, store.graph), duration_ms: durationMs, render_mode: renderMode });
+    }
 
     if (outcome.ok) {
       toast.success(outcome.reused
