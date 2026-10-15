@@ -16,6 +16,7 @@ import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeRunInfo } from '@/lib/flow/run-state';
 import { FONT_FOR_STYLE } from '@/lib/flow/text/text-style';
+import { fontIdFromLabel } from '@/lib/flow/brand';
 import type { RatioResult } from '@/lib/flow/executor';
 
 type NodeUi = Pick<Node, 'selected' | 'dragging' | 'measured'>;
@@ -77,9 +78,12 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     if (type === 'text-layer') {
       const text = params as NodeParamsMap['text-layer'];
       text.layerId = id;
-      // Font mặc định theo kiểu chữ của node Phong cách (Q10B), nếu graph có.
+      // Font mặc định: font thương hiệu (Brand kit, T4.5) > kiểu chữ của node Phong cách (Q10B).
+      const brandNode = graph.nodes.find((n) => n.type === 'brand-kit');
       const styleNode = graph.nodes.find((n) => n.type === 'style');
-      if (styleNode) text.style.fontFamily = FONT_FOR_STYLE[(styleNode.params as NodeParamsMap['style']).fontStyle];
+      const brandFont = fontIdFromLabel((brandNode?.params as NodeParamsMap['brand-kit'] | undefined)?.fontPreference);
+      if (brandFont) text.style.fontFamily = brandFont;
+      else if (styleNode) text.style.fontFamily = FONT_FOR_STYLE[(styleNode.params as NodeParamsMap['style']).fontStyle];
     }
     const node = { id, type, params, position: { x: position.x, y: position.y } } as FlowNode;
     const deselected = Object.fromEntries(

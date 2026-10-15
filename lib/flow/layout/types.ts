@@ -4,6 +4,7 @@
  */
 import type { CompiledJob } from '../compiled-job';
 import type { Transform } from '../schema';
+import type { LogoPosition } from '../brand';
 
 export type RatioClass = 'ultra-wide' | 'landscape' | 'square' | 'portrait';
 
@@ -47,6 +48,8 @@ export interface PlacedText {
 export interface LayoutPlan {
   /** Variant đã dùng theo ratio. */
   variantId: Record<string, string>;
+  /** Ratio mà góc logo của Brand kit không áp được (đè vùng khác) – logo giữ vị trí của variant. */
+  logoPositionIgnored: string[];
   /** Tỉ lệ vùng sản phẩm đã dùng theo ratio (1 = không co). */
   productScale: Record<string, number>;
   /** transforms[ratioId][elementId]; elementId = assetId (asset) | layerId (text). */
@@ -64,4 +67,6 @@ export type LayoutResult =
 
 export type LayoutInput = Pick<CompiledJob, 'ratios' | 'products' | 'textLayers'> & {
   overrides: Record<string, Record<string, Transform>>;
+  /** Góc logo từ Brand kit (T4.5). Chỉ áp khi góc đó không đè vùng sản phẩm/chữ đang dùng. */
+  logoPosition?: LogoPosition;
 };

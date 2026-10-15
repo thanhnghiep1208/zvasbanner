@@ -19,6 +19,7 @@ import type {
   GuideRect, LayoutInput, LayoutPlan, LayoutResult, LayoutVariant, PlacedText, RatioClass, Rect, SlotKind,
 } from './types';
 import { classifyRatio, LAYOUT_VARIANTS, MIN_PRODUCT_SCALE } from './variants';
+import { asLogoPosition, logoCornerRect } from '../brand';
 
 /** Khoảng cách giữa các ô khi chia slot, theo tỉ lệ kích thước slot. */
 const GAP = 0.04;
@@ -45,7 +46,7 @@ export interface LayoutOptions {
 
 export function planLayout(input: LayoutInput, options: LayoutOptions = {}): LayoutResult {
   const measurer = options.measurer ?? approxMeasurer;
-  const plan: LayoutPlan = { variantId: {}, productScale: {}, transforms: {}, text: {}, guide: {} };
+  const plan: LayoutPlan = { variantId: {}, logoPositionIgnored: [], productScale: {}, transforms: {}, text: {}, guide: {} };
 
   for (const ratio of input.ratios) {
     if (!(ratio.width > 0 && ratio.height > 0)) {
@@ -66,6 +67,7 @@ export function planLayout(input: LayoutInput, options: LayoutOptions = {}): Lay
     for (const [id, t] of Object.entries(overrides)) if (isElement(id, input)) transforms[id] = t;
 
     plan.variantId[ratio.id] = res.variantId;
+    if (res.logoPositionIgnored) plan.logoPositionIgnored.push(ratio.id);
     plan.productScale[ratio.id] = res.productScale;
     plan.transforms[ratio.id] = transforms;
     plan.text[ratio.id] = res.text;
@@ -77,7 +79,7 @@ export function planLayout(input: LayoutInput, options: LayoutOptions = {}): Lay
 /* ── Một ratio ──────────────────────────────────────────────── */
 
 type RatioOk = {
-  ok: true; variantId: string; productScale: number;
+  ok: true; variantId: string; productScale: number; logoPositionIgnored: boolean;
   transforms: Record<string, Transform>; text: Record<string, PlacedText>;
 };
 type RatioFail = { ok: false; elementIds: string[] };
@@ -102,7 +104,18 @@ function layoutRatio(
       lastFail = fit.elementIds;
       continue;
     }
-    const slots = variant.slots(fit.productScale);
+    let slots = variant.slots(fit.productScale);
+    // Góc logo của Brand kit: chỉ áp nếu không đè slot đang có nội dung; không thì giữ slot của variant.
+    let logoPositionIgnored = false;
+    if (input.logoPosition && logos.length) {
+      const corner = logoCornerRect(slots.logo, input.logoPosition);
+      const used: Rect[] = [
+        ...(products.length ? [slots.product] : []),
+        ...[...fit.bySlot.keys()].map((k) => slots[k]),
+      ];
+      if (used.some((r) => rectsOverlap(corner, r))) logoPositionIgnored = true;
+      else slots = { ...slots, logo: corner };
+    }
     const transforms: Record<string, Transform> = {};
     placeAssets(slots.product, products, ratio, transforms);
     placeAssets(slots.logo, logos, ratio, transforms);
@@ -111,7 +124,7 @@ function layoutRatio(
     const text = Object.fromEntries(
       [...fit.bySlot.values()].flat().map((p) => [p.layer.layerId, { fontSizePx: p.fontSizePx, lines: p.box.lines }]),
     );
-    return { ok: true, variantId: variant.id, productScale: fit.productScale, transforms, text };
+    return { ok: true, variantId: variant.id, productScale: fit.productScale, logoPositionIgnored, transforms, text };
   }
   return { ok: false, elementIds: lastFail };
 }
@@ -239,6 +252,10 @@ function isElement(id: string, input: LayoutInput): boolean {
 
 /* ── Hình học ───────────────────────────────────────────────── */
 
+function rectsOverlap(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
 /** Chiều dài hơn của slot tính theo pixel thật của ratio. */
 function longerAxis(r: Rect, ratio: RatioSpec): 'horizontal' | 'vertical' {
   return r.w * ratio.width >= r.h * ratio.height ? 'horizontal' : 'vertical';
@@ -295,5 +312,6 @@ export function planLayoutForJob(job: CompiledJob, options?: LayoutOptions): Lay
     products: job.products,
     textLayers: job.textLayers,
     overrides: job.composed?.layoutOverrides ?? {},
+    logoPosition: asLogoPosition(job.brandKit?.logoPosition),
   }, options);
 }

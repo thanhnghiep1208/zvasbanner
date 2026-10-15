@@ -88,6 +88,10 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
     })));
   }
 
+  // Body quá giới hạn server → 413 sau khi đã chờ; chặn sớm, báo trên các node ảnh.
+  const tooBig = oversizeIssues(graph, legacy.requests.map((r) => r.request));
+  if (tooBig) return fail(deps, tooBig);
+
   // Q9A: text không map được → vẫn chạy, chỉ cảnh báo.
   const warnings: RunIssue[] = [
     ...compiled.warnings.map((w) => ({ message: w.message, nodeId: w.nodeId })),
@@ -153,6 +157,10 @@ async function runComposed(
     })));
   }
 
+  // Ảnh tham chiếu đi trong body sinh nền; guide (~20–60KB) cộng thêm lúc gửi – chừa biên trong ngưỡng.
+  const tooBig = oversizeIssues(graph, drafts.drafts.map((d) => d.request));
+  if (tooBig) return fail(deps, tooBig);
+
   deps.onRunInfo(genNode.id, { state: 'running' });
   deps.onRunInfo(composeNode.id, { state: 'queued' });
   const results: RatioResult[] = [];
@@ -200,6 +208,21 @@ async function runComposed(
   deps.onRunInfo(composeNode.id, { state: 'done', previewUrl: results[0]!.image });
   deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image });
   return { ok: true, results, warnings };
+}
+
+/**
+ * Giới hạn body của /api/generate và /api/flow/generate-background (MAX_REQUEST_BODY_BYTES = 30MB ở route).
+ * Chừa 1MB cho guide image + JSON khác. Base64 là ASCII nên độ dài chuỗi ≈ số byte.
+ */
+export const REQUEST_BODY_BUDGET_BYTES = 29 * 1024 * 1024;
+
+function oversizeIssues(graph: FlowGraph, requests: unknown[]): RunIssue[] | null {
+  const biggest = Math.max(0, ...requests.map((r) => JSON.stringify(r).length));
+  if (biggest <= REQUEST_BODY_BUDGET_BYTES) return null;
+  const mb = (biggest / 1024 / 1024).toFixed(1);
+  const message = `Tổng dung lượng ảnh gửi đi ${mb}MB vượt giới hạn 29MB của server. Bỏ bớt ảnh tham chiếu hoặc dùng ảnh nhẹ hơn.`;
+  const imageNodes = graph.nodes.filter((n) => n.type === 'reference-image' || n.type === 'product-asset');
+  return imageNodes.length ? imageNodes.map((n) => ({ nodeId: n.id, message })) : [{ message }];
 }
 
 function fail(deps: ExecutorDeps, errors: RunIssue[]): RunOutcome {

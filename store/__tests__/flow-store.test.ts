@@ -126,4 +126,11 @@ describe('flow-store', () => {
     const id2 = store().addNode('text-layer', { x: 0, y: 0 });
     expect((store().graph.nodes.find((n) => n.id === id2)!.params as { style: { fontFamily: string } }).style.fontFamily).toBe('noto-serif');
   });
+
+  it('thêm Text mới: font thương hiệu ưu tiên hơn font theo Phong cách (T4.5)', () => {
+    const brandId = store().addNode('brand-kit', { x: 0, y: 0 });
+    store().updateNodeParams<'brand-kit'>(brandId, { fontPreference: 'Montserrat' });
+    const id = store().addNode('text-layer', { x: 0, y: 0 });
+    expect((store().graph.nodes.find((n) => n.id === id)!.params as { style: { fontFamily: string } }).style.fontFamily).toBe('montserrat');
+  });
 });

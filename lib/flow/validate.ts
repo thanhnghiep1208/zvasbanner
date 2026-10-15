@@ -1,5 +1,6 @@
 import type { FlowGraph, FlowNode, NodeParamsMap } from './schema';
 import { planLayout } from './layout/engine';
+import { asLogoPosition, isHexColor } from './brand';
 import type { TextMeasurer } from './layout/measure';
 import { getDefinition, PORT_TYPE_LABELS } from './node-definitions';
 import { validateTextStyle } from './text/text-style';
@@ -104,6 +105,7 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
   }
 
   // Auto Layout: chữ phải vừa ở mọi kích thước (SPEC 5.2) – lỗi hiện ngay trên node, không đợi chạy.
+  const brand = graph.nodes.find((n) => n.type === 'brand-kit') as FlowNode<'brand-kit'> | undefined;
   for (const n of graph.nodes) {
     if (n.type !== 'auto-layout') continue;
     const from = <T extends FlowNode['type']>(port: string) => graph.edges
@@ -117,10 +119,25 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
       products: from<'product-asset'>('product').map((x) => x.params),
       textLayers: from<'text-layer'>('text').map((x) => x.params),
       overrides: (n.params as NodeParamsMap['auto-layout']).overrides,
+      logoPosition: asLogoPosition(brand?.params.logoPosition),
     }, { measurer: options.measurer });
     if (!res.ok) {
       issues.push({ severity: 'error', code: res.reason === 'no-fit' ? 'layout-no-fit' : 'layout-invalid-ratio',
         nodeId: n.id, message: res.message });
+    } else if (res.plan.logoPositionIgnored.length && brand) {
+      const names = res.plan.logoPositionIgnored
+        .map((id) => ratioNode.params.ratios.find((r) => r.id === id)?.name ?? id).join(', ');
+      issues.push({ severity: 'warning', code: 'logo-position-ignored', nodeId: brand.id,
+        message: `Góc logo đè lên sản phẩm/chữ ở ${names}: giữ vị trí logo theo bố cục.` });
+    }
+  }
+
+  // Brand kit: màu phải là mã hex (Inspector, prompt và vẽ chữ đều dùng).
+  if (brand) {
+    const bad = brand.params.colors.filter((c) => !isHexColor(c));
+    if (bad.length) {
+      issues.push({ severity: 'error', code: 'brand-color-invalid', nodeId: brand.id,
+        message: `Mã màu không hợp lệ: ${bad.join(', ')}. Dùng dạng #RRGGBB.` });
     }
   }
 

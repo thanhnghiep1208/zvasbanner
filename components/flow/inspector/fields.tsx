@@ -149,7 +149,11 @@ const HEX8 = /^#[0-9a-fA-F]{8}$/;
  * Màu: ô chọn màu (RGB) + ô mã hex (#RRGGBB hoặc #RRGGBBAA – cần alpha cho bóng chữ).
  * Chỉ gọi onChange khi mã hợp lệ; ô chọn màu giữ nguyên phần alpha đang có.
  */
-export function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+export function ColorField({ label, value, onChange, swatches = [] }: {
+  label: string; value: string; onChange: (v: string) => void;
+  /** Màu chọn nhanh (màu thương hiệu từ node Brand kit). */
+  swatches?: string[];
+}) {
   const id = useId();
   const rgb = HEX6.test(value) || HEX8.test(value) ? value.slice(0, 7) : '#000000';
   const alpha = HEX8.test(value) ? value.slice(7) : '';
@@ -178,6 +182,22 @@ export function ColorField({ label, value, onChange }: { label: string; value: s
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         />
       </div>
+      {swatches.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={`${label} – màu thương hiệu`}>
+          {swatches.map((c) => (
+            <button
+              key={c}
+              type="button"
+              title={c}
+              aria-label={`Dùng màu ${c}`}
+              aria-pressed={c.toUpperCase() === value.toUpperCase()}
+              onClick={() => onChange(c.toUpperCase())}
+              className="size-6 rounded-full border shadow-xs outline-offset-2 aria-pressed:outline-2 aria-pressed:outline-ring"
+              style={{ background: c }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -20,8 +20,9 @@ import { useFlowStore } from '@/store/flow-store';
 import { AssetEditor } from './AssetEditor';
 import { RunResults } from './RunResults';
 import { TextLayerEditor } from './TextLayerEditor';
+import { BrandKitEditor } from './BrandKitEditor';
 import {
-  CheckboxField, NumberField, SelectField, TextAreaField, TextField, ToggleGroupField,
+  CheckboxField, NumberField, SelectField, TextAreaField, ToggleGroupField,
 } from './fields';
 
 const MODEL_OPTIONS = (Object.keys(MODEL_LABELS) as (keyof typeof MODEL_LABELS)[])
@@ -56,20 +57,8 @@ function NodeEditor({ node }: { node: FlowNode }) {
     }
     case 'text-layer':
       return <TextLayerEditor nodeId={node.id} p={node.params as NodeParamsMap['text-layer']} />;
-    case 'brand-kit': {
-      const p = node.params as NodeParamsMap['brand-kit'];
-      return (
-        <>
-          <TextField label="Màu thương hiệu" value={p.colors.join(', ')} placeholder="#0068FF, #FFFFFF"
-            hint="Mã màu, cách nhau bằng dấu phẩy."
-            onChange={(v) => set<'brand-kit'>({ colors: v.split(',').map((c) => c.trim()).filter(Boolean) })} />
-          <TextField label="Font ưu tiên" value={p.fontPreference ?? ''}
-            onChange={(fontPreference) => set<'brand-kit'>({ fontPreference: fontPreference || undefined })} />
-          <TextField label="Vị trí logo" value={p.logoPosition ?? ''} placeholder="vd. góc trên trái"
-            onChange={(logoPosition) => set<'brand-kit'>({ logoPosition: logoPosition || undefined })} />
-        </>
-      );
-    }
+    case 'brand-kit':
+      return <BrandKitEditor nodeId={node.id} p={node.params as NodeParamsMap['brand-kit']} />;
     case 'ratio':
       return <RatioEditor node={node as FlowNode<'ratio'>} />;
     case 'style': {

@@ -5,6 +5,9 @@ import { FLOW_FONTS, TEXT_ROLE_DEFAULTS, defaultTextStyle, type FontId, type Fon
 import type { NodeParamsMap, TextRole } from '@/lib/flow/schema';
 import { renderTextPreview } from '@/lib/flow-ui/compose-render';
 import { useFlowStore } from '@/store/flow-store';
+import { isHexColor } from '@/lib/flow/brand';
+
+const EMPTY: string[] = [];
 import {
   CheckboxField, ColorField, NumberField, SelectField, TextAreaField, ToggleSection,
 } from './fields';
@@ -61,6 +64,11 @@ function TextPreview({ content, style }: { content: string; style: TextStyle }) 
 
 export function TextLayerEditor({ nodeId, p }: { nodeId: string; p: TextParams }) {
   const update = useFlowStore((s) => s.updateNodeParams);
+  // Màu thương hiệu (node Brand kit, nếu có) làm ô chọn nhanh cho mọi field màu.
+  const brandColors = useFlowStore((st) => {
+    const b = st.graph.nodes.find((n) => n.type === 'brand-kit');
+    return b ? (b.params as NodeParamsMap['brand-kit']).colors : EMPTY;
+  }).filter(isHexColor);
   const set = (patch: Partial<TextParams>) => update<'text-layer'>(nodeId, patch);
   const setStyle = (patch: Partial<TextStyle>) => set({ style: { ...p.style, ...patch } });
   const s = p.style;
@@ -120,13 +128,13 @@ export function TextLayerEditor({ nodeId, p }: { nodeId: string; p: TextParams }
             </div>
           </div>
 
-          <ColorField label="Màu chữ" value={s.fill.color} onChange={(color) => setStyle({ fill: { kind: 'solid', color } })} />
+          <ColorField swatches={brandColors} label="Màu chữ" value={s.fill.color} onChange={(color) => setStyle({ fill: { kind: 'solid', color } })} />
 
           <ToggleSection title="Viền chữ" enabled={Boolean(s.stroke)}
             onToggle={(on) => setStyle({ stroke: on ? { color: '#000000', widthPx: 2 } : undefined })}>
             {s.stroke && (
               <div className="grid grid-cols-2 gap-3">
-                <ColorField label="Màu viền" value={s.stroke.color} onChange={(color) => setStyle({ stroke: { ...s.stroke!, color } })} />
+                <ColorField swatches={brandColors} label="Màu viền" value={s.stroke.color} onChange={(color) => setStyle({ stroke: { ...s.stroke!, color } })} />
                 <NumberField label="Độ dày (px)" value={s.stroke.widthPx} min={0.5} max={40} step={0.5}
                   onChange={(widthPx) => setStyle({ stroke: { ...s.stroke!, widthPx } })} />
               </div>
@@ -138,7 +146,7 @@ export function TextLayerEditor({ nodeId, p }: { nodeId: string; p: TextParams }
             {s.shadow && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <ColorField label="Màu bóng (#RRGGBBAA)" value={s.shadow.color} onChange={(color) => setStyle({ shadow: { ...s.shadow!, color } })} />
+                  <ColorField swatches={brandColors} label="Màu bóng (#RRGGBBAA)" value={s.shadow.color} onChange={(color) => setStyle({ shadow: { ...s.shadow!, color } })} />
                 </div>
                 <NumberField label="Độ nhoè" value={s.shadow.blurPx} min={0} max={100}
                   onChange={(blurPx) => setStyle({ shadow: { ...s.shadow!, blurPx } })} />
@@ -153,7 +161,7 @@ export function TextLayerEditor({ nodeId, p }: { nodeId: string; p: TextParams }
             {s.plate && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <ColorField label="Màu nền" value={s.plate.color} onChange={(color) => setStyle({ plate: { ...s.plate!, color } })} />
+                  <ColorField swatches={brandColors} label="Màu nền" value={s.plate.color} onChange={(color) => setStyle({ plate: { ...s.plate!, color } })} />
                 </div>
                 <NumberField label="Đệm ngang" value={s.plate.paddingX} min={0} max={200}
                   onChange={(paddingX) => setStyle({ plate: { ...s.plate!, paddingX } })} />
