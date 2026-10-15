@@ -98,6 +98,20 @@ export function toLegacyConfig(
 
 type LegacyText = { headline: string; subheadline: string; ctaText: string };
 
+/**
+ * Prompt thử lại cho kích thước phụ – cùng format `retryPrompt` trong components/canvas/AdditionalCanvasSizesPanel.tsx
+ * (form cũ dùng khi lần thích nghi đầu thất bại/placeholder). Parity T4.6.
+ */
+export function adaptationRetryPrompt(job: CompiledJob): string {
+  const { text } = pickLegacyText(job.textLayers);
+  return [
+    'Layout translation only: keep same campaign look and content hierarchy.',
+    text.headline.trim() ? `Headline: ${text.headline.trim()}` : '',
+    text.subheadline.trim() ? `Subheadline: ${text.subheadline.trim()}` : '',
+    text.ctaText.trim() ? `CTA: ${text.ctaText.trim()}` : '',
+  ].filter(Boolean).join('\n');
+}
+
 /** Lấy layer đầu tiên của mỗi role legacy; phần còn lại (role custom, role trùng) trả về `unmapped`. */
 function pickLegacyText(layers: NodeParamsMap['text-layer'][]): { text: LegacyText; unmapped: string[] } {
   const picked = new Map<TextRole, string>();

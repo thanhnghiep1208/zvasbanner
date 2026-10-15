@@ -31,8 +31,17 @@ export interface CompiledJob {
   export: NodeParamsMap['export'];
 }
 
-/** Số lần gọi model AI = số ratio × aiCallsPerRatio của executor tương ứng. */
+/**
+ * Kích thước thực sự cần sinh (T4.6): `export.ratioIds` ('all' hoặc tập con), giữ thứ tự của node Kích thước.
+ * Chỉ sinh ảnh cho kích thước được xuất → không tốn lượt AI cho kích thước bỏ chọn.
+ */
+export function exportedRatios(job: CompiledJob): RatioSpec[] {
+  const ids = job.export.ratioIds;
+  return ids === 'all' ? job.ratios : job.ratios.filter((r) => ids.includes(r.id));
+}
+
+/** Số lần gọi model AI = số kích thước được xuất × aiCallsPerRatio của executor tương ứng. */
 export function estimateAiCalls(job: CompiledJob): number {
   const executor = job.renderMode === 'composed' ? 'generate-background' : 'generate-flat';
-  return job.ratios.length * NODE_DEFINITIONS[executor].aiCallsPerRatio;
+  return exportedRatios(job).length * NODE_DEFINITIONS[executor].aiCallsPerRatio;
 }

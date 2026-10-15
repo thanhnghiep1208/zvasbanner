@@ -15,6 +15,7 @@ function setup(results: GenerateResult[] = [{ ok: true, image: 'data:image/png;b
   const states: [string, NodeRunInfo][] = [];
   const queue = [...results];
   const deps = {
+    sleep: async () => {},
     generate: async (r: GenerationRequest) => { calls.push(r); return queue.shift()!; },
     onRunInfo: (id: string, info: NodeRunInfo) => { states.push([id, info]); },
   };
@@ -52,11 +53,12 @@ describe('runAll', () => {
     job.ratios.push({ id: 'zalo-banner-miniapp', width: 1032, height: 810, platform: 'Zalo', name: 'Banner in Miniapp' });
     const { calls, deps, last } = setup([
       { ok: true, image: 'img-1', source: 'gemini' },
+      { ok: false, error: 'lần đầu lỗi' },
       { ok: false, error: '[E-GEN-429] Gemini API đang bị giới hạn tốc độ (429).' },
     ]);
     const out = await runAll(decompileJob(job), runtime, deps);
     expect(out.ok).toBe(false);
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(3); // kích thước phụ: 1 lần + 1 lần thử lại (giống form)
     expect(last('n-generate-flat')).toEqual({
       state: 'error', previewUrl: 'img-1',
       message: 'Kích thước 2/2: [E-GEN-429] Gemini API đang bị giới hạn tốc độ (429).',
@@ -114,6 +116,7 @@ describe('runAll – composed (T4.2)', () => {
     const guides: number[] = [];
     const states: [string, NodeRunInfo][] = [];
     const deps = {
+      sleep: async () => {},
       generate: async () => { throw new Error('composed không được gọi /api/generate'); },
       onRunInfo: (id: string, info: NodeRunInfo) => { states.push([id, info]); },
       renderGuide: (_c: unknown, guide: unknown[]) => { guides.push(guide.length); return 'data:image/png;base64,GUIDE'; },
@@ -128,8 +131,9 @@ describe('runAll – composed (T4.2)', () => {
   it('mỗi ratio: vẽ guide + 1 lần sinh nền; KHÔNG có pixel sản phẩm trong request', async () => {
     const { deps, bgCalls, guides, last } = setupBg();
     const out = await runAll(decompileJob(composedFull), runtimeFor(composedFull), deps);
-    expect(out.ok && out.results.map((r) => r.ratioId)).toEqual(composedFull.ratios.map((r) => r.id));
-    expect(bgCalls).toHaveLength(3);
+    // Export chỉ chọn 2/3 kích thước → 2 lần sinh nền, theo thứ tự node Kích thước.
+    expect(out.ok && out.results.map((r) => r.ratioId)).toEqual(['social-zalo-oa-img', 'custom-1080x1920']);
+    expect(bgCalls).toHaveLength(2);
     expect(guides.every((n) => n > 0)).toBe(true);
     for (const r of bgCalls) {
       expect(r.guideImage).toBe('data:image/png;base64,GUIDE');
@@ -153,7 +157,7 @@ describe('runAll – composed (T4.2)', () => {
     const out = await runAll(decompileJob(composedFull), runtimeFor(composedFull), deps);
     expect(out.ok).toBe(false);
     expect(bgCalls).toHaveLength(1);
-    expect(last('n-generate')).toMatchObject({ state: 'error', message: 'Kích thước 1/3: Gemini quá tải' });
+    expect(last('n-generate')).toMatchObject({ state: 'error', message: 'Kích thước 1/2: Gemini quá tải' });
   });
 
   it('ảnh tham chiếu thiếu dữ liệu → không gọi API, báo trên node ảnh tham chiếu', async () => {
@@ -189,8 +193,8 @@ describe('runAll – composed (T4.2)', () => {
         return `composed-${ratioId}`;
       },
     });
-    expect(composed.map((c) => c.background)).toEqual(['bg-1', 'bg-2', 'bg-3']);
-    expect(out.ok && out.results.map((r) => r.image)).toEqual(composedFull.ratios.map((r) => `composed-${r.id}`));
+    expect(composed.map((c) => c.background)).toEqual(['bg-1', 'bg-2']);
+    expect(out.ok && out.results.map((r) => r.image)).toEqual(['composed-social-zalo-oa-img', 'composed-custom-1080x1920']);
     expect(out.ok && out.warnings.map((w) => w.nodeId)).not.toContain('n-compose');
     expect(last('n-compose')).toMatchObject({ state: 'done' });
     expect(last('n-generate')).toEqual({ state: 'done', previewUrl: 'bg-1' });

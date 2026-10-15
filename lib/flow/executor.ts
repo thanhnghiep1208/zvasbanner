@@ -17,7 +17,8 @@ import { toBackgroundRequests, type BackgroundRequest, type GuideStyle } from '.
 import { planLayoutForJob } from './layout/engine';
 import type { TextMeasurer } from './layout/measure';
 import type { GuideRect, LayoutPlan } from './layout/types';
-import { toLegacyConfig, type LegacyIssue } from './legacy/to-legacy-config';
+import { adaptationRetryPrompt, toLegacyConfig, type LegacyIssue } from './legacy/to-legacy-config';
+import { exportedRatios } from './compiled-job';
 import type { LegacyRuntime } from './legacy/from-legacy-config';
 import type { NodeRunInfo } from './run-state';
 import type { FlowGraph } from './schema';
@@ -37,6 +38,8 @@ export interface ExecutorDeps {
   guideStyle?: GuideStyle;
   /** Composed: vẽ layout guide image (PNG data URL) – UI dùng Canvas 2D. */
   renderGuide?: (canvas: CanvasConfig, guide: GuideRect[]) => string | Promise<string>;
+  /** Nghỉ giữa các kích thước (form nghỉ 600ms); test truyền hàm rỗng. */
+  sleep?: (ms: number) => Promise<void>;
   /** Measurer cho layout – UI truyền measurer Canvas 2D để khớp với lúc vẽ; mặc định ước lượng. */
   measurer?: TextMeasurer;
   /** Composed: ghép nền + sản phẩm + chữ cho 1 ratio (UI dùng Canvas 2D). Không có → trả ảnh nền. */
@@ -90,8 +93,12 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
     })));
   }
 
+  // Chỉ sinh kích thước được xuất (T4.6), giữ thứ tự node Kích thước.
+  const exported = new Set(exportedRatios(compiled.job).map((r) => r.id));
+  const requests = legacy.requests.filter((r) => exported.has(r.ratioId));
+
   // Body quá giới hạn server → 413 sau khi đã chờ; chặn sớm, báo trên các node ảnh.
-  const tooBig = oversizeIssues(graph, legacy.requests.map((r) => r.request));
+  const tooBig = oversizeIssues(graph, requests.map((r) => r.request));
   if (tooBig) return fail(deps, tooBig);
 
   // Q9A: text không map được → vẫn chạy, chỉ cảnh báo.
@@ -104,14 +111,30 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
   deps.onRunInfo(exportNode.id, { state: 'queued' });
 
   const results: RatioResult[] = [];
-  for (const [i, { ratioId, request }] of legacy.requests.entries()) {
+  const retryPrompt = adaptationRetryPrompt(compiled.job);
+  for (const [i, { ratioId, request }] of requests.entries()) {
     const first = results[0];
-    const res = await deps.generate(first ? { ...request, layoutAdaptationFromBanner: first.image } : request);
+    if (i > 0) await pause(deps);
+    let res: GenerateResult;
+    if (!first) {
+      res = await deps.generate(request);
+    } else {
+      // Kích thước phụ: giống "Biến thể kích thước" của form (AdditionalCanvasSizesPanel) – thích nghi từ ảnh đầu,
+      // ép Nano Banana 2 + giữ nguyên chủ thể; lỗi/placeholder thì thử lại 1 lần với prompt "layout translation".
+      const adapted: GenerationRequest = {
+        ...request,
+        imageModel: 'nano-banana-2',
+        styleControls: { ...request.styleControls, strictPreserveMode: true },
+        layoutAdaptationFromBanner: first.image,
+      };
+      res = await deps.generate(adapted);
+      if (!res.ok || res.source === 'placeholder') res = await deps.generate({ ...adapted, userPrompt: retryPrompt });
+    }
     const error = !res.ok ? res.error
       : res.source === 'placeholder' ? (res.placeholderError ?? 'AI không trả ảnh, server dùng ảnh tạm.')
       : null;
     if (error || !res.ok) {
-      const message = `${legacy.requests.length > 1 ? `Kích thước ${i + 1}/${legacy.requests.length}: ` : ''}${error}`;
+      const message = `${requests.length > 1 ? `Kích thước ${i + 1}/${requests.length}: ` : ''}${error}`;
       deps.onRunInfo(execNode.id, { state: 'error', message, previewUrl: first?.image });
       deps.onRunInfo(exportNode.id, { state: 'idle' });
       return { ok: false, errors: [{ message, nodeId: execNode.id }], results };
@@ -145,7 +168,7 @@ async function runComposed(
   if (!layout.ok) return fail(deps, [{ nodeId: layoutNode.id, message: layout.message }]);
   deps.onRunInfo(layoutNode.id, { state: 'done' });
 
-  const drafts = toBackgroundRequests(job, layout.plan, runtime);
+  const drafts = toBackgroundRequests({ ...job, ratios: exportedRatios(job) }, layout.plan, runtime);
   if (!drafts.ok) return fail(deps, [{ nodeId: genNode.id, message: drafts.message }]);
   // Ảnh tham chiếu (gửi model) + ảnh sản phẩm (ghép ở client) đều phải có dữ liệu trước khi tốn lượt AI.
   const missingProducts = deps.composeRatio
@@ -227,6 +250,12 @@ function oversizeIssues(graph: FlowGraph, requests: unknown[]): RunIssue[] | nul
   const message = `Tổng dung lượng ảnh gửi đi ${mb}MB vượt giới hạn 29MB của server. Bỏ bớt ảnh tham chiếu hoặc dùng ảnh nhẹ hơn.`;
   const imageNodes = graph.nodes.filter((n) => n.type === 'reference-image' || n.type === 'product-asset');
   return imageNodes.length ? imageNodes.map((n) => ({ nodeId: n.id, message })) : [{ message }];
+}
+
+/** Form nghỉ 600ms giữa các kích thước phụ để đỡ dồn request lên Gemini. */
+const BETWEEN_RATIOS_MS = 600;
+function pause(deps: ExecutorDeps): Promise<void> {
+  return (deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))))(BETWEEN_RATIOS_MS);
 }
 
 function fail(deps: ExecutorDeps, errors: RunIssue[]): RunOutcome {

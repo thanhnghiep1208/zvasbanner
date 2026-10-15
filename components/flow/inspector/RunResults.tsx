@@ -40,9 +40,25 @@ export function RunResults({ exportParams }: { exportParams: NodeParamsMap['expo
     }
   };
 
+  /** Tải lần lượt (mỗi file 1 lượt tải của trình duyệt); exportBanner đặt tên theo ratio nên không trùng. */
+  const downloadAll = async () => {
+    for (const r of visible) {
+      await download(r.ratioId);
+      await new Promise((res) => setTimeout(res, 250)); // tránh trình duyệt gộp/chặn tải liên tiếp
+    }
+  };
+
   return (
     <section className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0" aria-label="Kết quả">
-      <h3 className="p-0 text-xs font-medium text-foreground">Kết quả ({visible.length})</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="p-0 text-xs font-medium text-foreground">Kết quả ({visible.length})</h3>
+        {visible.length > 1 && (
+          <Button type="button" size="xs" variant="outline" disabled={busy !== null} onClick={() => void downloadAll()}>
+            <Download aria-hidden />
+            Tải tất cả
+          </Button>
+        )}
+      </div>
       <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {visible.map((r) => (
           <li key={r.ratioId} className="flex flex-col gap-2 border-b pb-3 last:border-b-0">

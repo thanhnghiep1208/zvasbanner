@@ -19,6 +19,7 @@ import { MODEL_LABELS } from '@/lib/flow-ui/node-summary';
 import { useFlowStore } from '@/store/flow-store';
 import { AssetEditor } from './AssetEditor';
 import { RunResults } from './RunResults';
+import { ExportRatiosField } from './ExportRatiosField';
 import { TextLayerEditor } from './TextLayerEditor';
 import { BrandKitEditor } from './BrandKitEditor';
 import {
@@ -142,6 +143,7 @@ function NodeEditor({ node }: { node: FlowNode }) {
           <SelectField label="Tỉ lệ xuất" value={String(p.scale) as '1' | '2'}
             options={[{ value: '1', label: '1x' }, { value: '2', label: '2x' }]}
             onChange={(v) => set<'export'>({ scale: v === '2' ? 2 : 1 })} />
+          <ExportRatiosField nodeId={node.id} p={p} />
           <RunResults exportParams={p} />
         </>
       );

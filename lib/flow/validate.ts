@@ -77,6 +77,20 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
       issues.push({ severity: 'error', code: 'export-source', nodeId: ex.id,
         message: 'Export cần đúng 1 nguồn: composition hoặc raster.' });
     }
+    // Kích thước xuất (T4.6): tập con phải khác rỗng và tồn tại trong node Kích thước.
+    const { ratioIds } = (ex as FlowNode<'export'>).params;
+    if (ratioIds !== 'all') {
+      const known = new Set(graph.nodes.filter((n) => n.type === 'ratio')
+        .flatMap((n) => (n as FlowNode<'ratio'>).params.ratios.map((r) => r.id)));
+      const unknown = ratioIds.filter((id) => !known.has(id));
+      if (!ratioIds.length) {
+        issues.push({ severity: 'error', code: 'export-ratio-empty', nodeId: ex.id,
+          message: 'Chưa chọn kích thước nào để xuất.' });
+      } else if (unknown.length) {
+        issues.push({ severity: 'error', code: 'export-ratio-unknown', nodeId: ex.id,
+          message: `Kích thước xuất không còn trong node Kích thước: ${unknown.join(', ')}. Chọn lại kích thước xuất.` });
+      }
+    }
   }
 
   // Text layer

@@ -34,7 +34,9 @@ describe('warnings', () => {
 });
 
 describe('estimateAiCalls', () => {
-  it('composed = 1 call / ratio', () => expect(estimateAiCalls(composedFull)).toBe(3));
+  // composedFull: 3 kích thước nhưng export chỉ chọn 2 → chỉ tốn 2 lượt (T4.6).
+  it('composed = 1 call / kích thước được xuất', () => expect(estimateAiCalls(composedFull)).toBe(2));
+  it('export "all" → tính mọi kích thước', () => expect(estimateAiCalls({ ...composedFull, export: { ...composedFull.export, ratioIds: 'all' } })).toBe(3));
   it('flat = 2 call / ratio (generate + harmony)', () => expect(estimateAiCalls(flatLegacy)).toBe(2));
 });
 
