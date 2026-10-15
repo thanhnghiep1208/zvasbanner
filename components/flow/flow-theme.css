@@ -46,26 +46,70 @@
 
 .flow-studio .react-flow__handle {
   background: var(--flow-handle-color, var(--muted-foreground));
-  width: 12px;
-  height: 12px;
+  /* --flow-handle-boost (FlowCanvas): bù zoom nhỏ để chấm vẫn đủ to trên màn hình. */
+  width: calc(12px * var(--flow-handle-boost, 1));
+  height: calc(12px * var(--flow-handle-boost, 1));
   border-width: 2px;
   transition: transform 120ms ease-out, box-shadow 120ms ease-out;
-}
-
-.flow-studio .react-flow__handle:hover,
-.flow-studio .react-flow__handle:focus-visible {
-  transform: translate(var(--flow-handle-x, 0), -50%) scale(1.3);
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 45%, transparent);
 }
 
 .flow-studio .react-flow__handle-left { --flow-handle-x: -50%; }
 .flow-studio .react-flow__handle-right { --flow-handle-x: 50%; }
 
-/* Đang kéo dây: đích hợp lệ phóng to, đích sai tô đỏ (luật từ canConnect, T2.2). */
-.flow-studio .react-flow__handle.connectingto.valid {
-  transform: translate(var(--flow-handle-x, 0), -50%) scale(1.4);
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--flow-run-done) 40%, transparent);
+/*
+ * Vùng bắt chuột rộng hơn chấm 12px: rê gần (cách ~10px, lấn vào trong card ~24px phía nhãn) đã tính là hover → chấm
+ * phóng to, bấm kéo được ngay. Pseudo-element nhận sự kiện thay cho handle.
+ */
+.flow-studio .react-flow__handle::after {
+  content: '';
+  position: absolute;
+  /* Cao vừa đúng 1 hàng port (24px) – không lấn sang ô của hàng trên/dưới. */
+  top: calc(-1 * max(0px, (24px - 12px * var(--flow-handle-boost, 1)) / 2));
+  bottom: calc(-1 * max(0px, (24px - 12px * var(--flow-handle-boost, 1)) / 2));
+  border-radius: 9999px;
+}
+.flow-studio .react-flow__handle-left::after { left: calc(-12px * var(--flow-handle-boost, 1)); right: -24px; }
+.flow-studio .react-flow__handle-right::after { left: -24px; right: calc(-12px * var(--flow-handle-boost, 1)); }
+
+/* Rê vào node: mọi ô nối nhích to lên – báo hiệu kéo dây được từ đây. */
+.flow-studio .react-flow__node:hover .react-flow__handle {
+  transform: translate(var(--flow-handle-x, 0), -50%) scale(1.2);
+}
+
+/* Rê vào hàng port (chấm hoặc nhãn): chấm phóng to + vòng sáng, nhãn đậm lên. */
+.flow-studio .flow-port-row:hover .react-flow__handle,
+.flow-studio .react-flow__handle:hover,
+.flow-studio .react-flow__handle:focus-visible {
+  transform: translate(var(--flow-handle-x, 0), -50%) scale(1.6);
+  outline: none;
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--flow-handle-color, var(--ring)) 30%, transparent);
+}
+.flow-studio .flow-port-row:hover .flow-port-label { color: var(--foreground); }
+
+/*
+ * Đang kéo dây (FlowNodeCard → portCandidates): ô nối được phóng to + nhấp nháy, ô không nối được mờ đi;
+ * ô gần chuột nhất (React Flow gắn .connectingto) to nhất.
+ */
+.flow-studio .react-flow .react-flow__handle.flow-handle-candidate {
+  transform: translate(var(--flow-handle-x, 0), -50%) scale(1.6);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--flow-handle-color) 35%, transparent);
+  animation: flow-handle-pulse 1.1s ease-in-out infinite;
+}
+.flow-studio .react-flow .react-flow__handle.flow-handle-dim {
+  opacity: 0.3;
+  transform: translate(var(--flow-handle-x, 0), -50%) scale(0.85);
+}
+@keyframes flow-handle-pulse {
+  50% { box-shadow: 0 0 0 7px color-mix(in oklch, var(--flow-handle-color) 15%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-studio .react-flow .react-flow__handle.flow-handle-candidate { animation: none; }
+}
+
+.flow-studio .react-flow .react-flow__handle.connectingto.valid {
+  transform: translate(var(--flow-handle-x, 0), -50%) scale(2);
+  box-shadow: 0 0 0 5px color-mix(in oklch, var(--flow-run-done) 45%, transparent);
+  animation: none;
 }
 
 .flow-studio .react-flow__handle.connectingto:not(.valid) {

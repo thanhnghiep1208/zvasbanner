@@ -1,7 +1,7 @@
 'use client';
 
-import { createContext, memo, useContext } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { createContext, memo, useContext, useMemo } from 'react';
+import { Handle, Position, useConnection, type NodeProps } from '@xyflow/react';
 import {
   CircleAlert,
   Download,
@@ -26,6 +26,7 @@ import { RUN_STATE_LABELS } from '@/lib/flow/run-state';
 import type { FlowNode, NodeType, PortType } from '@/lib/flow/schema';
 import type { FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
+import { checkConnection } from '@/lib/flow-ui/connection-feedback';
 import { useFlowStore } from '@/store/flow-store';
 import { KIND_CHIP, PORT_HANDLE, RUN_BORDER, RUN_DOT, RUN_PILL } from '../flow-styles';
 
@@ -99,19 +100,34 @@ export function NodeIconChip({ type, size = 'md' }: { type: NodeType; size?: 'sm
   );
 }
 
-function PortRow({ port, direction }: { port: { id: string; type: PortType } & Partial<PortDef>; direction: 'in' | 'out' }) {
+/** Trạng thái ô nối khi đang kéo dây: nối được (phóng to + nhấp nháy) / không nối được (mờ). */
+type Candidate = 'valid' | 'invalid' | undefined;
+
+function PortRow({ port, direction, candidate }: {
+  port: { id: string; type: PortType } & Partial<PortDef>;
+  direction: 'in' | 'out';
+  candidate: Candidate;
+}) {
   const isIn = direction === 'in';
   const marks = `${port.required ? ' (bắt buộc)' : ''}${port.multiple ? ' (nhiều kết nối)' : ''}`;
   return (
-    <li className={cn('relative flex h-6 items-center px-3 text-xs', !isIn && 'justify-end')}>
+    <li className={cn('flow-port-row relative flex h-6 items-center px-3 text-xs', !isIn && 'justify-end')}>
       <Handle
         type={isIn ? 'target' : 'source'}
         position={isIn ? Position.Left : Position.Right}
         id={port.id}
-        className={PORT_HANDLE[port.type]}
+        className={cn(
+          PORT_HANDLE[port.type],
+          candidate === 'valid' && 'flow-handle-candidate',
+          candidate === 'invalid' && 'flow-handle-dim',
+        )}
         aria-label={`${isIn ? 'Input' : 'Output'} ${PORT_TYPE_LABELS[port.type]}${marks}`}
       />
-      <span className="inline-flex items-center gap-1 text-muted-foreground">
+      <span className={cn(
+        'flow-port-label inline-flex items-center gap-1 text-muted-foreground transition-colors',
+        candidate === 'valid' && 'font-medium text-foreground',
+        candidate === 'invalid' && 'opacity-40',
+      )}>
         {PORT_TYPE_LABELS[port.type]}
         {port.required && <span className="text-destructive" aria-hidden>*</span>}
         {port.multiple && (
@@ -129,6 +145,10 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
   const run = data.run ?? { state: 'idle' as const };
   const summary = summarizeNode({ id, type, params: data.params, position: { x: 0, y: 0 } } as FlowNode);
   const { onRetry } = useContext(FlowNodeActionsContext);
+  // Đang kéo dây: chuỗi primitive để node chỉ render lại khi bắt đầu/kết thúc kéo, không phải mỗi lần chuột di chuyển.
+  const dragging = useConnection((c) =>
+    c.inProgress && c.fromHandle?.id ? `${c.fromNode.id}|${c.fromHandle.id}|${c.fromHandle.type}` : null);
+  const candidates = useMemo(() => portCandidates(dragging, id, type), [dragging, id, type]);
 
   return (
     <div
@@ -167,8 +187,8 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
 
       {(def.inputs.length > 0 || def.outputs.length > 0) && (
         <ul className="border-t py-1.5">
-          {def.inputs.map((p) => <PortRow key={`in-${p.id}`} port={p} direction="in" />)}
-          {def.outputs.map((p) => <PortRow key={`out-${p.id}`} port={p} direction="out" />)}
+          {def.inputs.map((p) => <PortRow key={`in-${p.id}`} port={p} direction="in" candidate={candidates?.[`in:${p.id}`]} />)}
+          {def.outputs.map((p) => <PortRow key={`out-${p.id}`} port={p} direction="out" candidate={candidates?.[`out:${p.id}`]} />)}
         </ul>
       )}
 
@@ -201,6 +221,29 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
       )}
     </div>
   );
+}
+
+/**
+ * Khi đang kéo dây từ ô `dragging` ("nodeId|handleId|source|target"): ô nào của node này nối được (luật canConnect,
+ * T2.2 – cùng luật với isValidConnection). Ô cùng chiều với ô đang kéo, hoặc ô trên chính node đó → không nối được.
+ */
+function portCandidates(dragging: string | null, nodeId: string, type: NodeType): Record<string, Candidate> | null {
+  if (!dragging) return null;
+  const [fromNode, fromHandle, fromType] = dragging.split('|') as [string, string, 'source' | 'target'];
+  const def = NODE_DEFINITIONS[type];
+  const graph = useFlowStore.getState().graph;
+  const out: Record<string, Candidate> = {};
+  for (const p of def.inputs) {
+    if (fromNode === nodeId && fromType === 'target' && p.id === fromHandle) continue; // ô đang kéo
+    out[`in:${p.id}`] = fromType === 'source' && checkConnection(graph,
+      { source: fromNode, sourceHandle: fromHandle, target: nodeId, targetHandle: p.id }).ok ? 'valid' : 'invalid';
+  }
+  for (const p of def.outputs) {
+    if (fromNode === nodeId && fromType === 'source' && p.id === fromHandle) continue;
+    out[`out:${p.id}`] = fromType === 'target' && checkConnection(graph,
+      { source: nodeId, sourceHandle: p.id, target: fromNode, targetHandle: fromHandle }).ok ? 'valid' : 'invalid';
+  }
+  return out;
 }
 
 export const FlowNodeCard = memo(FlowNodeCardImpl);

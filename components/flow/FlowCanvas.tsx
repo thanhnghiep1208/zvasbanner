@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type DragEvent } from 'react';
 import Link from 'next/link';
 import {
   Background,
@@ -11,6 +11,7 @@ import {
   ReactFlowProvider,
   useNodesInitialized,
   useReactFlow,
+  useStore as useRFStore,
   type Connection,
   type Edge,
   type IsValidConnection,
@@ -30,7 +31,9 @@ import { getDefinition, NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeType } from '@/lib/flow/schema';
 import { DEFAULT_TEMPLATES, getTemplate } from '@/lib/flow/template';
 import { validateGraph } from '@/lib/flow/validate';
-import { checkConnection, rejectMessageForConnectionEnd } from '@/lib/flow-ui/connection-feedback';
+import {
+  checkConnection, nearestValidConnection, rejectMessageForConnectionEnd, type HandlePoint,
+} from '@/lib/flow-ui/connection-feedback';
 import { nodeKeys } from '@/lib/flow/cache-keys';
 import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import {
@@ -64,7 +67,12 @@ function FlowCanvasInner() {
       addNode: s.addNode,
     })),
   );
-  const { screenToFlowPosition, fitView } = useReactFlow();
+  const { screenToFlowPosition, fitView, getInternalNode } = useReactFlow();
+  // Zoom làm tròn 0.05 → chỉ render lại khi đổi bậc, không phải mỗi tick cuộn chuột.
+  const zoom = useRFStore((s) => Math.max(0.05, Math.round(s.transform[2] * 20) / 20));
+  // Bù zoom cho ô nối: zoom nhỏ (graph 6 cột trên laptop ~0.4) thì chấm 12px chỉ còn ~5px trên màn hình.
+  // Giữ ≥ ~10px màn hình, tối đa ×1.8 (chấm 22px < khoảng cách 24px giữa 2 port, không chồng nhau).
+  const handleBoost = Math.min(1.8, Math.max(1, 0.8 / zoom));
   const graphVersion = useFlowStore((s) => s.graphVersion);
   const view = useFlowStore((s) => s.view);
   const setView = useFlowStore((s) => s.setView);
@@ -132,10 +140,33 @@ function FlowCanvasInner() {
     [connect],
   );
 
-  const onConnectEnd = useCallback<OnConnectEnd>((_, state) => {
-    const message = rejectMessageForConnectionEnd(useFlowStore.getState().graph, state);
+  const onConnectEnd = useCallback<OnConnectEnd>((event, state) => {
+    if (state.isValid === true) return; // React Flow đã gọi onConnect
+    const graph = useFlowStore.getState().graph;
+    // Thả lệch / ô gần nhất không nối được → thử ô HỢP LỆ gần nhất (bán kính ~40px màn hình).
+    const from = state.fromHandle;
+    const pt = 'changedTouches' in event ? event.changedTouches[0] : event;
+    if (from?.id && pt) {
+      const point = screenToFlowPosition({ x: pt.clientX, y: pt.clientY });
+      const handles: HandlePoint[] = [];
+      for (const n of graph.nodes) {
+        const internal = getInternalNode(n.id);
+        if (!internal) continue;
+        const { x: nx, y: ny } = internal.internals.positionAbsolute;
+        for (const b of [...(internal.internals.handleBounds?.source ?? []), ...(internal.internals.handleBounds?.target ?? [])]) {
+          if (b.id) handles.push({ nodeId: n.id, handleId: b.id, type: b.type, x: nx + b.x + b.width / 2, y: ny + b.y + b.height / 2 });
+        }
+      }
+      const c = nearestValidConnection(graph, { nodeId: from.nodeId, handleId: from.id, type: from.type }, point,
+        handles, 40 / zoom);
+      if (c) {
+        const res = connect(c);
+        if (res.ok) return;
+      }
+    }
+    const message = rejectMessageForConnectionEnd(graph, state);
     if (message) toast.error(message);
-  }, []);
+  }, [connect, getInternalNode, screenToFlowPosition, zoom]);
 
   const addAt = useCallback(
     (type: NodeType, clientX: number, clientY: number) => {
@@ -175,7 +206,11 @@ function FlowCanvasInner() {
 
   return (
     <FlowNodeActionsContext.Provider value={nodeActions}>
-    <div data-flow-fonts className={`flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground ${FLOW_FONT_VARIABLES}`}>
+    <div
+      data-flow-fonts
+      className={`flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground ${FLOW_FONT_VARIABLES}`}
+      style={{ '--flow-handle-boost': handleBoost } as CSSProperties}
+    >
       <header className="relative grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4">
         {isRunning && (
           <div
@@ -275,6 +310,9 @@ function FlowCanvasInner() {
               onConnect={onConnect}
               onConnectEnd={onConnectEnd}
               isValidConnection={isValidConnection}
+              // Thả dây cách ô nối ≤ ~32px màn hình là tính nối vào ô đó (mặc định 20 đơn vị canvas = 7px ở zoom 0.37).
+              // React Flow tính bán kính theo toạ độ canvas nên chia cho zoom.
+              connectionRadius={Math.min(120, Math.round(32 / zoom))}
               onDragOver={onDragOver}
               onDrop={onDrop}
               fitView
