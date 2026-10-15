@@ -15,3 +15,4 @@ export * from './executor';
 export * from './compose';
 export * from './brand';
 export * from './cache-keys';
+export * from './template';

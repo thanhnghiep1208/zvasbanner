@@ -17,6 +17,9 @@ import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeRunInfo } from '@/lib/flow/run-state';
 import { FONT_FOR_STYLE } from '@/lib/flow/text/text-style';
 import { fontIdFromLabel } from '@/lib/flow/brand';
+import {
+  instantiateTemplate, setExposedValue, type ExposedParam, type FlowTemplate,
+} from '@/lib/flow/template/template';
 import type { RatioResult } from '@/lib/flow/executor';
 
 type NodeUi = Pick<Node, 'selected' | 'dragging' | 'measured'>;
@@ -26,6 +29,13 @@ type FlowState = {
   graph: FlowGraph;
   /** Tăng mỗi lần thay cả graph (setGraph/reset) – canvas dùng để fitView lại. */
   graphVersion: number;
+  /** Template đang dùng + param lộ ra cho Simple view (T5.1). Rỗng = graph tự dựng ở Canvas view. */
+  templateId: string | null;
+  exposed: ExposedParam[];
+  /** Bắt đầu từ template: graph + exposed (bản sao độc lập). */
+  loadTemplate: (t: FlowTemplate) => void;
+  /** Ghi 1 field Simple view thẳng vào graph (graph là source of truth). */
+  setExposed: (e: ExposedParam, value: unknown) => void;
   nodeUi: Record<string, NodeUi>;
   edgeUi: Record<string, EdgeUi>;
   /** Trạng thái chạy theo node; executor ghi (T2.6). */
@@ -57,6 +67,16 @@ const EMPTY_GRAPH: FlowGraph = { nodes: [], edges: [] };
 export const useFlowStore = create<FlowState>()((set, get) => ({
   graph: EMPTY_GRAPH,
   graphVersion: 0,
+  templateId: null,
+  exposed: [],
+
+  loadTemplate: (t) => {
+    const { graph, exposed, templateId } = instantiateTemplate(t);
+    get().setGraph(graph);
+    set({ exposed, templateId });
+  },
+
+  setExposed: (e, value) => set((s) => ({ graph: setExposedValue(s.graph, e, value) })),
   nodeUi: {},
   edgeUi: {},
   runInfo: {},
@@ -68,8 +88,11 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   startRun: () => set({ runInfo: {}, results: [], isRunning: true }),
   finishRun: (results) => set({ results, isRunning: false }),
 
+  // Graph tự dựng/nạp ngoài template → bỏ exposed cũ (loadTemplate gắn lại sau khi gọi setGraph).
   setGraph: (graph) =>
-    set((s) => ({ graph, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, results: [] })),
+    set((s) => ({
+      graph, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, results: [], templateId: null, exposed: [],
+    })),
 
   addNode: (type, position) => {
     const { graph, nodeUi } = get();
@@ -173,7 +196,7 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   reset: () =>
     set((s) => ({
       graph: EMPTY_GRAPH, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, assetData: {},
-      results: [], isRunning: false,
+      results: [], isRunning: false, templateId: null, exposed: [],
     })),
 }));
 

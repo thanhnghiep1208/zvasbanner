@@ -142,4 +142,20 @@ describe('flow-store', () => {
     expect(displayRunInfo({ state: 'error', key: 'k1', message: 'x' }, 'k2')).toMatchObject({ state: 'error' });
     expect(displayRunInfo(undefined, 'k1')).toBeUndefined();
   });
+
+  it('loadTemplate: graph + exposed (bản sao); setExposed ghi thẳng vào graph; setGraph bỏ exposed', () => {
+    const template = {
+      id: 't1', name: 'T', description: '', graph: decompileJob(flatLegacy),
+      exposed: [{ id: 'brief', nodeId: 'n-brief', path: ['prompt'], label: 'Mô tả', control: 'textarea' as const }],
+    };
+    store().loadTemplate(template);
+    expect(store().templateId).toBe('t1');
+    expect(store().exposed.map((e) => e.id)).toEqual(['brief']);
+    store().setExposed(store().exposed[0]!, 'Brief từ Simple view');
+    expect((store().graph.nodes.find((n) => n.id === 'n-brief')!.params as { prompt: string }).prompt).toBe('Brief từ Simple view');
+    expect((template.graph.nodes.find((n) => n.id === 'n-brief')!.params as { prompt: string }).prompt).not.toBe('Brief từ Simple view');
+    store().setGraph(decompileJob(flatLegacy));
+    expect(store().exposed).toEqual([]);
+    expect(store().templateId).toBeNull();
+  });
 });
