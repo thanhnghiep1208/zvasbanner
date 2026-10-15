@@ -158,4 +158,19 @@ describe('flow-store', () => {
     expect(store().exposed).toEqual([]);
     expect(store().templateId).toBeNull();
   });
+
+  it('view: graph thường → canvas, không vào được simple; template có exposed → mở simple, đổi qua lại được', () => {
+    expect(store().view).toBe('canvas');
+    store().setView('simple');
+    expect(store().view).toBe('canvas');
+    store().loadTemplate({
+      id: 't', name: 'T', description: '', graph: decompileJob(flatLegacy),
+      exposed: [{ id: 'b', nodeId: 'n-brief', path: ['prompt'], label: 'Mô tả', control: 'textarea' }],
+    });
+    expect(store().view).toBe('simple');
+    store().setView('canvas');
+    expect(store().view).toBe('canvas');
+    store().setView('simple');
+    expect(store().view).toBe('simple');
+  });
 });

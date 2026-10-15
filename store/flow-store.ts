@@ -23,6 +23,7 @@ import {
 import type { RatioResult } from '@/lib/flow/executor';
 
 type NodeUi = Pick<Node, 'selected' | 'dragging' | 'measured'>;
+export type FlowView = 'simple' | 'canvas';
 type EdgeUi = Pick<Edge, 'selected'>;
 
 type FlowState = {
@@ -32,7 +33,10 @@ type FlowState = {
   /** Template đang dùng + param lộ ra cho Simple view (T5.1). Rỗng = graph tự dựng ở Canvas view. */
   templateId: string | null;
   exposed: ExposedParam[];
-  /** Bắt đầu từ template: graph + exposed (bản sao độc lập). */
+  /** Simple view (form từ exposed) hay Canvas view – cùng 1 graph (SPEC 5.7, T5.2). */
+  view: FlowView;
+  setView: (view: FlowView) => void;
+  /** Bắt đầu từ template: graph + exposed (bản sao độc lập), mở Simple view. */
   loadTemplate: (t: FlowTemplate) => void;
   /** Ghi 1 field Simple view thẳng vào graph (graph là source of truth). */
   setExposed: (e: ExposedParam, value: unknown) => void;
@@ -69,11 +73,15 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   graphVersion: 0,
   templateId: null,
   exposed: [],
+  view: 'canvas',
+
+  // Simple view chỉ có nghĩa khi có exposed; không có thì luôn Canvas.
+  setView: (view) => set((s) => ({ view: view === 'simple' && !s.exposed.length ? 'canvas' : view })),
 
   loadTemplate: (t) => {
     const { graph, exposed, templateId } = instantiateTemplate(t);
     get().setGraph(graph);
-    set({ exposed, templateId });
+    set({ exposed, templateId, view: exposed.length ? 'simple' : 'canvas' });
   },
 
   setExposed: (e, value) => set((s) => ({ graph: setExposedValue(s.graph, e, value) })),
@@ -92,6 +100,7 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   setGraph: (graph) =>
     set((s) => ({
       graph, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, results: [], templateId: null, exposed: [],
+      view: 'canvas',
     })),
 
   addNode: (type, position) => {
@@ -196,7 +205,7 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   reset: () =>
     set((s) => ({
       graph: EMPTY_GRAPH, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, assetData: {},
-      results: [], isRunning: false, templateId: null, exposed: [],
+      results: [], isRunning: false, templateId: null, exposed: [], view: 'canvas',
     })),
 }));
 

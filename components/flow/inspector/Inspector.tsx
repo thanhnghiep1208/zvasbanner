@@ -151,7 +151,7 @@ function NodeEditor({ node }: { node: FlowNode }) {
   }
 }
 
-function RatioEditor({ node }: { node: FlowNode<'ratio'> }) {
+export function RatioEditor({ node }: { node: FlowNode<'ratio'> }) {
   const update = useFlowStore((s) => s.updateNodeParams);
   const { ratios } = node.params;
   const used = new Set(ratios.map((r) => r.id));

@@ -38,6 +38,7 @@ import {
 import { EDGE_CLASS } from './flow-styles';
 import { FLOW_FONT_VARIABLES } from './flow-fonts';
 import { Inspector } from './inspector/Inspector';
+import { SimpleView } from './simple/SimpleView';
 import { NODE_DRAG_MIME, NodeLibrary } from './NodeLibrary';
 import { FLOW_NODE_TYPES, FlowNodeActionsContext } from './nodes/FlowNodeCard';
 import { useFlowRun } from './use-flow-run';
@@ -60,15 +61,23 @@ function FlowCanvasInner() {
   );
   const { screenToFlowPosition, fitView } = useReactFlow();
   const graphVersion = useFlowStore((s) => s.graphVersion);
+  const view = useFlowStore((s) => s.view);
+  const setView = useFlowStore((s) => s.setView);
+  const hasExposed = useFlowStore((s) => s.exposed.length > 0);
   const nodesInitialized = useNodesInitialized();
   const fittedVersion = useRef(-1);
 
-  // Nạp graph mới (template, migrate…): chờ RF đo xong node rồi mới canh khít, chỉ 1 lần mỗi version.
+  // Nạp graph mới (template, migrate…) hoặc quay lại Canvas view (React Flow mount lại): chờ RF đo xong node rồi
+  // mới canh khít, 1 lần mỗi lần.
   useEffect(() => {
+    if (view !== 'canvas') {
+      fittedVersion.current = -1;
+      return;
+    }
     if (!nodesInitialized || fittedVersion.current === graphVersion) return;
     fittedVersion.current = graphVersion;
     void fitView({ padding: 0.12, maxZoom: 1 });
-  }, [nodesInitialized, graphVersion, fitView]);
+  }, [nodesInitialized, graphVersion, fitView, view]);
   const paneRef = useRef<HTMLDivElement>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -169,13 +178,29 @@ function FlowCanvasInner() {
         )}
 
         <div className="flex min-w-0 items-center gap-2 justify-self-start">
-          <Button type="button" variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Mở thư viện node" onClick={() => setLibraryOpen(true)}>
+          <Button type="button" variant="ghost" size="icon-sm" className={view === 'canvas' ? 'lg:hidden' : 'hidden'} aria-label="Mở thư viện node" onClick={() => setLibraryOpen(true)}>
             <PanelLeft />
           </Button>
           <Link href="/" className="truncate font-semibold tracking-tight hover:opacity-80">BannerAI</Link>
           <span className="text-muted-foreground/60" aria-hidden>/</span>
           <span className="truncate text-sm font-medium">Flow canvas</span>
           <Badge variant="secondary" className="hidden sm:inline-flex">Beta</Badge>
+          {hasExposed && (
+            <div className="ml-2 inline-flex rounded-lg border bg-muted p-0.5 text-xs" role="tablist" aria-label="Chế độ xem">
+              {(['simple', 'canvas'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === v}
+                  onClick={() => setView(v)}
+                  className="rounded-md px-2.5 py-1 font-medium text-muted-foreground transition-colors aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-xs focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                >
+                  {v === 'simple' ? 'Đơn giản' : 'Canvas'}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 justify-self-center text-xs text-muted-foreground" aria-live="polite">
@@ -212,12 +237,15 @@ function FlowCanvasInner() {
             )}
           </Button>
           <Show when="signed-in"><UserButton /></Show>
-          <Button type="button" variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Mở inspector" onClick={() => setInspectorOpen(true)}>
+          <Button type="button" variant="ghost" size="icon-sm" className={view === 'canvas' ? 'lg:hidden' : 'hidden'} aria-label="Mở inspector" onClick={() => setInspectorOpen(true)}>
             <PanelRight />
           </Button>
         </div>
       </header>
 
+      {view === 'simple' ? (
+        <SimpleView onOpenCanvas={() => setView('canvas')} />
+      ) : (
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[248px_minmax(0,1fr)_320px] xl:grid-cols-[272px_minmax(0,1fr)_340px]">
         <aside className="hidden min-h-0 flex-col border-r bg-card lg:flex" aria-label="Thư viện node">
           <NodeLibrary onAdd={onAddFromLibrary} />
@@ -264,6 +292,7 @@ function FlowCanvasInner() {
           <Inspector node={selected} />
         </aside>
       </div>
+      )}
 
       {/* Màn hình < lg: thư viện và inspector mở dạng sheet, giống editor (EditorWorkspace). */}
       <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>

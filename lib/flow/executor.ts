@@ -130,7 +130,7 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
       missing.refs!.includes((n.params as { assetId: string }).assetId));
     return fail(deps, assetNodes.map((n) => ({
       nodeId: n.id,
-      message: (n.params as { fileName: string }).fileName ? 'Cần tải lại ảnh trước khi chạy.' : 'Chưa có ảnh.',
+      message: (n.params as { fileName: string }).fileName ? 'Cần tải lại ảnh trước khi chạy.' : 'Cần tải ảnh lên trước khi chạy.',
     })));
   }
 
@@ -229,7 +229,7 @@ async function runComposed(
       && missing.includes((n.params as { assetId: string }).assetId));
     return fail(deps, assetNodes.map((n) => ({
       nodeId: n.id,
-      message: (n.params as { fileName: string }).fileName ? 'Cần tải lại ảnh trước khi chạy.' : 'Chưa có ảnh.',
+      message: (n.params as { fileName: string }).fileName ? 'Cần tải lại ảnh trước khi chạy.' : 'Cần tải ảnh lên trước khi chạy.',
     })));
   }
 
