@@ -116,4 +116,14 @@ describe('flow-store', () => {
     expect(freePosition(g, { x: 0, y: 0 })).toEqual({ x: 64, y: 64 });
     expect(freePosition(g, { x: 500, y: 0 })).toEqual({ x: 500, y: 0 });
   });
+
+  it('thêm Text mới: font mặc định theo kiểu chữ của node Phong cách (Q10B)', () => {
+    // flatLegacy: style fontStyle = 'modern' → Inter
+    const id = store().addNode('text-layer', { x: 0, y: 0 });
+    const font = () => (store().graph.nodes.find((n) => n.id === id)!.params as { style: { fontFamily: string } }).style.fontFamily;
+    expect(font()).toBe('inter');
+    store().updateNodeParams<'style'>('n-style', { fontStyle: 'serif' });
+    const id2 = store().addNode('text-layer', { x: 0, y: 0 });
+    expect((store().graph.nodes.find((n) => n.id === id2)!.params as { style: { fontFamily: string } }).style.fontFamily).toBe('noto-serif');
+  });
 });

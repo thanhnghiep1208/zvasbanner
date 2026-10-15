@@ -15,6 +15,7 @@ import { checkConnection } from '@/lib/flow-ui/connection-feedback';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeRunInfo } from '@/lib/flow/run-state';
+import { FONT_FOR_STYLE } from '@/lib/flow/text/text-style';
 import type { RatioResult } from '@/lib/flow/executor';
 
 type NodeUi = Pick<Node, 'selected' | 'dragging' | 'measured'>;
@@ -73,7 +74,13 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     const { graph, nodeUi } = get();
     const id = nextNodeId(graph, type);
     const params = structuredClone(NODE_DEFINITIONS[type].defaultParams) as NodeParamsMap[typeof type];
-    if (type === 'text-layer') (params as NodeParamsMap['text-layer']).layerId = id;
+    if (type === 'text-layer') {
+      const text = params as NodeParamsMap['text-layer'];
+      text.layerId = id;
+      // Font mặc định theo kiểu chữ của node Phong cách (Q10B), nếu graph có.
+      const styleNode = graph.nodes.find((n) => n.type === 'style');
+      if (styleNode) text.style.fontFamily = FONT_FOR_STYLE[(styleNode.params as NodeParamsMap['style']).fontStyle];
+    }
     const node = { id, type, params, position: { x: position.x, y: position.y } } as FlowNode;
     const deselected = Object.fromEntries(
       Object.entries(nodeUi).map(([k, v]) => [k, { ...v, selected: false }]),

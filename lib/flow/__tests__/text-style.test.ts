@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultTextStyle, TEXT_ROLE_DEFAULTS, validateTextStyle } from '../text/text-style';
+import { defaultTextStyle, FLOW_FONTS, FONT_FOR_STYLE, TEXT_ROLE_DEFAULTS, validateTextStyle } from '../text/text-style';
 import type { TextRole } from '../schema';
 import { validateGraph } from '../validate';
 import { decompileJob } from '../decompiler';
@@ -58,5 +58,21 @@ describe('validateGraph với text style', () => {
     (t.params as { minFontSizePx: number }).minFontSizePx = 999;
     const issue = validateGraph(g).find((i) => i.code === 'text-style-invalid');
     expect(issue).toMatchObject({ severity: 'error', nodeId: t.id });
+  });
+});
+
+describe('Bộ font (Q10B)', () => {
+  it('5 font, mỗi font có đủ độ đậm 400–700 mà UI cho chọn', () => {
+    expect(Object.keys(FLOW_FONTS)).toHaveLength(5);
+    for (const f of Object.values(FLOW_FONTS)) expect([...f.weights]).toEqual([400, 500, 600, 700]);
+  });
+  it('mỗi kiểu chữ của form map sang 1 font có trong registry', () => {
+    expect(FONT_FOR_STYLE).toEqual({
+      sans: 'be-vietnam-pro', serif: 'noto-serif', display: 'montserrat', handwritten: 'dancing-script', modern: 'inter',
+    });
+    for (const id of Object.values(FONT_FOR_STYLE)) expect(FLOW_FONTS).toHaveProperty(id);
+  });
+  it('style dùng font mới vẫn hợp lệ', () => {
+    expect(validateTextStyle({ ...defaultTextStyle('headline'), fontFamily: 'dancing-script' }, 20)).toEqual([]);
   });
 });

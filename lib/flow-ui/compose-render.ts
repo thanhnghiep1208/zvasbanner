@@ -8,20 +8,30 @@ import type { CompiledJob } from '@/lib/flow/compiled-job';
 import { buildComposition, type AlphaBox, type Composition, type TextLayerDraw } from '@/lib/flow/compose/plan';
 import type { LayoutPlan } from '@/lib/flow/layout/types';
 import { layoutText, type TextMeasurer } from '@/lib/flow/layout/measure';
-import { FLOW_FONTS, type TextStyle } from '@/lib/flow/text/text-style';
+import { FLOW_FONTS, type FontId, type TextStyle } from '@/lib/flow/text/text-style';
 
 /* ── Font ───────────────────────────────────────────────────── */
 
-/** CSS variable mà next/font gắn lên <body> cho từng font (app/layout.tsx). */
-const FONT_CSS_VAR: Record<keyof typeof FLOW_FONTS, string> = { inter: '--font-inter' };
+/**
+ * Biến CSS next/font khai báo cho từng font: Inter ở <body> (app/layout.tsx), các font còn lại ở khung /flow
+ * (`[data-flow-fonts]`, components/flow/flow-fonts.ts).
+ */
+const FONT_CSS_VAR: Record<FontId, string> = {
+  'inter': '--font-inter',
+  'be-vietnam-pro': '--font-flow-be-vietnam-pro',
+  'noto-serif': '--font-flow-noto-serif',
+  'montserrat': '--font-flow-montserrat',
+  'dancing-script': '--font-flow-dancing-script',
+};
 
-/** Tên font thật để Canvas dùng (next/font đổi tên thành `__Inter_xxx`). */
-export function resolveFontFamily(fontId: keyof typeof FLOW_FONTS): string {
+/** Tên font thật để Canvas dùng (next/font đổi tên thành `__Inter_xxx`…). */
+export function resolveFontFamily(fontId: FontId): string {
   if (typeof document !== 'undefined') {
-    const v = getComputedStyle(document.body).getPropertyValue(FONT_CSS_VAR[fontId]).trim();
+    const host = document.querySelector('[data-flow-fonts]') ?? document.body;
+    const v = getComputedStyle(host).getPropertyValue(FONT_CSS_VAR[fontId]).trim();
     if (v) return v;
   }
-  return `${FLOW_FONTS[fontId].cssFamily}, system-ui, sans-serif`;
+  return `"${FLOW_FONTS[fontId].label}", ${FLOW_FONTS[fontId].fallback}`;
 }
 
 export function fontString(style: TextStyle, sizePx: number): string {
@@ -210,4 +220,33 @@ export async function composeRatio(args: {
     if (box) boxes[asset.assetId] = box;
   }
   return renderComposition(buildComposition(args.job, args.plan, args.ratioId, args.background, boxes), images);
+}
+
+/**
+ * Xem trước 1 text layer bằng CHÍNH hàm vẽ của Compose (Inspector, T4.4) – thấy gì xuất ra nấy.
+ * `fontSizePx` là px thật (đã scale); `maxWidthPx` = bề rộng khung để xuống dòng.
+ */
+export async function renderTextPreview(
+  canvas: HTMLCanvasElement, content: string, style: TextStyle, fontSizePx: number, maxWidthPx: number,
+): Promise<{ width: number; height: number; lines: number; overflow: boolean }> {
+  await ensureFonts([style]);
+  const box = layoutText(content, style, fontSizePx, maxWidthPx, 1, canvasMeasurer);
+  const pad = Math.ceil((style.shadow ? style.shadow.blurPx + Math.abs(style.shadow.offsetY) : 0) + (style.stroke?.widthPx ?? 0));
+  const w = Math.ceil(maxWidthPx);
+  const h = Math.ceil(box.height + pad * 2);
+  const dpr = typeof window !== 'undefined' ? Math.min(2, window.devicePixelRatio || 1) : 1;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Trình duyệt không hỗ trợ Canvas 2D.');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const x = style.align === 'left' ? 0 : style.align === 'right' ? w - box.width : (w - box.width) / 2;
+  drawText(ctx, {
+    kind: 'text', layerId: 'preview', content, lines: box.lines, fontSizePx, style,
+    rect: { x, y: pad, w: box.width, h: box.height },
+  });
+  return { width: box.width, height: box.height, lines: box.lines.length, overflow: box.overflow };
 }

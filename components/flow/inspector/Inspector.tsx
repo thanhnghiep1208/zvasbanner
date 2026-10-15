@@ -13,26 +13,19 @@ import { FOCAL_OPTIONS, INTENT_OPTIONS } from '@/components/prompt/MarketingBrie
 import { CANVAS_PRESET_GROUPS, getPresetById, presetToCanvasConfig } from '@/lib/canvas-presets';
 import { FONT_STYLE_OPTIONS, MOOD_OPTIONS, PALETTE_OPTIONS, STYLE_OPTIONS } from '@/lib/style-options';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
-import type { FlowNode, NodeParamsMap, NodeType, TextRole } from '@/lib/flow/schema';
-import { defaultTextStyle, TEXT_ROLE_DEFAULTS } from '@/lib/flow/text/text-style';
+import type { FlowNode, NodeParamsMap, NodeType } from '@/lib/flow/schema';
 import { validateGraph } from '@/lib/flow/validate';
 import { MODEL_LABELS } from '@/lib/flow-ui/node-summary';
 import { useFlowStore } from '@/store/flow-store';
 import { AssetEditor } from './AssetEditor';
 import { RunResults } from './RunResults';
+import { TextLayerEditor } from './TextLayerEditor';
 import {
   CheckboxField, NumberField, SelectField, TextAreaField, TextField, ToggleGroupField,
 } from './fields';
 
 const MODEL_OPTIONS = (Object.keys(MODEL_LABELS) as (keyof typeof MODEL_LABELS)[])
   .map((value) => ({ value, label: MODEL_LABELS[value] }));
-
-const TEXT_ROLE_OPTIONS: { value: TextRole; label: string }[] = [
-  { value: 'headline', label: 'Tiêu đề chính' },
-  { value: 'subheadline', label: 'Tiêu đề phụ' },
-  { value: 'cta', label: 'Nút kêu gọi hành động' },
-  { value: 'custom', label: 'Text khác' },
-];
 
 /** Editor theo node type. `P` = params đã thu hẹp theo type. */
 function NodeEditor({ node }: { node: FlowNode }) {
@@ -61,36 +54,8 @@ function NodeEditor({ node }: { node: FlowNode }) {
         </>
       );
     }
-    case 'text-layer': {
-      const p = node.params as NodeParamsMap['text-layer'];
-      return (
-        <>
-          <SelectField label="Vai trò" value={p.role} options={TEXT_ROLE_OPTIONS}
-            onChange={(role) => set<'text-layer'>({
-              role,
-              // Đổi role → style + cỡ tối thiểu theo role mới; AI chỉ cho headline.
-              style: defaultTextStyle(role),
-              minFontSizePx: TEXT_ROLE_DEFAULTS[role].minFontSizePx,
-              renderSource: role === 'headline' ? p.renderSource : 'layer',
-            })} />
-          <TextAreaField label="Nội dung" value={p.content} onChange={(content) => set<'text-layer'>({ content })} />
-          {p.role === 'headline' && (
-            <SelectField label="Cách vẽ chữ" value={p.renderSource}
-              options={[{ value: 'layer', label: 'Layer (chính xác)' }, { value: 'ai', label: 'AI vẽ (có thể sai chính tả)' }]}
-              onChange={(renderSource) => set<'text-layer'>({ renderSource })} />
-          )}
-          <NumberField label="Cỡ chữ (px, cạnh ngắn 1080)" value={p.style.fontSizePx} min={1} max={400}
-            onChange={(fontSizePx) => set<'text-layer'>({ style: { ...p.style, fontSizePx } })} />
-          <NumberField label="Cỡ chữ tối thiểu khi co" value={p.minFontSizePx} min={1} max={400}
-            onChange={(minFontSizePx) => set<'text-layer'>({ minFontSizePx })} />
-          <TextField label="Màu chữ" value={p.style.fill.color} placeholder="#RRGGBB"
-            onChange={(color) => set<'text-layer'>({ style: { ...p.style, fill: { kind: 'solid', color } } })} />
-          <SelectField label="Căn lề" value={p.style.align}
-            options={[{ value: 'left', label: 'Trái' }, { value: 'center', label: 'Giữa' }, { value: 'right', label: 'Phải' }]}
-            onChange={(align) => set<'text-layer'>({ style: { ...p.style, align } })} />
-        </>
-      );
-    }
+    case 'text-layer':
+      return <TextLayerEditor nodeId={node.id} p={node.params as NodeParamsMap['text-layer']} />;
     case 'brand-kit': {
       const p = node.params as NodeParamsMap['brand-kit'];
       return (

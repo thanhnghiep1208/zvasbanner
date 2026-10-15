@@ -145,7 +145,8 @@ export interface FlowGraph {
 
 export const DEFAULT_SHADOW: ShadowConfig = {
   mode: 'auto',
-  opacity: 0.35,
+  // 50%: 35% gần như không thấy trên nền tối (kiểm tra T4.3).
+  opacity: 0.5,
   blurPx: 24,
   offsetX: 0,
   offsetY: 8,

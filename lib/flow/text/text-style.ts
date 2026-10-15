@@ -8,13 +8,29 @@
  */
 import type { TextRole } from '../schema';
 
-/** Font renderer tải được (self-host, hỗ trợ tiếng Việt). P1 mới có Inter – bộ font đầy đủ: Q10. */
+/**
+ * Font renderer tải được (Q10B): Google Fonts self-host qua next/font, đều có subset tiếng Việt, license OFL.
+ * `fallback` = họ font chung khi chưa tải xong; tên font thật do UI phân giải (lib/flow-ui/compose-render.ts).
+ */
 export const FLOW_FONTS = {
-  inter: { label: 'Inter', cssFamily: 'Inter', weights: [400, 500, 600, 700] },
+  'inter': { label: 'Inter', fallback: 'sans-serif', weights: [400, 500, 600, 700] },
+  'be-vietnam-pro': { label: 'Be Vietnam Pro', fallback: 'sans-serif', weights: [400, 500, 600, 700] },
+  'noto-serif': { label: 'Noto Serif', fallback: 'serif', weights: [400, 500, 600, 700] },
+  'montserrat': { label: 'Montserrat', fallback: 'sans-serif', weights: [400, 500, 600, 700] },
+  'dancing-script': { label: 'Dancing Script', fallback: 'cursive', weights: [400, 500, 600, 700] },
 } as const;
 
 export type FontId = keyof typeof FLOW_FONTS;
 export type FontWeight = 400 | 500 | 600 | 700;
+
+/** Font mặc định theo `StyleControls.fontStyle` của form (lib/types.ts). */
+export const FONT_FOR_STYLE: Record<'sans' | 'serif' | 'display' | 'handwritten' | 'modern', FontId> = {
+  sans: 'be-vietnam-pro',
+  serif: 'noto-serif',
+  display: 'montserrat',
+  handwritten: 'dancing-script',
+  modern: 'inter',
+};
 
 /** Màu hex `#RRGGBB` hoặc `#RRGGBBAA`. */
 export type HexColor = string;

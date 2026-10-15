@@ -35,6 +35,7 @@ import {
   freePosition, selectRFEdges, selectRFNodes, selectSingleSelectedNode, useFlowStore,
 } from '@/store/flow-store';
 import { EDGE_CLASS } from './flow-styles';
+import { FLOW_FONT_VARIABLES } from './flow-fonts';
 import { Inspector } from './inspector/Inspector';
 import { NODE_DRAG_MIME, NodeLibrary } from './NodeLibrary';
 import { FLOW_NODE_TYPES, FlowNodeActionsContext } from './nodes/FlowNodeCard';
@@ -147,7 +148,7 @@ function FlowCanvasInner() {
   );
 
   return (
-    <div className="flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground">
+    <div data-flow-fonts className={`flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground ${FLOW_FONT_VARIABLES}`}>
       <header className="relative grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4">
         {isRunning && (
           <div

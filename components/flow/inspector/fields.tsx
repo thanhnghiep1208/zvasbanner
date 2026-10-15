@@ -141,3 +141,60 @@ export function ToggleGroupField<V extends string>({ label, values, options, onC
     </fieldset>
   );
 }
+
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+const HEX8 = /^#[0-9a-fA-F]{8}$/;
+
+/**
+ * Màu: ô chọn màu (RGB) + ô mã hex (#RRGGBB hoặc #RRGGBBAA – cần alpha cho bóng chữ).
+ * Chỉ gọi onChange khi mã hợp lệ; ô chọn màu giữ nguyên phần alpha đang có.
+ */
+export function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const id = useId();
+  const rgb = HEX6.test(value) || HEX8.test(value) ? value.slice(0, 7) : '#000000';
+  const alpha = HEX8.test(value) ? value.slice(7) : '';
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-medium text-foreground">{label}</label>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          aria-label={`${label} – bảng màu`}
+          value={rgb}
+          onChange={(e) => onChange(e.target.value.toUpperCase() + alpha)}
+          className="size-9 shrink-0 cursor-pointer rounded-md border bg-background p-1"
+        />
+        <Input
+          id={id}
+          defaultValue={value}
+          key={value}
+          placeholder="#RRGGBB"
+          className="font-mono uppercase"
+          onBlur={(e) => {
+            const v = e.target.value.trim().toUpperCase();
+            if (HEX6.test(v) || HEX8.test(v)) onChange(v);
+            else e.target.value = value;
+          }}
+          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Nhóm field có tiêu đề + công tắc bật/tắt (viền, bóng chữ, nền chữ). */
+export function ToggleSection({ title, enabled, onToggle, children }: {
+  title: string; enabled: boolean; onToggle: (v: boolean) => void; children?: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <fieldset className="m-0 flex min-w-0 flex-col gap-3 rounded-lg border p-3">
+      <legend className="sr-only">{title}</legend>
+      <label htmlFor={id} className="flex items-center justify-between gap-2 text-sm font-medium">
+        {title}
+        <input id={id} type="checkbox" checked={enabled} onChange={(e) => onToggle(e.target.checked)} />
+      </label>
+      {enabled && children}
+    </fieldset>
+  );
+}
