@@ -111,8 +111,10 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
   }
 
   // Product không có alpha đi vào Compose → auto shadow sẽ tắt. Flat: Gemini tự xử lý nền, không cảnh báo.
+  // Chưa upload ảnh (template mới mở) thì chưa biết alpha → không cảnh báo.
   for (const n of graph.nodes) {
-    if (n.type === 'product-asset' && !(n as FlowNode<'product-asset'>).params.hasAlpha && feedsCompose(graph, n.id)) {
+    const p = n.type === 'product-asset' ? (n as FlowNode<'product-asset'>).params : undefined;
+    if (p && p.assetId && !p.hasAlpha && feedsCompose(graph, n.id)) {
       issues.push({ severity: 'warning', code: 'product-no-alpha', nodeId: n.id,
         message: 'Ảnh sản phẩm chưa tách nền: auto shadow tắt, viền nền gốc sẽ hiện trên banner.' });
     }
