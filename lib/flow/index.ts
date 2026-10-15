@@ -12,3 +12,4 @@ export * from './legacy/to-legacy-config';
 export * from './run-state';
 export * from './layout';
 export * from './executor';
+export * from './compose';

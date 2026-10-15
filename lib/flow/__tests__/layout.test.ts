@@ -271,3 +271,28 @@ describe('planLayout – override & khác', () => {
     expect(Object.keys(plan.variantId)).toEqual(composedFull.ratios.map((r) => r.id));
   });
 });
+
+describe('planLayout – cột chữ (packText)', () => {
+  const texts = [text('h', 'headline', 1, 'Tết Sum Vầy'), text('s', 'subheadline', 2, 'Quà tặng cao cấp từ 499K'), text('c', 'cta', 3, 'Mua ngay')];
+  const plan = ok(planLayout({ ...FULL, textLayers: texts, ratios: [ZALO] }));
+  const r = (id: string) => transformToRect(plan.transforms[ZALO.id]![id]!);
+
+  it('headline → subheadline → CTA liền nhau, khoảng cách đều, ≤ 3% chiều cao', () => {
+    const g1 = r('s').y - (r('h').y + r('h').h);
+    const g2 = r('c').y - (r('s').y + r('s').h);
+    expect(g1).toBeGreaterThan(0);
+    expect(g1).toBeCloseTo(g2, 6);
+    expect(g1).toBeLessThanOrEqual(0.03 + 1e-9);
+  });
+
+  it('CTA căn giữa thẳng hàng với headline/subheadline (cùng align center)', () => {
+    const cx = (id: string) => r(id).x + r(id).w / 2;
+    expect(cx('c')).toBeCloseTo(cx('h'), 6);
+    expect(cx('s')).toBeCloseTo(cx('h'), 6);
+  });
+
+  it('cả khối nằm trong cột chữ, không đè sản phẩm', () => {
+    const product = transformToRect(plan.transforms[ZALO.id]!.sp1!);
+    for (const id of ['h', 's', 'c']) expect(overlap(r(id), product)).toBe(false);
+  });
+});

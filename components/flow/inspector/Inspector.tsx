@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { CircleAlert, MousePointerClick, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NodeIconChip } from '../nodes/FlowNodeCard';
+import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
@@ -244,7 +245,7 @@ function RatioEditor({ node }: { node: FlowNode<'ratio'> }) {
 export function Inspector({ node }: { node: FlowNode | null }) {
   const graph = useFlowStore((s) => s.graph);
   const issues = useMemo(
-    () => (node ? validateGraph(graph).filter((i) => i.nodeId === node.id) : []),
+    () => (node ? validateGraph(graph, { measurer: canvasMeasurer }).filter((i) => i.nodeId === node.id) : []),
     [graph, node],
   );
 

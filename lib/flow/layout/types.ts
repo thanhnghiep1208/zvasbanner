@@ -25,6 +25,11 @@ export interface LayoutVariant {
    * Mọi giá trị scale đều phải cho slot nằm trong vùng an toàn và không chồng nhau (có test).
    */
   slots: (productScale: number) => Record<SlotKind, Rect>;
+  /**
+   * Cột chữ: sau khi đo, xếp headline → subheadline → CTA thành 1 khối liền (khoảng cách đều),
+   * cả khối căn giữa dọc trong cột – thay vì mỗi chữ căn giữa trong ô riêng (để lại khoảng trống lớn).
+   */
+  packText?: boolean;
 }
 
 /** Vùng vẽ lên layout guide image cho Generate BG (khối xám = "giữ sạch vùng này"). */

@@ -107,6 +107,7 @@ function layoutRatio(
     placeAssets(slots.product, products, ratio, transforms);
     placeAssets(slots.logo, logos, ratio, transforms);
     for (const [slot, placed] of fit.bySlot) placeTextStack(slots[slot], placed, ratio, transforms);
+    if (variant.packText) packTextColumn(slots, fit.bySlot, ratio, transforms);
     const text = Object.fromEntries(
       [...fit.bySlot.values()].flat().map((p) => [p.layer.layerId, { fontSizePx: p.fontSizePx, lines: p.box.lines }]),
     );
@@ -162,6 +163,31 @@ function fitVariant(
     const next = Math.min(size.get(id)! * FONT_STEP, size.get(id)! - 1);
     size.set(id, Math.max(next, min.get(id)!));
   }
+}
+
+const COLUMN_ORDER: SlotKind[] = ['headline', 'subheadline', 'cta'];
+
+/**
+ * Dồn các khối chữ của cột thành 1 nhóm liền, khoảng cách đều (≤ 3% chiều cao canvas), nhóm căn giữa
+ * trong khoảng [đỉnh slot headline, đáy slot CTA]. Chỉ dịch dọc – ngang giữ theo `align` của từng layer.
+ * Mỗi khối đã vừa slot của nó nên tổng chiều cao luôn ≤ khoảng cột.
+ */
+function packTextColumn(
+  slots: Record<SlotKind, Rect>, bySlot: Map<SlotKind, Placed[]>, ratio: RatioSpec, out: Record<string, Transform>,
+) {
+  const H = ratio.height;
+  const ids = COLUMN_ORDER.flatMap((s) => (bySlot.get(s) ?? []).map((p) => p.layer.layerId));
+  if (ids.length < 2) return;
+  const top = slots.headline.y * H;
+  const bottom = (slots.cta.y + slots.cta.h) * H;
+  const heights = ids.map((id) => out[id]!.h * H);
+  const total = heights.reduce((a, b) => a + b, 0);
+  const gap = Math.max(0, Math.min(0.03 * H, (bottom - top - total) / (ids.length - 1)));
+  let y = top + (bottom - top - total - gap * (ids.length - 1)) / 2;
+  ids.forEach((id, i) => {
+    out[id] = { ...out[id]!, cy: (y + heights[i]! / 2) / H };
+    y += heights[i]! + gap;
+  });
 }
 
 function stackGap(slot: Rect, ratio: RatioSpec): number {

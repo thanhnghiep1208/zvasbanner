@@ -8,6 +8,8 @@ import { compileGraph } from '@/lib/flow/compiler';
 import type { BackgroundRequest } from '@/lib/flow/background/request';
 import { runAll, type BackgroundResult, type GenerateResult } from '@/lib/flow/executor';
 import { renderGuideImage } from '@/lib/flow-ui/guide-image';
+import { canvasMeasurer, composeRatio, ensureFonts } from '@/lib/flow-ui/compose-render';
+import type { NodeParamsMap } from '@/lib/flow/schema';
 import { useFlowStore } from '@/store/flow-store';
 
 /** Gọi /api/generate qua client hiện có (timeout, map lỗi HTTP → message tiếng Việt giữ nguyên như form). */
@@ -53,10 +55,16 @@ export function useFlowRun() {
     const store = useFlowStore.getState();
     if (store.isRunning) return;
     store.startRun();
+    // Font phải tải xong trước khi đo/vẽ chữ, nếu không Canvas đo bằng font dự phòng.
+    await ensureFonts(store.graph.nodes
+      .filter((n) => n.type === 'text-layer')
+      .map((n) => (n.params as NodeParamsMap['text-layer']).style)).catch(() => {});
     const outcome = await runAll(store.graph, { dataUrls: store.assetData }, {
       generate,
       generateBackground,
       renderGuide: renderGuideImage,
+      measurer: canvasMeasurer,
+      composeRatio,
       onRunInfo: (nodeId, info) => useFlowStore.getState().setRunInfo(nodeId, info),
     });
     useFlowStore.getState().finishRun(outcome.results);

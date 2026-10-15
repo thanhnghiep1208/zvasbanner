@@ -30,6 +30,7 @@ import { getDefinition, NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeType } from '@/lib/flow/schema';
 import { validateGraph } from '@/lib/flow/validate';
 import { checkConnection, rejectMessageForConnectionEnd } from '@/lib/flow-ui/connection-feedback';
+import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import {
   freePosition, selectRFEdges, selectRFNodes, selectSingleSelectedNode, useFlowStore,
 } from '@/store/flow-store';
@@ -84,7 +85,8 @@ function FlowCanvasInner() {
   }, [graph, edgeUi]);
   const selected = useMemo(() => selectSingleSelectedNode(graph, nodeUi), [graph, nodeUi]);
   // Canvas trống: không báo lỗi "thiếu Export" – chưa có gì để kiểm.
-  const issues = useMemo(() => (graph.nodes.length ? validateGraph(graph) : []), [graph]);
+  // Cùng measurer Canvas với lúc chạy để báo "không vừa" khớp kết quả thật.
+  const issues = useMemo(() => (graph.nodes.length ? validateGraph(graph, { measurer: canvasMeasurer }) : []), [graph]);
   const errorCount = issues.filter((i) => i.severity === 'error').length;
   const warningCount = issues.length - errorCount;
   const isEmpty = nodes.length === 0;

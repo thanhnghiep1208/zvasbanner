@@ -6,8 +6,8 @@
  *
  * Nhiều ratio: ratio đầu sinh từ đầu; các ratio sau gửi kèm `layoutAdaptationFromBanner` = ảnh ratio đầu,
  * giống "Biến thể kích thước" của form (AdditionalCanvasSizesPanel). Chạy tuần tự, tôn trọng rate limit.
- * Composed (T4.2): layout → guide image → POST /api/flow/generate-background, 1 lần / ratio.
- *   Ghép layer (T4.3) chưa có: kết quả tạm thời là ảnh nền.
+ * Composed: layout → guide image → POST /api/flow/generate-background (T4.2) → Ghép layer Canvas 2D (T4.3),
+ *   1 lần gọi AI / ratio. Pixel sản phẩm chỉ dùng ở bước ghép trên client, không gửi model.
  * Chưa có (T4.7): cache, stale, Run từ node.
  */
 import type { CanvasConfig, GenerationRequest } from '@/lib/types';
@@ -16,7 +16,7 @@ import { compileGraph } from './compiler';
 import { toBackgroundRequests, type BackgroundRequest } from './background/request';
 import { planLayoutForJob } from './layout/engine';
 import type { TextMeasurer } from './layout/measure';
-import type { GuideRect } from './layout/types';
+import type { GuideRect, LayoutPlan } from './layout/types';
 import { toLegacyConfig, type LegacyIssue } from './legacy/to-legacy-config';
 import type { LegacyRuntime } from './legacy/from-legacy-config';
 import type { NodeRunInfo } from './run-state';
@@ -35,8 +35,12 @@ export interface ExecutorDeps {
   generateBackground?: (request: BackgroundRequest) => Promise<BackgroundResult>;
   /** Composed: vẽ layout guide image (PNG data URL) – UI dùng Canvas 2D. */
   renderGuide?: (canvas: CanvasConfig, guide: GuideRect[]) => string | Promise<string>;
-  /** Measurer cho layout (T4.4 truyền Canvas 2D); mặc định ước lượng. */
+  /** Measurer cho layout – UI truyền measurer Canvas 2D để khớp với lúc vẽ; mặc định ước lượng. */
   measurer?: TextMeasurer;
+  /** Composed: ghép nền + sản phẩm + chữ cho 1 ratio (UI dùng Canvas 2D). Không có → trả ảnh nền. */
+  composeRatio?: (args: {
+    job: CompiledJob; plan: LayoutPlan; ratioId: string; background: string; dataUrls: Record<string, string>;
+  }) => Promise<string>;
 }
 
 export interface RatioResult {
@@ -136,10 +140,14 @@ async function runComposed(
 
   const drafts = toBackgroundRequests(job, layout.plan, runtime);
   if (!drafts.ok) return fail(deps, [{ nodeId: genNode.id, message: drafts.message }]);
-  if (drafts.missingAssetIds.length) {
-    const refNodes = graph.nodes.filter((n) => n.type === 'reference-image'
-      && drafts.missingAssetIds.includes((n.params as { assetId: string }).assetId));
-    return fail(deps, refNodes.map((n) => ({
+  // Ảnh tham chiếu (gửi model) + ảnh sản phẩm (ghép ở client) đều phải có dữ liệu trước khi tốn lượt AI.
+  const missingProducts = deps.composeRatio
+    ? job.products.filter((p) => !runtime.dataUrls[p.assetId]).map((p) => p.assetId) : [];
+  const missing = [...drafts.missingAssetIds, ...missingProducts];
+  if (missing.length) {
+    const assetNodes = graph.nodes.filter((n) => (n.type === 'reference-image' || n.type === 'product-asset')
+      && missing.includes((n.params as { assetId: string }).assetId));
+    return fail(deps, assetNodes.map((n) => ({
       nodeId: n.id,
       message: (n.params as { fileName: string }).fileName ? 'Cần tải lại ảnh trước khi chạy.' : 'Chưa có ảnh.',
     })));
@@ -148,6 +156,7 @@ async function runComposed(
   deps.onRunInfo(genNode.id, { state: 'running' });
   deps.onRunInfo(composeNode.id, { state: 'queued' });
   const results: RatioResult[] = [];
+  const backgrounds: string[] = [];
   for (const [i, { ratioId, request }] of drafts.drafts.entries()) {
     const prefix = drafts.drafts.length > 1 ? `Kích thước ${i + 1}/${drafts.drafts.length}: ` : '';
     let res: BackgroundResult;
@@ -159,23 +168,38 @@ async function runComposed(
     }
     if (!res.ok) {
       const message = prefix + res.error;
-      deps.onRunInfo(genNode.id, { state: 'error', message, previewUrl: results[0]?.image });
+      deps.onRunInfo(genNode.id, { state: 'error', message, previewUrl: backgrounds[0] });
       deps.onRunInfo(composeNode.id, { state: 'idle' });
       return { ok: false, errors: [{ message, nodeId: genNode.id }], results };
     }
-    results.push({ ratioId, canvasConfig: request.canvasConfig, image: res.image });
-    deps.onRunInfo(genNode.id, { state: 'running', previewUrl: results[0]!.image });
+    backgrounds.push(res.image);
+    deps.onRunInfo(genNode.id, { state: 'running', previewUrl: backgrounds[0] });
+
+    if (!deps.composeRatio) {
+      results.push({ ratioId, canvasConfig: request.canvasConfig, image: res.image });
+      continue;
+    }
+    deps.onRunInfo(composeNode.id, { state: 'running', previewUrl: results[0]?.image });
+    try {
+      const image = await deps.composeRatio({ job, plan: layout.plan, ratioId, background: res.image, dataUrls: runtime.dataUrls });
+      results.push({ ratioId, canvasConfig: request.canvasConfig, image });
+    } catch (e) {
+      const message = prefix + (e instanceof Error ? e.message : 'Ghép layer thất bại.');
+      deps.onRunInfo(genNode.id, { state: 'done', previewUrl: backgrounds[0] });
+      deps.onRunInfo(composeNode.id, { state: 'error', message, previewUrl: results[0]?.image });
+      return { ok: false, errors: [{ message, nodeId: composeNode.id }], results };
+    }
   }
 
-  deps.onRunInfo(genNode.id, { state: 'done', previewUrl: results[0]!.image });
-  // T4.3 chưa có: Ghép layer chưa chạy, kết quả là ảnh nền.
-  deps.onRunInfo(composeNode.id, { state: 'idle' });
+  deps.onRunInfo(genNode.id, { state: 'done', previewUrl: backgrounds[0] });
+  if (!deps.composeRatio) {
+    deps.onRunInfo(composeNode.id, { state: 'idle' });
+    deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image });
+    return { ok: true, results, warnings: [...warnings, { nodeId: composeNode.id, message: 'Môi trường hiện tại chưa ghép layer: kết quả là ảnh nền.' }] };
+  }
+  deps.onRunInfo(composeNode.id, { state: 'done', previewUrl: results[0]!.image });
   deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image });
-  return {
-    ok: true,
-    results,
-    warnings: [...warnings, { nodeId: composeNode.id, message: 'Ghép layer chưa có (T4.3): kết quả hiện là ảnh nền.' }],
-  };
+  return { ok: true, results, warnings };
 }
 
 function fail(deps: ExecutorDeps, errors: RunIssue[]): RunOutcome {

@@ -172,9 +172,47 @@ describe('runAll – composed (T4.2)', () => {
     expect(states.find(([id]) => id === 'n-generate')?.[1].state).toBe('error');
   });
 
-  it('thành công kèm cảnh báo Ghép layer chưa có (T4.3)', async () => {
+  it('không có composeRatio → trả ảnh nền kèm cảnh báo trên node Ghép layer', async () => {
     const { deps } = setupBg();
     const out = await runAll(decompileJob(composedMinimal), runtimeFor(composedMinimal), deps);
     expect(out.ok && out.warnings.map((w) => w.nodeId)).toContain('n-compose');
+  });
+
+  it('có composeRatio (T4.3): ghép từng ratio từ nền, kết quả là ảnh ghép, node Ghép layer → Xong', async () => {
+    const { deps, last } = setupBg();
+    const composed: { ratioId: string; background: string }[] = [];
+    const out = await runAll(decompileJob(composedFull), runtimeFor(composedFull), {
+      ...deps,
+      composeRatio: async ({ ratioId, background, dataUrls }) => {
+        expect(Object.values(dataUrls)).toContain(PRODUCT_PIXELS); // pixel sản phẩm chỉ dùng ở bước ghép
+        composed.push({ ratioId, background });
+        return `composed-${ratioId}`;
+      },
+    });
+    expect(composed.map((c) => c.background)).toEqual(['bg-1', 'bg-2', 'bg-3']);
+    expect(out.ok && out.results.map((r) => r.image)).toEqual(composedFull.ratios.map((r) => `composed-${r.id}`));
+    expect(out.ok && out.warnings.map((w) => w.nodeId)).not.toContain('n-compose');
+    expect(last('n-compose')).toMatchObject({ state: 'done' });
+    expect(last('n-generate')).toEqual({ state: 'done', previewUrl: 'bg-1' });
+  });
+
+  it('thiếu ảnh sản phẩm → chặn trước khi gọi AI, báo trên node sản phẩm', async () => {
+    const { deps, bgCalls, last } = setupBg();
+    const runtime = runtimeFor(composedFull);
+    delete runtime.dataUrls['asset-hop-qua'];
+    const out = await runAll(decompileJob(composedFull), runtime, { ...deps, composeRatio: async () => 'x' });
+    expect(out.ok).toBe(false);
+    expect(bgCalls).toHaveLength(0);
+    expect(last('n-product-0')).toEqual({ state: 'error', message: 'Cần tải lại ảnh trước khi chạy.' });
+  });
+
+  it('ghép lỗi → node Ghép layer error, nền vẫn giữ preview', async () => {
+    const { deps, last } = setupBg();
+    const out = await runAll(decompileJob(composedMinimal), runtimeFor(composedMinimal), {
+      ...deps, composeRatio: async () => { throw new Error('Không đọc được ảnh.'); },
+    });
+    expect(out.ok).toBe(false);
+    expect(last('n-compose')).toMatchObject({ state: 'error', message: 'Không đọc được ảnh.' });
+    expect(last('n-generate')).toEqual({ state: 'done', previewUrl: 'bg-1' });
   });
 });

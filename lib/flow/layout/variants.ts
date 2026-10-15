@@ -19,13 +19,16 @@ export function classifyRatio(width: number, height: number): RatioClass {
 
 type Slots = Record<SlotKind, Rect>;
 
-/** Cột chữ xếp dọc: logo trên, headline, subheadline, CTA (CTA hẹp hơn, căn theo `ctaAlign`). */
-function textColumn(x: number, w: number, top: number, logoW: number, ctaW: number): Omit<Slots, 'product'> {
+/**
+ * Cột chữ xếp dọc: logo trên, headline, subheadline, CTA. CTA rộng bằng cột – vị trí ngang do `align` của layer
+ * quyết định (đo xong mới biết bề rộng nút), để CTA thẳng hàng với headline/subheadline.
+ */
+function textColumn(x: number, w: number, top: number, logoW: number): Omit<Slots, 'product'> {
   return {
     logo: { x, y: top, w: Math.min(logoW, w), h: 0.1 },
     headline: { x, y: top + 0.14, w, h: 0.3 },
     subheadline: { x, y: top + 0.46, w, h: 0.18 },
-    cta: { x, y: top + 0.66, w: Math.min(ctaW, w), h: 0.14 },
+    cta: { x, y: top + 0.66, w, h: 0.14 },
   };
 }
 
@@ -36,21 +39,23 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
     {
       // Chữ trái, sản phẩm phải – banner ngang (Zalo OA, FB cover…)
       id: 'landscape-text-left',
+      packText: true,
       ratioClass: 'landscape',
       slots: (s) => {
         const pw = 0.42 * s;
         const textW = 1 - M - pw - 0.04 - M;
-        return { ...textColumn(M, textW, 0.06, 0.14, 0.24), product: { x: 1 - M - pw, y: 0.08, w: pw, h: 0.84 } };
+        return { ...textColumn(M, textW, 0.06, 0.14), product: { x: 1 - M - pw, y: 0.08, w: pw, h: 0.84 } };
       },
     },
     {
       // Sản phẩm trái, chữ phải
       id: 'landscape-text-right',
+      packText: true,
       ratioClass: 'landscape',
       slots: (s) => {
         const pw = 0.42 * s;
         const textX = M + pw + 0.04;
-        return { ...textColumn(textX, 1 - M - textX, 0.06, 0.14, 0.24), product: { x: M, y: 0.08, w: pw, h: 0.84 } };
+        return { ...textColumn(textX, 1 - M - textX, 0.06, 0.14), product: { x: M, y: 0.08, w: pw, h: 0.84 } };
       },
     },
   ],
@@ -58,6 +63,7 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
     {
       // Logo trái, chữ giữa, sản phẩm phải – leaderboard rất dẹt
       id: 'ultra-wide-row',
+      packText: true,
       ratioClass: 'ultra-wide',
       slots: (s) => {
         const pw = 0.3 * s;
@@ -67,7 +73,7 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
           logo: { x: 0.04, y: 0.25, w: 0.12, h: 0.5 },
           headline: { x: textX, y: 0.1, w: textW, h: 0.38 },
           subheadline: { x: textX, y: 0.52, w: textW, h: 0.18 },
-          cta: { x: textX, y: 0.74, w: Math.min(0.16, textW), h: 0.18 },
+          cta: { x: textX, y: 0.74, w: textW, h: 0.18 },
           product: { x: 1 - 0.04 - pw, y: 0.08, w: pw, h: 0.84 },
         };
       },
@@ -75,6 +81,7 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
     {
       // Sản phẩm trái, chữ giữa, logo phải
       id: 'ultra-wide-product-left',
+      packText: true,
       ratioClass: 'ultra-wide',
       slots: (s) => {
         const pw = 0.3 * s;
@@ -84,7 +91,7 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
           product: { x: 0.04, y: 0.08, w: pw, h: 0.84 },
           headline: { x: textX, y: 0.1, w: textW, h: 0.38 },
           subheadline: { x: textX, y: 0.52, w: textW, h: 0.18 },
-          cta: { x: textX, y: 0.74, w: Math.min(0.16, textW), h: 0.18 },
+          cta: { x: textX, y: 0.74, w: textW, h: 0.18 },
           logo: { x: 0.84, y: 0.25, w: 0.12, h: 0.5 },
         };
       },
