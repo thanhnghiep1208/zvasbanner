@@ -1,8 +1,52 @@
-.flow-canvas {
-  position: relative;
+/* Layout 3 cột (SPEC 5.6): Node library · Canvas · Inspector. Màu dùng token của app (app/globals.css). */
+
+.flow-studio {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 300px;
   width: 100%;
   /* Trừ chiều cao header app nếu layout có header cố định */
   height: calc(100dvh - var(--app-header-height, 0px));
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.flow-studio__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 12px;
+  overflow-y: auto;
+  background: var(--card);
+  font-size: 13px;
+}
+
+.flow-studio__panel:first-child {
+  border-right: 1px solid var(--border);
+}
+
+.flow-studio__panel:last-child {
+  border-left: 1px solid var(--border);
+}
+
+.flow-studio__panel-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.flow-studio__hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+/* ── Canvas ─────────────────────────────────────────────────── */
+
+.flow-canvas {
+  position: relative;
+  min-width: 0;
+  height: 100%;
 }
 
 .flow-canvas__empty {
@@ -12,7 +56,7 @@
   place-content: center;
   gap: 4px;
   text-align: center;
-  pointer-events: none; /* không chặn pan/zoom */
+  pointer-events: none; /* không chặn pan/zoom/thả node */
 }
 
 .flow-canvas__empty-title {
@@ -25,4 +69,181 @@
   margin: 0;
   font-size: 13px;
   opacity: 0.65;
+}
+
+/* ── Node library ───────────────────────────────────────────── */
+
+.node-library__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.node-library__group-title {
+  margin: 8px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+}
+
+.node-library__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.node-library__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--background);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+}
+
+.node-library__item:hover {
+  background: var(--accent);
+}
+
+.node-library__item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.node-library__item:active {
+  cursor: grabbing;
+}
+
+.node-library__icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.node-library__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.node-library__badge {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+/* ── Inspector ──────────────────────────────────────────────── */
+
+.inspector__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inspector__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.inspector__label {
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.inspector__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.inspector__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.inspector__chip {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.inspector__chip--on {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.inspector__chip:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.inspector__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inspector__list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inspector__thumb {
+  display: block;
+  max-width: 100%;
+  max-height: 160px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  object-fit: contain;
+  background: var(--muted);
+}
+
+.inspector__issues {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.inspector__issue--error {
+  color: var(--destructive);
+}
+
+.inspector__issue--warning {
+  color: var(--muted-foreground);
 }

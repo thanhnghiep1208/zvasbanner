@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { decompileJob } from '@/lib/flow/decompiler';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import { flatLegacy } from '@/lib/flow/__tests__/fixtures';
-import { selectRFEdges, selectRFNodes, useFlowStore } from '../flow-store';
+import { freePosition, nextNodeId, selectRFEdges, selectRFNodes, selectSingleSelectedNode, useFlowStore } from '../flow-store';
 
 const store = () => useFlowStore.getState();
 
@@ -68,5 +68,52 @@ describe('flow-store', () => {
     expect(store().connect({ source: 'n-brief', sourceHandle: null, target: 'n-generate-flat', targetHandle: 'brief' }))
       .toEqual({ ok: false, reason: 'unknown-port' });
     expect(store().graph.edges).toHaveLength(count);
+  });
+
+  it('addNode: params mặc định (bản sao), id ổn định, chỉ chọn node mới', () => {
+    store().onNodesChange([{ type: 'select', id: 'n-brief', selected: true }]);
+    const id = store().addNode('text-layer', { x: 10, y: 20 });
+    expect(id).toBe('n-text-layer-1');
+    expect(store().addNode('text-layer', { x: 0, y: 0 })).toBe('n-text-layer-2');
+    const node = store().graph.nodes.find((n) => n.id === id)!;
+    expect(node.position).toEqual({ x: 10, y: 20 });
+    expect((node.params as { layerId: string }).layerId).toBe(id);
+    expect(node.params).not.toBe(NODE_DEFINITIONS['text-layer'].defaultParams);
+    expect(selectSingleSelectedNode(store().graph, store().nodeUi)?.id).toBe('n-text-layer-2');
+  });
+
+  it('updateNodeParams gộp nông vào params, node khác giữ nguyên object', () => {
+    const other = store().graph.nodes.find((n) => n.id === 'n-ratio');
+    store().updateNodeParams<'brief'>('n-brief', { prompt: 'Mới' });
+    const brief = store().graph.nodes.find((n) => n.id === 'n-brief')!;
+    expect(brief.params).toMatchObject({ prompt: 'Mới', marketingBrief: { campaignIntents: ['flash-sale'] } });
+    expect(store().graph.nodes.find((n) => n.id === 'n-ratio')).toBe(other);
+  });
+
+  it('selectSingleSelectedNode: 0 hoặc >1 node chọn → null', () => {
+    expect(selectSingleSelectedNode(store().graph, store().nodeUi)).toBeNull();
+    store().onNodesChange([
+      { type: 'select', id: 'n-brief', selected: true },
+      { type: 'select', id: 'n-ratio', selected: true },
+    ]);
+    expect(selectSingleSelectedNode(store().graph, store().nodeUi)).toBeNull();
+  });
+
+  it('nextNodeId lấp chỗ trống nhỏ nhất', () => {
+    const g = { nodes: [{ id: 'n-ratio-1' }, { id: 'n-ratio-3' }], edges: [] } as never;
+    expect(nextNodeId(g, 'ratio')).toBe('n-ratio-2');
+  });
+
+  it('setAssetData lưu dataUrl theo assetId, reset xoá', () => {
+    store().setAssetData('a1', 'data:image/png;base64,x');
+    expect(store().assetData).toEqual({ a1: 'data:image/png;base64,x' });
+    store().reset();
+    expect(store().assetData).toEqual({});
+  });
+
+  it('freePosition lệch chéo khi chỗ đã có node', () => {
+    const g = { nodes: [{ id: 'a', position: { x: 0, y: 0 } }, { id: 'b', position: { x: 32, y: 32 } }], edges: [] } as never;
+    expect(freePosition(g, { x: 0, y: 0 })).toEqual({ x: 64, y: 64 });
+    expect(freePosition(g, { x: 500, y: 0 })).toEqual({ x: 500, y: 0 });
   });
 });

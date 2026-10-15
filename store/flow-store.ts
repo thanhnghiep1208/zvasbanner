@@ -7,9 +7,9 @@
  * RF nodes/edges được dẫn xuất bằng `selectRFNodes`/`selectRFEdges`.
  */
 import { create } from 'zustand';
-import type { Connection, Edge, EdgeChange, Node, NodeChange } from '@xyflow/react';
+import type { Connection, Edge, EdgeChange, Node, NodeChange, XYPosition } from '@xyflow/react';
 import type { ConnectionResult } from '@/lib/flow/connection-rules';
-import type { FlowGraph } from '@/lib/flow/schema';
+import type { FlowGraph, FlowNode, NodeParamsMap, NodeType } from '@/lib/flow/schema';
 import { attemptToEdge, toConnectionAttempt, toRFEdge, toRFNode, type FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { checkConnection } from '@/lib/flow-ui/connection-feedback';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
@@ -25,7 +25,14 @@ type FlowState = {
   edgeUi: Record<string, EdgeUi>;
   /** Trạng thái chạy theo node; executor ghi (T2.6). */
   runInfo: Record<string, NodeRunInfo>;
+  /** dataUrl theo assetId – chỉ có lúc chạy, không persist (= LegacyRuntime.dataUrls). */
+  assetData: Record<string, string>;
   setGraph: (graph: FlowGraph) => void;
+  /** Thêm node với params mặc định, chọn node mới; trả id. */
+  addNode: (type: NodeType, position: XYPosition) => string;
+  /** Gộp nông `patch` vào params (field lồng nhau: truyền cả giá trị mới). */
+  updateNodeParams: <T extends NodeType>(nodeId: string, patch: Partial<NodeParamsMap[T]>) => void;
+  setAssetData: (assetId: string, dataUrl: string) => void;
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   /** Thêm edge nếu `canConnect()` cho phép; trả kết quả để UI báo lỗi. */
@@ -40,8 +47,33 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   nodeUi: {},
   edgeUi: {},
   runInfo: {},
+  assetData: {},
 
   setGraph: (graph) => set({ graph, nodeUi: {}, edgeUi: {}, runInfo: {} }),
+
+  addNode: (type, position) => {
+    const { graph, nodeUi } = get();
+    const id = nextNodeId(graph, type);
+    const params = structuredClone(NODE_DEFINITIONS[type].defaultParams) as NodeParamsMap[typeof type];
+    if (type === 'text-layer') (params as NodeParamsMap['text-layer']).layerId = id;
+    const node = { id, type, params, position: { x: position.x, y: position.y } } as FlowNode;
+    const deselected = Object.fromEntries(
+      Object.entries(nodeUi).map(([k, v]) => [k, { ...v, selected: false }]),
+    );
+    set({ graph: { ...graph, nodes: [...graph.nodes, node] }, nodeUi: { ...deselected, [id]: { selected: true } } });
+    return id;
+  },
+
+  updateNodeParams: (nodeId, patch) =>
+    set((s) => ({
+      graph: {
+        ...s.graph,
+        nodes: s.graph.nodes.map((n) =>
+          n.id === nodeId ? ({ ...n, params: { ...n.params, ...patch } } as FlowNode) : n),
+      },
+    })),
+
+  setAssetData: (assetId, dataUrl) => set((s) => ({ assetData: { ...s.assetData, [assetId]: dataUrl } })),
 
   onNodesChange: (changes) =>
     set((s) => {
@@ -109,8 +141,33 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     return result;
   },
 
-  reset: () => set({ graph: EMPTY_GRAPH, nodeUi: {}, edgeUi: {}, runInfo: {} }),
+  reset: () => set({ graph: EMPTY_GRAPH, nodeUi: {}, edgeUi: {}, runInfo: {}, assetData: {} }),
 }));
+
+/** Id node ổn định, dễ đọc: `n-<type>-<k>` với k nhỏ nhất chưa dùng. */
+export function nextNodeId(graph: FlowGraph, type: NodeType): string {
+  const used = new Set(graph.nodes.map((n) => n.id));
+  let k = 1;
+  while (used.has(`n-${type}-${k}`)) k++;
+  return `n-${type}-${k}`;
+}
+
+const CASCADE = 32;
+
+/** Vị trí trống gần `pos`: lệch chéo từng bước nếu đã có node đặt (gần) đúng chỗ đó. */
+export function freePosition(graph: FlowGraph, pos: XYPosition): XYPosition {
+  let p = { x: pos.x, y: pos.y };
+  const taken = (q: XYPosition) =>
+    graph.nodes.some((n) => Math.abs(n.position.x - q.x) < CASCADE / 2 && Math.abs(n.position.y - q.y) < CASCADE / 2);
+  for (let i = 0; i < 50 && taken(p); i++) p = { x: p.x + CASCADE, y: p.y + CASCADE };
+  return p;
+}
+
+/** Node đang chọn duy nhất (Inspector chỉ sửa khi chọn đúng 1 node). */
+export function selectSingleSelectedNode(graph: FlowGraph, nodeUi: Record<string, NodeUi>): FlowNode | null {
+  const selected = graph.nodes.filter((n) => nodeUi[n.id]?.selected);
+  return selected.length === 1 ? selected[0]! : null;
+}
 
 /* ── Selectors (gọi trong useMemo theo graph + ui) ──────────── */
 

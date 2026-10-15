@@ -26,7 +26,7 @@ import type { FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import styles from './flow-node-card.module.css';
 
-const NODE_ICONS: Record<NodeType, LucideIcon> = {
+export const NODE_ICONS: Record<NodeType, LucideIcon> = {
   'product-asset': Package,
   'reference-image': ImageIcon,
   'brief': FileText,

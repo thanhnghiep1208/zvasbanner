@@ -34,14 +34,14 @@ function Chip({
   );
 }
 
-const INTENT_OPTIONS: { value: CampaignIntent; label: string }[] = [
+export const INTENT_OPTIONS: { value: CampaignIntent; label: string }[] = [
   { value: "flash-sale", label: "⚡ Flash sale" },
   { value: "product-launch", label: "🚀 Ra mắt sản phẩm" },
   { value: "brand-awareness", label: "💡 Nhận thức thương hiệu" },
   { value: "event", label: "🎉 Sự kiện / Ngày lễ" },
 ];
 
-const FOCAL_OPTIONS: { value: FocalSubject; label: string }[] = [
+export const FOCAL_OPTIONS: { value: FocalSubject; label: string }[] = [
   { value: "product", label: "📦 Sản phẩm" },
   { value: "person", label: "👤 Người / Model" },
   { value: "text", label: "✍️ Text / Thông điệp" },
