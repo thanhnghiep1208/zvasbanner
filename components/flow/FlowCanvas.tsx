@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useMemo } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -7,22 +8,52 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  type Connection,
+  type Edge,
+  type IsValidConnection,
+  type OnConnectEnd,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { toast } from 'sonner';
 import { useShallow } from 'zustand/react/shallow';
-import { useFlowStore } from '@/store/flow-store';
+import { REJECT_MESSAGES } from '@/lib/flow/connection-rules';
+import { checkConnection, rejectMessageForConnectionEnd } from '@/lib/flow-ui/connection-feedback';
+import { selectRFEdges, selectRFNodes, useFlowStore } from '@/store/flow-store';
 import styles from './flow-canvas.module.css';
 
 function FlowCanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect } = useFlowStore(
+  const { graph, nodeUi, edgeUi, onNodesChange, onEdgesChange, connect } = useFlowStore(
     useShallow((s) => ({
-      nodes: s.nodes,
-      edges: s.edges,
+      graph: s.graph,
+      nodeUi: s.nodeUi,
+      edgeUi: s.edgeUi,
       onNodesChange: s.onNodesChange,
       onEdgesChange: s.onEdgesChange,
-      onConnect: s.onConnect,
+      connect: s.connect,
     })),
   );
+
+  const nodes = useMemo(() => selectRFNodes(graph, nodeUi), [graph, nodeUi]);
+  const edges = useMemo(() => selectRFEdges(graph, edgeUi), [graph, edgeUi]);
+
+  // Đọc graph mới nhất từ store: các callback này được gọi liên tục khi đang kéo dây.
+  const isValidConnection = useCallback<IsValidConnection>(
+    (c: Edge | Connection) => checkConnection(useFlowStore.getState().graph, c).ok,
+    [],
+  );
+
+  const onConnect = useCallback(
+    (c: Connection) => {
+      const res = connect(c);
+      if (!res.ok) toast.error(REJECT_MESSAGES[res.reason]);
+    },
+    [connect],
+  );
+
+  const onConnectEnd = useCallback<OnConnectEnd>((_, state) => {
+    const message = rejectMessageForConnectionEnd(useFlowStore.getState().graph, state);
+    if (message) toast.error(message);
+  }, []);
 
   const isEmpty = nodes.length === 0;
 
@@ -34,6 +65,8 @@ function FlowCanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onConnectEnd={onConnectEnd}
+        isValidConnection={isValidConnection}
         fitView
         proOptions={{ hideAttribution: false }}
       >

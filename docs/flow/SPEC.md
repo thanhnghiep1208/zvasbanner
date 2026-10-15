@@ -53,7 +53,7 @@ Style/Brand/Ref┘        └──── transforms ─────────
 | Layout engine | `lib/flow/layout/` | **Chưa có** |
 | Executor engine | `lib/flow/executor.ts` | **Chưa có** |
 | RF adapter | `lib/flow-ui/rf-adapter.ts` (FlowNode ↔ React Flow node) | Có (T2.1) |
-| Store | `store/flow-store.ts` | Khung, chưa dùng domain |
+| Store | `store/flow-store.ts` | Giữ `FlowGraph` domain + ui riêng (T2.2) |
 | UI | `components/flow/` | Canvas trống |
 | Route | `app/(studio)/flow/page.tsx` (hoặc `src/app/...`) | Có, sau flag |
 
@@ -118,7 +118,7 @@ Dùng `lib/analytics-events.ts`. Event mới: `flow_opened`, `flow_run_started` 
 
 ## 6. Quy tắc làm việc cho Claude Code
 
-1. Đầu phiên: đọc file này + `docs/flow/QUESTIONS.md`; chạy `npx vitest run lib/flow` để chắc nền đang xanh.
+1. Đầu phiên: đọc file này + `docs/flow/QUESTIONS.md`; chạy `npx vitest run lib/flow store` để chắc nền đang xanh.
 2. Làm **một task** mỗi lần, theo thứ tự mục 8. Task bị chặn bởi câu hỏi chưa trả lời → bỏ qua, làm task kế tiếp không phụ thuộc.
 3. Trước khi code: tìm và đọc file liên quan trong repo. Không đoán API.
 4. Sau mỗi task: test + `npx tsc --noEmit` pass → tick checklist mục 8 → commit `feat(flow): <task id> <mô tả>`.
@@ -129,7 +129,7 @@ Dùng `lib/analytics-events.ts`. Event mới: `flow_opened`, `flow_run_started` 
 ## 7. Lệnh kiểm tra
 
 ```bash
-npx vitest run lib/flow   # khớp cả lib/flow-ui (lọc theo chuỗi con của đường dẫn)
+npx vitest run lib/flow store   # khớp lib/flow, lib/flow-ui, store/__tests__ (lọc theo chuỗi con của đường dẫn)
 npx tsc --noEmit
 npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 ```
@@ -146,7 +146,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 
 ### Bước 2 – Canvas chạy được 1 path
 - [x] **T2.1** `lib/flow-ui/rf-adapter.ts`: FlowNode/FlowEdge ↔ React Flow node/edge (handle id = port id)
-- [ ] **T2.2** `flow-store.ts` giữ `FlowGraph` domain; `onConnect` dùng `canConnect`, lỗi → toast
+- [x] **T2.2** `flow-store.ts` giữ `FlowGraph` domain; `onConnect` dùng `canConnect`, lỗi → toast
 - [ ] **T2.3** Node component chung `FlowNodeCard` render từ `NODE_DEFINITIONS` (ports, label, run state)
 - [ ] **T2.4** Node library kéo thả + Inspector cơ bản
 - [ ] **T2.5** Layout engine bản tối thiểu (1 variant/ratio class, chưa co giãn) để path chạy được
@@ -204,3 +204,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 - **2026-10-12** – Xong T1.4. 4 payload thật log từ form (làm sạch id/url/fileName/dataUrl) + 1 payload tự dựng phủ đủ 5 asset role, backgroundConfig, brand kit, canvas custom, `layoutAdaptationFromBanner` (`lib/flow/__tests__/fixtures/legacy/`). Mỗi fixture: server parse được, tách text từ prompt = lấy từ form, round-trip legacy → job → graph → job → legacy khớp. `flatLegacy` giờ sinh từ payload thật. Đã gỡ route và khối log tạm. 71 test pass, tsc pass. Tiếp theo: T1.5.
 - **2026-10-12** – Xong T1.5, đóng bước 1. `lib/flow/text/text-style.ts`: `TextStyle` (font registry `FLOW_FONTS`, weight, italic, cỡ/giãn dòng/letter-spacing, transform, align, maxLines, fill, stroke, shadow, plate), mặc định theo role, `validateTextStyle` → lỗi `text-style-invalid` trong `validateGraph`. `text-layer.style` thay `typography`. Thêm Q10 (bộ font). 82 test pass, tsc pass. Tiếp theo: T2.1.
 - **2026-10-12** – Xong T2.1. `lib/flow-ui/rf-adapter.ts`: `toRFNode`/`fromRFNode` (RF `type` = NodeType, `data.params`), `toRFEdge`/`fromRFEdge` (handle id = port id), `graphToRF`/`rfToGraph`, `toConnectionAttempt` (cho `isValidConnection`/`onConnect`), `attemptToEdge`. Thêm `makeEdgeId` vào `schema.ts` (decompiler dùng chung). Field riêng của RF không đi ngược vào domain. 91 test pass, tsc pass. Tiếp theo: T2.2.
+- **2026-10-15** – Xong T2.2. `store/flow-store.ts` giữ `graph` domain; trạng thái hiển thị của RF (selected, dragging, measured) để riêng trong `nodeUi`/`edgeUi`, RF nodes/edges dẫn xuất qua `selectRFNodes`/`selectRFEdges`; đổi ui không tạo object graph mới. `connect()` chạy `canConnect`; `lib/flow-ui/connection-feedback.ts` dùng cùng luật cho `isValidConnection` và toast Sonner khi thả dây vào handle sai (kể cả kéo ngược input → output). Xoá node xoá luôn edge nối vào. `/flow` compile, chưa đăng nhập → 307 về /sign-in. 102 test pass, tsc pass. Chưa xem được canvas trên trình duyệt vì cần đăng nhập; graph vẫn rỗng cho tới T2.3/T2.4. Tiếp theo: T2.3.
