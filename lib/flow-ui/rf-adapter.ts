@@ -11,8 +11,13 @@ import type { ConnectionAttempt } from '@/lib/flow/connection-rules';
 import { getDefinition } from '@/lib/flow/node-definitions';
 import type { FlowEdge, FlowGraph, FlowNode, NodeParamsMap, NodeType } from '@/lib/flow/schema';
 import { makeEdgeId } from '@/lib/flow/schema';
+import type { NodeRunInfo } from '@/lib/flow/run-state';
 
-export type FlowRFNodeData<T extends NodeType = NodeType> = { params: NodeParamsMap[T] };
+export type FlowRFNodeData<T extends NodeType = NodeType> = {
+  params: NodeParamsMap[T];
+  /** Chỉ hiển thị; không đi ngược vào domain. */
+  run?: NodeRunInfo;
+};
 export type FlowRFNode<T extends NodeType = NodeType> = Node<FlowRFNodeData<T>, T>;
 export type FlowRFEdge = Edge;
 

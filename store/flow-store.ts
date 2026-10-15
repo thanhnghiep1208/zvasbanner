@@ -12,6 +12,9 @@ import type { ConnectionResult } from '@/lib/flow/connection-rules';
 import type { FlowGraph } from '@/lib/flow/schema';
 import { attemptToEdge, toConnectionAttempt, toRFEdge, toRFNode, type FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { checkConnection } from '@/lib/flow-ui/connection-feedback';
+import { summarizeNode } from '@/lib/flow-ui/node-summary';
+import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
+import type { NodeRunInfo } from '@/lib/flow/run-state';
 
 type NodeUi = Pick<Node, 'selected' | 'dragging' | 'measured'>;
 type EdgeUi = Pick<Edge, 'selected'>;
@@ -20,6 +23,8 @@ type FlowState = {
   graph: FlowGraph;
   nodeUi: Record<string, NodeUi>;
   edgeUi: Record<string, EdgeUi>;
+  /** Trạng thái chạy theo node; executor ghi (T2.6). */
+  runInfo: Record<string, NodeRunInfo>;
   setGraph: (graph: FlowGraph) => void;
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -34,8 +39,9 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   graph: EMPTY_GRAPH,
   nodeUi: {},
   edgeUi: {},
+  runInfo: {},
 
-  setGraph: (graph) => set({ graph, nodeUi: {}, edgeUi: {} }),
+  setGraph: (graph) => set({ graph, nodeUi: {}, edgeUi: {}, runInfo: {} }),
 
   onNodesChange: (changes) =>
     set((s) => {
@@ -103,13 +109,27 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     return result;
   },
 
-  reset: () => set({ graph: EMPTY_GRAPH, nodeUi: {}, edgeUi: {} }),
+  reset: () => set({ graph: EMPTY_GRAPH, nodeUi: {}, edgeUi: {}, runInfo: {} }),
 }));
 
 /* ── Selectors (gọi trong useMemo theo graph + ui) ──────────── */
 
-export function selectRFNodes(graph: FlowGraph, nodeUi: Record<string, NodeUi>): FlowRFNode[] {
-  return graph.nodes.map((n) => ({ ...toRFNode(n), ...nodeUi[n.id] }));
+export function selectRFNodes(
+  graph: FlowGraph,
+  nodeUi: Record<string, NodeUi>,
+  runInfo: Record<string, NodeRunInfo> = {},
+): FlowRFNode[] {
+  return graph.nodes.map((n) => {
+    const rf = toRFNode(n);
+    const label = NODE_DEFINITIONS[n.type].label;
+    const summary = summarizeNode(n);
+    return {
+      ...rf,
+      ...nodeUi[n.id],
+      data: runInfo[n.id] ? { ...rf.data, run: runInfo[n.id] } : rf.data,
+      ariaLabel: summary ? `${label}: ${summary}` : label,
+    };
+  });
 }
 
 export function selectRFEdges(graph: FlowGraph, edgeUi: Record<string, EdgeUi>): Edge[] {

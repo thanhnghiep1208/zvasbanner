@@ -1,0 +1,186 @@
+/*
+ * Node card (T2.3). Màu nền/viền/chữ dùng token của app (app/globals.css).
+ * Màu port dùng bảng màu Tailwind sẵn có (var(--color-*)), có fallback vì Tailwind v4
+ * chỉ xuất biến được dùng ở nơi khác.
+ */
+
+.flow-node {
+  --flow-node-accent: var(--border);
+  position: relative;
+  width: 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--card-foreground);
+  font-size: 12px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+.flow-node--selected {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px var(--ring);
+}
+
+/* Focus ring khi điều hướng bằng bàn phím (React Flow focus vào wrapper của node). */
+:global(.react-flow__node:focus-visible) > .flow-node {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.flow-node__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: var(--muted);
+}
+
+.flow-node__icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.flow-node__title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-node__status {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.flow-node__summary {
+  margin: 0;
+  padding: 6px 10px 0;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-node__ports {
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+}
+
+.flow-node__port {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 14px;
+}
+
+.flow-node__port--output {
+  justify-content: flex-end;
+}
+
+.flow-node__port-label {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.flow-node__required {
+  color: var(--destructive);
+}
+
+.flow-node__multiple {
+  color: var(--muted-foreground);
+}
+
+/* Double class để thắng style mặc định .react-flow__handle */
+.flow-node .flow-node__handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--card);
+  background: var(--port-color, var(--muted-foreground));
+}
+
+.flow-node .flow-node__handle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.flow-node__handle--product { --port-color: var(--color-amber-500, oklch(0.769 0.188 70.08)); }
+.flow-node__handle--image { --port-color: var(--color-violet-500, oklch(0.606 0.25 292.717)); }
+.flow-node__handle--brief { --port-color: var(--color-sky-500, oklch(0.685 0.169 237.323)); }
+.flow-node__handle--text { --port-color: var(--color-indigo-500, oklch(0.585 0.233 277.117)); }
+.flow-node__handle--brand { --port-color: var(--color-rose-500, oklch(0.645 0.246 16.439)); }
+.flow-node__handle--ratio { --port-color: var(--color-teal-500, oklch(0.704 0.14 182.503)); }
+.flow-node__handle--style { --port-color: var(--color-fuchsia-500, oklch(0.667 0.295 322.15)); }
+.flow-node__handle--layout { --port-color: var(--color-lime-500, oklch(0.768 0.233 130.85)); }
+.flow-node__handle--background { --port-color: var(--color-emerald-500, oklch(0.696 0.17 162.48)); }
+.flow-node__handle--composition { --port-color: var(--color-orange-500, oklch(0.705 0.213 47.604)); }
+.flow-node__handle--raster { --port-color: var(--color-slate-500, oklch(0.554 0.046 257.417)); }
+
+/* ── Run state ─────────────────────────────────────────────── */
+
+.flow-node--stale {
+  border-color: var(--color-amber-500, oklch(0.769 0.188 70.08));
+}
+
+.flow-node--error {
+  border-color: var(--destructive);
+}
+
+.flow-node--running .flow-node__header {
+  background: linear-gradient(90deg, var(--muted) 0%, var(--accent) 40%, var(--muted) 80%);
+  background-size: 200% 100%;
+  animation: flow-node-shimmer 1.4s linear infinite;
+}
+
+@keyframes flow-node-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-node--running .flow-node__header {
+    animation: none;
+  }
+}
+
+.flow-node__error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 10px 8px;
+  color: var(--destructive);
+}
+
+.flow-node__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  cursor: pointer;
+}
+
+.flow-node__retry:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.flow-node__preview {
+  display: block;
+  width: calc(100% - 20px);
+  margin: 0 10px 10px;
+  border-radius: calc(var(--radius) - 4px);
+}

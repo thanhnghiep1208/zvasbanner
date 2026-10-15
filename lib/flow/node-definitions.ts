@@ -30,11 +30,26 @@ const inPort = (id: string, type: PortType, required = false, multiple = false):
 });
 const out = (id: string, type: PortType) => ({ id, type });
 
+/** Nhãn hiển thị theo kiểu port (port id = kiểu port trong registry hiện tại). */
+export const PORT_TYPE_LABELS: Record<PortType, string> = {
+  product: 'Asset giữ pixel',
+  image: 'Ảnh tham chiếu',
+  brief: 'Brief',
+  text: 'Text',
+  brand: 'Brand kit',
+  ratio: 'Kích thước',
+  style: 'Phong cách',
+  layout: 'Layout',
+  background: 'Nền',
+  composition: 'Bản ghép',
+  raster: 'Ảnh',
+};
+
 type Registry = { [K in NodeType]: NodeDefinition<K> };
 
 export const NODE_DEFINITIONS: Registry = {
   'product-asset': {
-    type: 'product-asset', kind: 'input', label: 'Product asset',
+    type: 'product-asset', kind: 'input', label: 'Asset (giữ pixel)',
     inputs: [], outputs: [out('product', 'product')],
     defaultParams: {
       assetId: '', url: '', fileName: '', role: 'image', hasAlpha: false,
@@ -43,7 +58,7 @@ export const NODE_DEFINITIONS: Registry = {
     aiCallsPerRatio: 0,
   },
   'reference-image': {
-    type: 'reference-image', kind: 'input', label: 'Reference image',
+    type: 'reference-image', kind: 'input', label: 'Ảnh tham chiếu',
     inputs: [], outputs: [out('image', 'image')],
     defaultParams: {
       assetId: '', url: '', fileName: '', role: 'style-reference', hasAlpha: false,
@@ -58,7 +73,7 @@ export const NODE_DEFINITIONS: Registry = {
     aiCallsPerRatio: 0,
   },
   'text-layer': {
-    type: 'text-layer', kind: 'input', label: 'Text layer',
+    type: 'text-layer', kind: 'input', label: 'Text',
     inputs: [], outputs: [out('text', 'text')],
     defaultParams: {
       layerId: '', role: 'headline', content: '', renderSource: 'layer',
@@ -73,12 +88,12 @@ export const NODE_DEFINITIONS: Registry = {
     defaultParams: { colors: [] }, aiCallsPerRatio: 0,
   },
   'ratio': {
-    type: 'ratio', kind: 'config', label: 'Ratio',
+    type: 'ratio', kind: 'config', label: 'Kích thước',
     inputs: [], outputs: [out('ratio', 'ratio')],
     defaultParams: { ratios: [DEFAULT_RATIO] }, aiCallsPerRatio: 0,
   },
   'style': {
-    type: 'style', kind: 'config', label: 'Style',
+    type: 'style', kind: 'config', label: 'Phong cách',
     inputs: [], outputs: [out('style', 'style')],
     defaultParams: DEFAULT_STYLE, aiCallsPerRatio: 0,
   },
@@ -93,7 +108,7 @@ export const NODE_DEFINITIONS: Registry = {
     defaultParams: { overrides: {} }, aiCallsPerRatio: 0,
   },
   'generate-background': {
-    type: 'generate-background', kind: 'executor', label: 'Generate background',
+    type: 'generate-background', kind: 'executor', label: 'Sinh nền',
     inputs: [
       inPort('layout', 'layout', true),
       inPort('brief', 'brief', true),
@@ -106,7 +121,7 @@ export const NODE_DEFINITIONS: Registry = {
     aiCallsPerRatio: 1,
   },
   'generate-flat': {
-    type: 'generate-flat', kind: 'executor', label: 'Generate (flat, legacy)', legacy: true,
+    type: 'generate-flat', kind: 'executor', label: 'Sinh banner (flat)', legacy: true,
     inputs: [
       inPort('ratio', 'ratio', true),
       inPort('brief', 'brief', true),
@@ -122,7 +137,7 @@ export const NODE_DEFINITIONS: Registry = {
     aiCallsPerRatio: 2,
   },
   'compose': {
-    type: 'compose', kind: 'output', label: 'Compose',
+    type: 'compose', kind: 'output', label: 'Ghép layer',
     inputs: [
       inPort('background', 'background', true),
       inPort('layout', 'layout', true),
@@ -133,7 +148,7 @@ export const NODE_DEFINITIONS: Registry = {
     defaultParams: { shadow: DEFAULT_SHADOW }, aiCallsPerRatio: 0,
   },
   'export': {
-    type: 'export', kind: 'output', label: 'Export',
+    type: 'export', kind: 'output', label: 'Xuất ảnh',
     inputs: [inPort('composition', 'composition'), inPort('raster', 'raster')],
     outputs: [],
     defaultParams: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' }, aiCallsPerRatio: 0,

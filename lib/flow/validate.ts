@@ -1,5 +1,5 @@
 import type { FlowGraph, FlowNode } from './schema';
-import { getDefinition } from './node-definitions';
+import { getDefinition, PORT_TYPE_LABELS } from './node-definitions';
 import { validateTextStyle } from './text/text-style';
 
 export interface ValidationIssue {
@@ -44,11 +44,11 @@ export function validateGraph(graph: FlowGraph): ValidationIssue[] {
       const count = graph.edges.filter((e) => e.target === n.id && e.targetPort === port.id).length;
       if (port.required && count === 0) {
         issues.push({ severity: 'error', code: 'missing-input', nodeId: n.id,
-          message: `${def.label}: thiếu input "${port.id}".` });
+          message: `${def.label}: thiếu input "${PORT_TYPE_LABELS[port.type]}".` });
       }
       if (!port.multiple && count > 1) {
         issues.push({ severity: 'error', code: 'port-overloaded', nodeId: n.id,
-          message: `${def.label}: port "${port.id}" chỉ nhận 1 kết nối.` });
+          message: `${def.label}: port "${PORT_TYPE_LABELS[port.type]}" chỉ nhận 1 kết nối.` });
       }
     }
   }

@@ -19,21 +19,23 @@ import { useShallow } from 'zustand/react/shallow';
 import { REJECT_MESSAGES } from '@/lib/flow/connection-rules';
 import { checkConnection, rejectMessageForConnectionEnd } from '@/lib/flow-ui/connection-feedback';
 import { selectRFEdges, selectRFNodes, useFlowStore } from '@/store/flow-store';
+import { FLOW_NODE_TYPES } from './nodes/FlowNodeCard';
 import styles from './flow-canvas.module.css';
 
 function FlowCanvasInner() {
-  const { graph, nodeUi, edgeUi, onNodesChange, onEdgesChange, connect } = useFlowStore(
+  const { graph, nodeUi, edgeUi, runInfo, onNodesChange, onEdgesChange, connect } = useFlowStore(
     useShallow((s) => ({
       graph: s.graph,
       nodeUi: s.nodeUi,
       edgeUi: s.edgeUi,
+      runInfo: s.runInfo,
       onNodesChange: s.onNodesChange,
       onEdgesChange: s.onEdgesChange,
       connect: s.connect,
     })),
   );
 
-  const nodes = useMemo(() => selectRFNodes(graph, nodeUi), [graph, nodeUi]);
+  const nodes = useMemo(() => selectRFNodes(graph, nodeUi, runInfo), [graph, nodeUi, runInfo]);
   const edges = useMemo(() => selectRFEdges(graph, edgeUi), [graph, edgeUi]);
 
   // Đọc graph mới nhất từ store: các callback này được gọi liên tục khi đang kéo dây.
@@ -62,6 +64,7 @@ function FlowCanvasInner() {
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={FLOW_NODE_TYPES}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
