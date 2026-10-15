@@ -10,3 +10,4 @@ export * from './text/text-style';
 export * from './legacy/from-legacy-config';
 export * from './legacy/to-legacy-config';
 export * from './run-state';
+export * from './layout';
