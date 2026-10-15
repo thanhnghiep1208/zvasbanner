@@ -104,5 +104,5 @@ Lựa chọn:
 - B. Giữ 'hatched' (đúng SPEC), chấp nhận rủi ro chữ/khung ở square/portrait.
 - C. Chạy thêm ~40 lượt (5 mẫu × 4 ratio × A/E) rồi mới chốt.
 Đề xuất: A. Lỗi của E (đồ vật lấn vùng sản phẩm) phần lớn bị sản phẩm thật che; lỗi của guide (chữ/nhãn trên nền) phá hỏng banner. Đổi = 1 dòng `GUIDE_STYLE` trong `components/flow/use-flow-run.ts`.
-Trạng thái: chờ Nghiệp
+Trạng thái: **đã chốt A** (2026-10-15) – mặc định `natural`, SPEC 3 #1 đã sửa.
 
