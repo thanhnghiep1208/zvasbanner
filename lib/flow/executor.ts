@@ -6,10 +6,17 @@
  *
  * Nhiều ratio: ratio đầu sinh từ đầu; các ratio sau gửi kèm `layoutAdaptationFromBanner` = ảnh ratio đầu,
  * giống "Biến thể kích thước" của form (AdditionalCanvasSizesPanel). Chạy tuần tự, tôn trọng rate limit.
+ * Composed (T4.2): layout → guide image → POST /api/flow/generate-background, 1 lần / ratio.
+ *   Ghép layer (T4.3) chưa có: kết quả tạm thời là ảnh nền.
  * Chưa có (T4.7): cache, stale, Run từ node.
  */
 import type { CanvasConfig, GenerationRequest } from '@/lib/types';
+import type { CompiledJob } from './compiled-job';
 import { compileGraph } from './compiler';
+import { toBackgroundRequests, type BackgroundRequest } from './background/request';
+import { planLayoutForJob } from './layout/engine';
+import type { TextMeasurer } from './layout/measure';
+import type { GuideRect } from './layout/types';
 import { toLegacyConfig, type LegacyIssue } from './legacy/to-legacy-config';
 import type { LegacyRuntime } from './legacy/from-legacy-config';
 import type { NodeRunInfo } from './run-state';
@@ -19,9 +26,17 @@ export type GenerateResult =
   | { ok: true; image: string; source: 'gemini' | 'placeholder'; placeholderError?: string }
   | { ok: false; error: string };
 
+export type BackgroundResult = { ok: true; image: string } | { ok: false; error: string };
+
 export interface ExecutorDeps {
   generate: (request: GenerationRequest) => Promise<GenerateResult>;
   onRunInfo: (nodeId: string, info: NodeRunInfo) => void;
+  /** Composed: gọi /api/flow/generate-background. */
+  generateBackground?: (request: BackgroundRequest) => Promise<BackgroundResult>;
+  /** Composed: vẽ layout guide image (PNG data URL) – UI dùng Canvas 2D. */
+  renderGuide?: (canvas: CanvasConfig, guide: GuideRect[]) => string | Promise<string>;
+  /** Measurer cho layout (T4.4 truyền Canvas 2D); mặc định ước lượng. */
+  measurer?: TextMeasurer;
 }
 
 export interface RatioResult {
@@ -43,6 +58,10 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
   const compiled = compileGraph(graph);
   if (!compiled.ok) {
     return fail(deps, compiled.errors.map((e) => ({ message: e.message, nodeId: e.nodeId })));
+  }
+
+  if (compiled.job.renderMode === 'composed') {
+    return runComposed(graph, compiled.job, runtime, deps, compiled.warnings.map((w) => ({ message: w.message, nodeId: w.nodeId })));
   }
 
   const exportNode = graph.nodes.find((n) => n.type === 'export')!;
@@ -94,6 +113,69 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
   deps.onRunInfo(execNode.id, { state: 'done', previewUrl: results[0]!.image });
   deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image });
   return { ok: true, results, warnings };
+}
+
+/* ── Composed (T4.2) ────────────────────────────────────────── */
+
+async function runComposed(
+  graph: FlowGraph, job: CompiledJob, runtime: LegacyRuntime, deps: ExecutorDeps, warnings: RunIssue[],
+): Promise<RunOutcome> {
+  const byType = (t: string) => graph.nodes.find((n) => n.type === t)!;
+  const layoutNode = byType('auto-layout');
+  const genNode = byType('generate-background');
+  const composeNode = byType('compose');
+  const exportNode = byType('export');
+
+  if (!deps.generateBackground || !deps.renderGuide) {
+    return fail(deps, [{ nodeId: genNode.id, message: 'Môi trường hiện tại chưa hỗ trợ sinh nền.' }]);
+  }
+
+  const layout = planLayoutForJob(job, { measurer: deps.measurer });
+  if (!layout.ok) return fail(deps, [{ nodeId: layoutNode.id, message: layout.message }]);
+  deps.onRunInfo(layoutNode.id, { state: 'done' });
+
+  const drafts = toBackgroundRequests(job, layout.plan, runtime);
+  if (!drafts.ok) return fail(deps, [{ nodeId: genNode.id, message: drafts.message }]);
+  if (drafts.missingAssetIds.length) {
+    const refNodes = graph.nodes.filter((n) => n.type === 'reference-image'
+      && drafts.missingAssetIds.includes((n.params as { assetId: string }).assetId));
+    return fail(deps, refNodes.map((n) => ({
+      nodeId: n.id,
+      message: (n.params as { fileName: string }).fileName ? 'Cần tải lại ảnh trước khi chạy.' : 'Chưa có ảnh.',
+    })));
+  }
+
+  deps.onRunInfo(genNode.id, { state: 'running' });
+  deps.onRunInfo(composeNode.id, { state: 'queued' });
+  const results: RatioResult[] = [];
+  for (const [i, { ratioId, request }] of drafts.drafts.entries()) {
+    const prefix = drafts.drafts.length > 1 ? `Kích thước ${i + 1}/${drafts.drafts.length}: ` : '';
+    let res: BackgroundResult;
+    try {
+      const guideImage = await deps.renderGuide(request.canvasConfig, request.guide);
+      res = await deps.generateBackground({ ...request, guideImage });
+    } catch (e) {
+      res = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+    if (!res.ok) {
+      const message = prefix + res.error;
+      deps.onRunInfo(genNode.id, { state: 'error', message, previewUrl: results[0]?.image });
+      deps.onRunInfo(composeNode.id, { state: 'idle' });
+      return { ok: false, errors: [{ message, nodeId: genNode.id }], results };
+    }
+    results.push({ ratioId, canvasConfig: request.canvasConfig, image: res.image });
+    deps.onRunInfo(genNode.id, { state: 'running', previewUrl: results[0]!.image });
+  }
+
+  deps.onRunInfo(genNode.id, { state: 'done', previewUrl: results[0]!.image });
+  // T4.3 chưa có: Ghép layer chưa chạy, kết quả là ảnh nền.
+  deps.onRunInfo(composeNode.id, { state: 'idle' });
+  deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image });
+  return {
+    ok: true,
+    results,
+    warnings: [...warnings, { nodeId: composeNode.id, message: 'Ghép layer chưa có (T4.3): kết quả hiện là ảnh nền.' }],
+  };
 }
 
 function fail(deps: ExecutorDeps, errors: RunIssue[]): RunOutcome {

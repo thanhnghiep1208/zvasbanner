@@ -5,7 +5,9 @@ import { toast } from 'sonner';
 import { requestGenerationWithPayload } from '@/lib/client-generation';
 import { estimateAiCalls } from '@/lib/flow/compiled-job';
 import { compileGraph } from '@/lib/flow/compiler';
-import { runAll, type GenerateResult } from '@/lib/flow/executor';
+import type { BackgroundRequest } from '@/lib/flow/background/request';
+import { runAll, type BackgroundResult, type GenerateResult } from '@/lib/flow/executor';
+import { renderGuideImage } from '@/lib/flow-ui/guide-image';
 import { useFlowStore } from '@/store/flow-store';
 
 /** Gọi /api/generate qua client hiện có (timeout, map lỗi HTTP → message tiếng Việt giữ nguyên như form). */
@@ -13,6 +15,28 @@ async function generate(request: Parameters<typeof requestGenerationWithPayload>
   const res = await requestGenerationWithPayload(request);
   if (!res.ok) return { ok: false, error: res.error };
   return { ok: true, image: res.image, source: res.source, placeholderError: res.placeholderError };
+}
+
+/** Lớn hơn timeout Gemini phía server (55s) + overhead; route maxDuration = 90s. */
+const BACKGROUND_TIMEOUT_MS = 92_000;
+
+/** POST /api/flow/generate-background (composed, T4.2). Lỗi HTTP → message tiếng Việt từ server. */
+async function generateBackground(request: BackgroundRequest): Promise<BackgroundResult> {
+  try {
+    const res = await fetch('/api/flow/generate-background', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(BACKGROUND_TIMEOUT_MS),
+    });
+    const json = (await res.json().catch(() => null)) as { image?: unknown; error?: unknown; errorCode?: unknown } | null;
+    if (res.ok && typeof json?.image === 'string') return { ok: true, image: json.image };
+    const code = typeof json?.errorCode === 'string' ? `[E-BG-${json.errorCode}] ` : `[E-BG-${res.status}] `;
+    return { ok: false, error: code + (typeof json?.error === 'string' ? json.error : `Sinh nền thất bại (HTTP ${res.status}).`) };
+  } catch (e) {
+    const timeout = e instanceof DOMException && e.name === 'TimeoutError';
+    return { ok: false, error: timeout ? '[E-BG-CLIENT-TIMEOUT] Sinh nền quá thời gian chờ. Vui lòng thử lại.' : 'Không gửi được yêu cầu sinh nền.' };
+  }
 }
 
 /** Run all (T2.6) + số lượt gọi AI ước tính, hiển thị trước khi chạy (SPEC 5.3). */
@@ -31,6 +55,8 @@ export function useFlowRun() {
     store.startRun();
     const outcome = await runAll(store.graph, { dataUrls: store.assetData }, {
       generate,
+      generateBackground,
+      renderGuide: renderGuideImage,
       onRunInfo: (nodeId, info) => useFlowStore.getState().setRunInfo(nodeId, info),
     });
     useFlowStore.getState().finishRun(outcome.results);

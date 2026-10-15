@@ -11,7 +11,8 @@ import {
 import { assembleFullPrompt } from "@/lib/prompt-builder";
 import type { GenerationRequest } from "@/lib/types";
 import { parseGenerateApiBody } from "@/lib/validate-generation";
-import { createRateLimiter, readJsonWithSizeLimit } from "@/lib/request-limits";
+import { readJsonWithSizeLimit } from "@/lib/request-limits";
+import { checkGenerationRateLimit as checkRateLimit } from "@/lib/generation-rate-limit";
 
 export const maxDuration = 90;
 
@@ -19,8 +20,6 @@ const ASSET_PRIORITY_TIMEOUT_MS = 58_000;
 
 // 30 MB ceiling enforced on actual bytes read, not just Content-Length.
 const MAX_REQUEST_BODY_BYTES = 30 * 1024 * 1024;
-
-const checkRateLimit = createRateLimiter(20, 60 * 60 * 1000); // 20 req/hr/user
 
 function normalizeGenerationError(raw: string): {
   userMessage: string;

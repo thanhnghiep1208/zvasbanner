@@ -72,7 +72,7 @@ Lựa chọn:
 - A. Thêm route mới `app/api/flow/generate-background/route.ts` (không sửa route cũ), dùng lại `createRateLimiter(20, 1h)`, `readJsonWithSizeLimit`, `requireUser`, model profile trong `lib/gemini-server.ts` (chỉ import, không sửa).
 - B. Thêm nhánh `mode: 'background'` vào `/api/generate` (sửa route cũ, trái nguyên tắc 2.2).
 Đề xuất: A. Cần quyết thêm: rate limit dùng chung bucket với `/api/generate` hay bucket riêng (nguyên tắc 2.7: không tạo đường vòng → nên dùng chung).
-Trạng thái: **đã chốt A** (2026-10-12). Còn chốt cách dùng chung bucket rate limit với `/api/generate` khi làm T4.2: limiter hiện khai báo riêng trong từng route, muốn dùng chung phải tách ra module chung, tức là sửa route cũ.
+Trạng thái: **đã chốt A** (2026-10-12). Rate limit: **dùng chung** (2026-10-15) qua `lib/generation-rate-limit.ts`; `/api/generate` sửa 1 dòng import.
 
 ## Q9 – Text layer không có chỗ trong request legacy (task T1.3, T2.6)
 Bối cảnh: Form cũ chỉ có 1 headline, 1 subheadline, 1 CTA, ghép vào `userPrompt` bằng `composeUserPrompt()`. Canvas cho phép role `custom` và nhiều layer cùng role. Hiện `toLegacyConfig` lấy layer đầu tiên của mỗi role, phần còn lại không gửi và trả warning `unmapped-text`.
