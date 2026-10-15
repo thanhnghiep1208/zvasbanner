@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type DragEvent } from 'react';
 import Link from 'next/link';
 import {
   Background,
@@ -28,6 +28,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { REJECT_MESSAGES } from '@/lib/flow/connection-rules';
 import { getDefinition, NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeType } from '@/lib/flow/schema';
+import { DEFAULT_TEMPLATES, getTemplate } from '@/lib/flow/template';
 import { validateGraph } from '@/lib/flow/validate';
 import { checkConnection, rejectMessageForConnectionEnd } from '@/lib/flow-ui/connection-feedback';
 import { nodeKeys } from '@/lib/flow/cache-keys';
@@ -38,6 +39,7 @@ import {
 import { EDGE_CLASS } from './flow-styles';
 import { FLOW_FONT_VARIABLES } from './flow-fonts';
 import { Inspector } from './inspector/Inspector';
+import { TemplatePicker } from './TemplatePicker';
 import { SimpleView } from './simple/SimpleView';
 import { NODE_DRAG_MIME, NodeLibrary } from './NodeLibrary';
 import { FLOW_NODE_TYPES, FlowNodeActionsContext } from './nodes/FlowNodeCard';
@@ -182,11 +184,13 @@ function FlowCanvasInner() {
             <PanelLeft />
           </Button>
           <Link href="/" className="truncate font-semibold tracking-tight hover:opacity-80">BannerAI</Link>
-          <span className="text-muted-foreground/60" aria-hidden>/</span>
-          <span className="truncate text-sm font-medium">Flow canvas</span>
-          <Badge variant="secondary" className="hidden sm:inline-flex">Beta</Badge>
+          <span className="hidden text-muted-foreground/60 xl:inline" aria-hidden>/</span>
+          <span className="hidden truncate text-sm font-medium xl:inline">Flow canvas</span>
+          <Badge variant="secondary" className="hidden lg:inline-flex">Beta</Badge>
+          <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
+          <TemplatePicker />
           {hasExposed && (
-            <div className="ml-2 inline-flex rounded-lg border bg-muted p-0.5 text-xs" role="tablist" aria-label="Chế độ xem">
+            <div className="ml-1 inline-flex shrink-0 rounded-lg border bg-muted p-0.5 text-xs whitespace-nowrap" role="tablist" aria-label="Chế độ xem">
               {(['simple', 'canvas'] as const).map((v) => (
                 <button
                   key={v}
@@ -205,7 +209,7 @@ function FlowCanvasInner() {
 
         <div className="flex items-center gap-1.5 justify-self-center text-xs text-muted-foreground" aria-live="polite">
           {!isEmpty && (
-            <span className="hidden tabular-nums md:inline">{graph.nodes.length} node · {graph.edges.length} dây</span>
+            <span className="hidden tabular-nums lg:inline">{graph.nodes.length} node · {graph.edges.length} dây</span>
           )}
           {errorCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 font-medium text-destructive">
@@ -264,8 +268,10 @@ function FlowCanvasInner() {
               onDragOver={onDragOver}
               onDrop={onDrop}
               fitView
-              // Canvas rỗng lúc mở: không phóng to quá 100% khi fitView.
+              // Graph nhỏ: không phóng to quá 100% khi fitView.
               fitViewOptions={{ maxZoom: 1 }}
+              // Template có 6 cột node: canvas hẹp (laptop, có 2 sidebar) cần zoom < 0.5 mặc định mới thấy hết.
+              minZoom={0.25}
               proOptions={{ hideAttribution: false }}
             >
               <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} />
@@ -283,6 +289,10 @@ function FlowCanvasInner() {
                 <p className="text-xs text-muted-foreground">
                   Kéo node từ thư viện vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Brief, Kích thước và Sinh banner.
                 </p>
+                <Button type="button" size="sm" variant="outline" className="pointer-events-auto mt-1"
+                  onClick={() => useFlowStore.getState().loadTemplate(DEFAULT_TEMPLATES[0]!)}>
+                  Nạp template mặc định
+                </Button>
               </div>
             </div>
           )}
@@ -312,7 +322,24 @@ function FlowCanvasInner() {
   );
 }
 
-export default function FlowCanvas() {
+const noopSubscribe = () => () => {};
+
+/**
+ * `initialTemplateId` (từ `/flow?template=<id>`): mở thẳng template đó. Không có/không hợp lệ → template mặc định
+ * mà store đã nạp sẵn (T5.4 – không bao giờ mở canvas trống).
+ */
+export default function FlowCanvas({ initialTemplateId }: { initialTemplateId?: string }) {
+  // Chỉ chạy ở client: store là singleton module, nạp lúc render server sẽ dùng chung giữa các request.
+  useEffect(() => {
+    const t = initialTemplateId ? getTemplate(initialTemplateId) : undefined;
+    if (t && useFlowStore.getState().templateId !== t.id) useFlowStore.getState().loadTemplate(t);
+  }, [initialTemplateId]);
+
+  // Studio đo chữ/vẽ bằng Canvas 2D (validate, ước tính lượt AI) – chỉ có ở trình duyệt. Graph mặc định đã có chữ
+  // (T5.4) nên không render ở server; server trả khung trống cùng nền để không nháy.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  if (!mounted) return <div className="h-dvh bg-background" aria-busy="true" />;
+
   return (
     <ReactFlowProvider>
       <FlowCanvasInner />

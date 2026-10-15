@@ -8,12 +8,13 @@ export const metadata = {
   robots: { index: false },
 };
 
-export default async function FlowPage() {
+export default async function FlowPage({ searchParams }: { searchParams: Promise<{ template?: string | string[] }> }) {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
   // Flag tắt → 404, không lộ sự tồn tại của route.
   if (!isFlowCanvasEnabled(userId)) notFound();
 
-  return <FlowCanvas />;
+  const { template } = await searchParams;
+  return <FlowCanvas initialTemplateId={typeof template === 'string' ? template : undefined} />;
 }

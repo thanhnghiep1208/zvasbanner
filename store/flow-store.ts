@@ -20,6 +20,7 @@ import { fontIdFromLabel } from '@/lib/flow/brand';
 import {
   instantiateTemplate, setExposedValue, type ExposedParam, type FlowTemplate,
 } from '@/lib/flow/template/template';
+import { DEFAULT_TEMPLATES } from '@/lib/flow/template/defaults';
 import type { RatioResult } from '@/lib/flow/executor';
 
 type NodeUi = Pick<Node, 'selected' | 'dragging' | 'measured'>;
@@ -33,6 +34,8 @@ type FlowState = {
   /** Template đang dùng + param lộ ra cho Simple view (T5.1). Rỗng = graph tự dựng ở Canvas view. */
   templateId: string | null;
   exposed: ExposedParam[];
+  /** Graph ngay sau loadTemplate – `graph !== templateBaseline` nghĩa là user đã sửa (đổi template cần xác nhận). */
+  templateBaseline: FlowGraph | null;
   /** Simple view (form từ exposed) hay Canvas view – cùng 1 graph (SPEC 5.7, T5.2). */
   view: FlowView;
   setView: (view: FlowView) => void;
@@ -68,12 +71,15 @@ type FlowState = {
 
 const EMPTY_GRAPH: FlowGraph = { nodes: [], edges: [] };
 
+/** Mở /flow không bao giờ ra canvas trống (SPEC 5.6, T5.4): state đầu = template mặc định, Simple view. */
+function initialFromTemplate(t: FlowTemplate) {
+  const { graph, exposed, templateId } = instantiateTemplate(t);
+  return { graph, exposed, templateId, templateBaseline: graph, view: 'simple' as FlowView };
+}
+
 export const useFlowStore = create<FlowState>()((set, get) => ({
-  graph: EMPTY_GRAPH,
+  ...initialFromTemplate(DEFAULT_TEMPLATES[0]!),
   graphVersion: 0,
-  templateId: null,
-  exposed: [],
-  view: 'canvas',
 
   // Simple view chỉ có nghĩa khi có exposed; không có thì luôn Canvas.
   setView: (view) => set((s) => ({ view: view === 'simple' && !s.exposed.length ? 'canvas' : view })),
@@ -81,7 +87,7 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   loadTemplate: (t) => {
     const { graph, exposed, templateId } = instantiateTemplate(t);
     get().setGraph(graph);
-    set({ exposed, templateId, view: exposed.length ? 'simple' : 'canvas' });
+    set({ exposed, templateId, templateBaseline: graph, view: exposed.length ? 'simple' : 'canvas' });
   },
 
   setExposed: (e, value) => set((s) => ({ graph: setExposedValue(s.graph, e, value) })),
@@ -100,7 +106,7 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   setGraph: (graph) =>
     set((s) => ({
       graph, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, results: [], templateId: null, exposed: [],
-      view: 'canvas',
+      templateBaseline: null, view: 'canvas',
     })),
 
   addNode: (type, position) => {
@@ -202,10 +208,11 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     return result;
   },
 
+  // Graph rỗng – cho test; UI không gọi (mở /flow luôn có template).
   reset: () =>
     set((s) => ({
       graph: EMPTY_GRAPH, graphVersion: s.graphVersion + 1, nodeUi: {}, edgeUi: {}, runInfo: {}, assetData: {},
-      results: [], isRunning: false, templateId: null, exposed: [], view: 'canvas',
+      results: [], isRunning: false, templateId: null, exposed: [], templateBaseline: null, view: 'canvas',
     })),
 }));
 
