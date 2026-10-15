@@ -13,7 +13,7 @@
 import type { CanvasConfig, GenerationRequest } from '@/lib/types';
 import type { CompiledJob } from './compiled-job';
 import { compileGraph } from './compiler';
-import { toBackgroundRequests, type BackgroundRequest } from './background/request';
+import { toBackgroundRequests, type BackgroundRequest, type GuideStyle } from './background/request';
 import { planLayoutForJob } from './layout/engine';
 import type { TextMeasurer } from './layout/measure';
 import type { GuideRect, LayoutPlan } from './layout/types';
@@ -33,6 +33,8 @@ export interface ExecutorDeps {
   onRunInfo: (nodeId: string, info: NodeRunInfo) => void;
   /** Composed: gọi /api/flow/generate-background. */
   generateBackground?: (request: BackgroundRequest) => Promise<BackgroundResult>;
+  /** Composed: cách truyền vùng trống (Q11). 'natural' không cần renderGuide. Mặc định 'hatched'. */
+  guideStyle?: GuideStyle;
   /** Composed: vẽ layout guide image (PNG data URL) – UI dùng Canvas 2D. */
   renderGuide?: (canvas: CanvasConfig, guide: GuideRect[]) => string | Promise<string>;
   /** Measurer cho layout – UI truyền measurer Canvas 2D để khớp với lúc vẽ; mặc định ước lượng. */
@@ -134,7 +136,8 @@ async function runComposed(
   const composeNode = byType('compose');
   const exportNode = byType('export');
 
-  if (!deps.generateBackground || !deps.renderGuide) {
+  const guideStyle = deps.guideStyle ?? 'hatched';
+  if (!deps.generateBackground || (guideStyle === 'hatched' && !deps.renderGuide)) {
     return fail(deps, [{ nodeId: genNode.id, message: 'Môi trường hiện tại chưa hỗ trợ sinh nền.' }]);
   }
 
@@ -169,8 +172,9 @@ async function runComposed(
     const prefix = drafts.drafts.length > 1 ? `Kích thước ${i + 1}/${drafts.drafts.length}: ` : '';
     let res: BackgroundResult;
     try {
-      const guideImage = await deps.renderGuide(request.canvasConfig, request.guide);
-      res = await deps.generateBackground({ ...request, guideImage });
+      res = await deps.generateBackground(guideStyle === 'natural'
+        ? { ...request, guideStyle }
+        : { ...request, guideStyle, guideImage: await deps.renderGuide!(request.canvasConfig, request.guide) });
     } catch (e) {
       res = { ok: false, error: e instanceof Error ? e.message : String(e) };
     }

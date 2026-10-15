@@ -90,3 +90,19 @@ Lựa chọn:
 - B. Thêm 4–5 font Google có subset tiếng Việt qua `next/font` (không thêm npm dependency), mỗi `fontStyle` một font mặc định. Ví dụ: sans → Be Vietnam Pro, serif → Noto Serif, display → Montserrat, handwritten → Dancing Script, modern → Inter.
 Đề xuất: B, chốt danh sách trước T4.4. Cần kiểm tra license (OFL) và dung lượng tải.
 Trạng thái: **đã chốt B** (2026-10-12). Danh sách font trong phần Lựa chọn là đề xuất; kiểm tra license OFL, subset tiếng Việt và dung lượng khi làm T4.4.
+
+## Q11 – Bỏ ảnh layout guide, mô tả bố cục bằng lời? (task T4.2b, đổi SPEC 3 quyết định #1)
+Bối cảnh: Thí nghiệm T4.2b (20 lượt Gemini, Nano Banana 2, brief nội thất, ảnh trong `docs/flow/t4.2b/`):
+- A (hiện tại: ảnh guide khung gạch chéo + toạ độ % trong prompt): landscape 1/2 mẫu còn panel khớp vùng sản phẩm.
+- B (không ảnh, toạ độ %): panel trắng trôi nổi, cây đặt vào vùng chữ.
+- C (ảnh guide vệt mờ): **vẽ chữ vào ảnh** ("Left 12% top 38%…", lorem) 2/2 mẫu.
+- D (A + câu cấm panel/cấm viết toạ độ): landscape tốt hơn A, nhưng square **vẽ "LAYOUT GUIDE", toạ độ, "Your text here" + khung** 2/2, portrait thành ảnh cắt dán 2/2.
+- E (không ảnh guide, bố cục bằng lời, không con số, không từ "zone/layout/guide"): **0/6 ảnh có chữ/nhãn/khung kiểu template**; square + portrait sạch, có đế/vệt sáng đúng chỗ; landscape 1/2 mẫu đồ vật lấn vùng sản phẩm, 1/2 có hốc tường khớp vùng.
+Nhận định: toạ độ % + ảnh guide đẩy model vào chế độ "mockup/template". Giới hạn: chỉ 2 mẫu/ô (SPEC ghi ≥5), thang đo "đường ranh" tự động không khớp mắt nên bỏ.
+Lựa chọn:
+- A. Chuyển mặc định sang 'natural' (E): sửa SPEC 3 #1 thành "Gemini biết vị trí sản phẩm qua mô tả bố cục bằng lời"; giữ 'hatched' trong code để so sánh sau.
+- B. Giữ 'hatched' (đúng SPEC), chấp nhận rủi ro chữ/khung ở square/portrait.
+- C. Chạy thêm ~40 lượt (5 mẫu × 4 ratio × A/E) rồi mới chốt.
+Đề xuất: A. Lỗi của E (đồ vật lấn vùng sản phẩm) phần lớn bị sản phẩm thật che; lỗi của guide (chữ/nhãn trên nền) phá hỏng banner. Đổi = 1 dòng `GUIDE_STYLE` trong `components/flow/use-flow-run.ts`.
+Trạng thái: chờ Nghiệp
+

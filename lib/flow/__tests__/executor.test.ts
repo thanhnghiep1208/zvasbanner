@@ -215,4 +215,13 @@ describe('runAll – composed (T4.2)', () => {
     expect(last('n-compose')).toMatchObject({ state: 'error', message: 'Không đọc được ảnh.' });
     expect(last('n-generate')).toEqual({ state: 'done', previewUrl: 'bg-1' });
   });
+
+  it("guideStyle 'natural': không vẽ guide, request không có guideImage", async () => {
+    const { deps, bgCalls, guides } = setupBg();
+    const out = await runAll(decompileJob(composedMinimal), runtimeFor(composedMinimal), { ...deps, guideStyle: 'natural' });
+    expect(out.ok).toBe(true);
+    expect(guides).toHaveLength(0);
+    expect(bgCalls[0]).toMatchObject({ guideStyle: 'natural' });
+    expect(bgCalls[0]).not.toHaveProperty('guideImage');
+  });
 });

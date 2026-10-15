@@ -21,7 +21,9 @@ export function guideImageSize(canvas: Pick<CanvasConfig, 'width' | 'height'>): 
   return { width: Math.max(1, Math.round(canvas.width * k)), height: Math.max(1, Math.round(canvas.height * k)) };
 }
 
-export function renderGuideImage(canvas: Pick<CanvasConfig, 'width' | 'height'>, guide: GuideRect[]): string {
+export function renderGuideImage(
+  canvas: Pick<CanvasConfig, 'width' | 'height'>, guide: GuideRect[],
+): string {
   const { width, height } = guideImageSize(canvas);
   const el = document.createElement('canvas');
   el.width = width;

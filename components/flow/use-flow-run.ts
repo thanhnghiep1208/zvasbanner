@@ -19,6 +19,12 @@ async function generate(request: Parameters<typeof requestGenerationWithPayload>
   return { ok: true, image: res.image, source: res.source, placeholderError: res.placeholderError };
 }
 
+/**
+ * Cách truyền vùng trống khi sinh nền (Q11, T4.2b). 'hatched' = SPEC 3 #1 (ảnh guide); 'natural' = bố cục bằng
+ * lời, không ảnh guide – thí nghiệm cho thấy tránh được lỗi model vẽ chữ/khung kiểu mockup. Đổi ở đây khi chốt Q11.
+ */
+const GUIDE_STYLE = 'hatched' as const;
+
 /** Lớn hơn timeout Gemini phía server (55s) + overhead; route maxDuration = 90s. */
 const BACKGROUND_TIMEOUT_MS = 92_000;
 
@@ -63,6 +69,7 @@ export function useFlowRun() {
       generate,
       generateBackground,
       renderGuide: renderGuideImage,
+      guideStyle: GUIDE_STYLE,
       measurer: canvasMeasurer,
       composeRatio,
       onRunInfo: (nodeId, info) => useFlowStore.getState().setRunInfo(nodeId, info),

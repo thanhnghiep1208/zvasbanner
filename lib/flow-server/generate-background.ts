@@ -36,10 +36,12 @@ export async function generateBackground(
   const modelId = IMAGE_MODEL_MAP[req.model];
   const prompt = buildBackgroundPrompt(req);
 
-  const parts: Part[] = [
-    { text: 'LAYOUT GUIDE (map of reserved zones – grey = keep clean, do not reproduce):' },
-    inline(req.guideImage),
-  ];
+  const parts: Part[] = req.guideImage
+    ? [
+      { text: 'LAYOUT GUIDE (map of reserved zones – grey = keep clean, do not reproduce):' },
+      inline(req.guideImage),
+    ]
+    : [];
   for (const r of req.references) {
     parts.push({
       text: r.role === 'style-reference'

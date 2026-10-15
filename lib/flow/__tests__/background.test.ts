@@ -88,3 +88,36 @@ describe('parseBackgroundRequestShape', () => {
     expect(parseBackgroundRequestShape({ ...valid(), ...patch })).toBeNull();
   });
 });
+
+describe("guideStyle 'natural' (T4.2b, Q11)", () => {
+  const natural = () => ({ ...draft(composedMinimal), guideStyle: 'natural' as const });
+
+  it('không con số, không từ zone/layout/guide (tránh model vẽ nhãn/toạ độ kiểu mockup)', () => {
+    // Bỏ dòng Style (câu chữ dùng chung với form, có "restrained layout") và tên preset trong ngoặc.
+    const body = buildBackgroundPrompt(natural()).split('\n').filter((l) => !l.startsWith('Style:')).join('\n')
+      .replace(/\(.*?\)/, '');
+    expect(body).not.toMatch(/\d/);
+    expect(body.toLowerCase()).not.toMatch(/\bzones?\b|layout|guide/);
+    expect(buildBackgroundPrompt(natural())).toContain('NOT a template or mockup');
+  });
+
+  it('mô tả vị trí vùng chữ + vùng sản phẩm bằng lời theo layout', () => {
+    const p = buildBackgroundPrompt(natural());
+    expect(p).toMatch(/Keep the (middle|upper) left part of the picture .* calm and plain/);
+    expect(p).toMatch(/Keep the middle right part of the picture .* open and empty/);
+  });
+
+  it('headline AI: nội dung đúng, chỉ ở vị trí của nó', () => {
+    const p = buildBackgroundPrompt({ ...draft(composedFull), guideStyle: 'natural' });
+    expect(p).toContain('"Tết Sum Vầy"');
+    expect(p).toContain('No other text anywhere.');
+  });
+
+  it('parse: natural không được kèm guideImage, hatched bắt buộc có', () => {
+    const base = draft(composedFull);
+    expect(parseBackgroundRequestShape(JSON.parse(JSON.stringify({ ...base, guideStyle: 'natural' })))).not.toBeNull();
+    expect(parseBackgroundRequestShape({ ...base, guideStyle: 'natural', guideImage: PNG })).toBeNull();
+    expect(parseBackgroundRequestShape({ ...base, guideStyle: 'hatched' })).toBeNull();
+    expect(parseBackgroundRequestShape({ ...base, guideStyle: 'soft', guideImage: PNG })).toBeNull();
+  });
+});

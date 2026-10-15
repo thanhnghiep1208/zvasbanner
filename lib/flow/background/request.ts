@@ -11,6 +11,8 @@ import type { LayoutPlan, GuideRect } from '../layout/types';
 import type { LegacyRuntime } from '../legacy/from-legacy-config';
 import type { FlowStyle, ModelId, ReferenceAssetRole } from '../schema';
 
+export type GuideStyle = 'hatched' | 'natural';
+
 export interface BackgroundReference {
   role: ReferenceAssetRole;
   fileName: string;
@@ -31,13 +33,19 @@ export interface BackgroundRequest {
   guide: GuideRect[];
   /** Headline renderSource 'ai': được phép vẽ chữ này, CHỈ trong vùng `elementId` của guide. */
   aiHeadline?: { elementId: string; content: string };
-  /** PNG data URL của layout guide (client vẽ từ `guide`). */
-  guideImage: string;
+  /**
+   * Cách truyền vùng trống cho model (T4.2b, Q11):
+   * - 'hatched' (mặc định, SPEC 3 #1): ảnh guide khung gạch chéo + toạ độ % trong prompt;
+   * - 'natural': không ảnh guide, bố cục mô tả bằng lời, không con số (chống chế độ "mockup").
+   */
+  guideStyle?: GuideStyle;
+  /** PNG data URL của layout guide (client vẽ từ `guide`); không có khi guideStyle = 'natural'. */
+  guideImage?: string;
   references: BackgroundReference[];
 }
 
 /** Request chưa có guideImage – UI vẽ guide rồi gắn vào. */
-export type BackgroundRequestDraft = Omit<BackgroundRequest, 'guideImage'>;
+export type BackgroundRequestDraft = Omit<BackgroundRequest, 'guideImage' | 'guideStyle'>;
 
 export type BackgroundDraftResult =
   | { ok: true; drafts: { ratioId: string; request: BackgroundRequestDraft }[]; missingAssetIds: string[] }
@@ -88,7 +96,7 @@ const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
  */
 export function parseBackgroundRequestShape(v: unknown): BackgroundRequest | null {
   if (!isRecord(v)) return null;
-  const { canvasConfig, model, prompt, marketingBrief, lightDirectionDeg, strictNoText, guide, guideImage, references, aiHeadline } = v;
+  const { canvasConfig, model, prompt, marketingBrief, lightDirectionDeg, strictNoText, guide, guideImage, guideStyle, references, aiHeadline } = v;
   if (!isRecord(canvasConfig) || !isNum(canvasConfig.width) || !isNum(canvasConfig.height)
     || !isStr(canvasConfig.platform) || !isStr(canvasConfig.name)) return null;
   if (canvasConfig.width <= 0 || canvasConfig.height <= 0) return null;
@@ -100,7 +108,8 @@ export function parseBackgroundRequestShape(v: unknown): BackgroundRequest | nul
   const okList = (x: unknown, allowed: string[]) => Array.isArray(x) && x.every((i) => allowed.includes(i as string));
   if (!okList(marketingBrief.campaignIntents, INTENTS) || !okList(marketingBrief.focalSubjects, FOCALS)) return null;
   if (!isNum(lightDirectionDeg) || typeof strictNoText !== 'boolean') return null;
-  if (!isStr(guideImage) || !IMAGE_DATA_URL.test(guideImage)) return null;
+  if (guideStyle !== undefined && guideStyle !== 'hatched' && guideStyle !== 'natural') return null;
+  if (guideStyle === 'natural' ? guideImage !== undefined : !isStr(guideImage) || !IMAGE_DATA_URL.test(guideImage)) return null;
   if (!Array.isArray(guide) || guide.length > 50) return null;
   for (const g of guide) {
     if (!isRecord(g) || !isStr(g.elementId) || !['product', 'logo', 'text'].includes(g.kind as string)) return null;
