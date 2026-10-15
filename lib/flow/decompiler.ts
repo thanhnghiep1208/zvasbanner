@@ -16,7 +16,8 @@ export function decompileJob(job: CompiledJob): FlowGraph {
   ): FlowNode<T> => {
     const isInput = x === COL.input;
     const row = isInput ? col.input++ : x === COL.config ? col.config++ : 0;
-    const node: FlowNode<T> = { id, type, params, position: { x, y: y ?? row * ROW_GAP } };
+    // Sao chép: graph không được dùng chung object với job (sửa node sẽ làm đổi job/fixture).
+    const node: FlowNode<T> = { id, type, params: structuredClone(params), position: { x, y: y ?? row * ROW_GAP } };
     nodes.push(node as FlowNode);
     return node;
   };

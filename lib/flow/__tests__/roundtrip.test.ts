@@ -37,3 +37,11 @@ describe('estimateAiCalls', () => {
   it('composed = 1 call / ratio', () => expect(estimateAiCalls(composedFull)).toBe(3));
   it('flat = 2 call / ratio (generate + harmony)', () => expect(estimateAiCalls(flatLegacy)).toBe(2));
 });
+
+describe('decompileJob', () => {
+  it('graph không dùng chung object với job', () => {
+    const g = decompileJob(composedMinimal);
+    (g.nodes.find((n) => n.type === 'text-layer')!.params as { content: string }).content = 'đã sửa';
+    expect(composedMinimal.textLayers[0]!.content).toBe('Giảm 30% cuối tuần');
+  });
+});

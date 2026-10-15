@@ -87,4 +87,18 @@ describe('validateGraph', () => {
     g.nodes.push({ ...g.nodes.find((n) => n.type === 'export')!, id: 'n-export-2' });
     expect(validateGraph(g).map((i) => i.code)).toContain('export-count');
   });
+  it('chữ không vừa layout → lỗi layout-no-fit trên node Auto layout, compile thất bại', () => {
+    const g = decompileJob(composedMinimal);
+    const t = g.nodes.find((n) => n.type === 'text-layer')!;
+    Object.assign(t.params, {
+      content: 'Supercalifragilisticexpialidocious-khong-the-xuong-dong',
+      minFontSizePx: 60,
+    });
+    const issue = validateGraph(g).find((i) => i.code === 'layout-no-fit');
+    expect(issue).toMatchObject({ severity: 'error', nodeId: 'n-layout' });
+    expect(compileGraph(g).ok).toBe(false);
+  });
+  it('fixture composed hợp lệ không có lỗi layout', () => {
+    expect(validateGraph(decompileJob(composedMinimal)).map((i) => i.code)).not.toContain('layout-no-fit');
+  });
 });

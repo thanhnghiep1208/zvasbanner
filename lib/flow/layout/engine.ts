@@ -1,27 +1,33 @@
 /**
- * Layout engine – bản tối thiểu (T2.5). Pure function, deterministic.
+ * Layout engine (T4.1, SPEC 5.2). Pure function, deterministic.
  *
- * - Mỗi ratio: chọn variant đầu tiên của ratio class.
- * - Asset role `logo` → slot logo; `image`/`decoration` → slot product (nhiều asset chia đều theo chiều dài hơn).
- *   Asset giữ đúng tỉ lệ ảnh gốc, căn giữa ô.
- * - Text theo role vào slot cùng tên; `custom` dùng chung slot subheadline. Nhiều layer cùng slot chia đều theo chiều dọc.
- *   Chưa đo chữ: transform text = cả ô (đo + co chữ ở T4.1 khi có text renderer, T4.4).
- * - Override tay (`overrides[ratioId][elementId]`) luôn thắng.
- * Chưa có (T4.1): nhiều variant, co sản phẩm/chữ khi không vừa, báo lỗi không vừa.
+ * Mỗi ratio, thử lần lượt các variant của ratio class. Trong một variant, khi chữ không vừa:
+ *   1. co vùng sản phẩm từ 100% xuống MIN_PRODUCT_SCALE (phần dư dồn cho chữ);
+ *   2. co chữ từng bước, layer priority thấp (số lớn) co trước, không nhỏ hơn minFontSizePx;
+ *   3. vẫn không vừa → variant kế tiếp;
+ *   4. hết variant → { ok: false, reason: 'no-fit' } kèm id phần tử không vừa. KHÔNG tự bỏ phần tử.
+ *
+ * - Asset `logo` → slot logo; `image`/`decoration` → slot product (nhiều asset chia đều, giữ tỉ lệ ảnh gốc).
+ * - Text theo role vào slot cùng tên, `custom` dùng chung slot subheadline; nhiều layer cùng slot xếp chồng dọc.
+ *   Kích thước chữ px trong TextStyle tính trên cạnh ngắn 1080 → scale theo cạnh ngắn của ratio.
+ * - Override tay (`overrides[ratioId][elementId]`) luôn thắng; phần tử bị override không tham gia xếp/đo.
  */
 import type { CompiledJob } from '../compiled-job';
 import type { FlowAsset, NodeParamsMap, PixelAssetRole, RatioSpec, TextRole, Transform } from '../schema';
+import { approxMeasurer, layoutText, type TextBox, type TextMeasurer } from './measure';
 import type {
-  GuideRect, LayoutInput, LayoutPlan, LayoutResult, LayoutVariant, Rect, SlotKind,
+  GuideRect, LayoutInput, LayoutPlan, LayoutResult, LayoutVariant, PlacedText, RatioClass, Rect, SlotKind,
 } from './types';
-import { classifyRatio, LAYOUT_VARIANTS } from './variants';
+import { classifyRatio, LAYOUT_VARIANTS, MIN_PRODUCT_SCALE } from './variants';
 
 /** Khoảng cách giữa các ô khi chia slot, theo tỉ lệ kích thước slot. */
 const GAP = 0.04;
+/** Các bước co vùng sản phẩm. */
+const PRODUCT_STEPS = [1, 0.9, 0.8, 0.7, MIN_PRODUCT_SCALE];
+/** Mỗi bước co chữ giảm 6% cỡ hiện tại (tối thiểu 1px). */
+const FONT_STEP = 0.94;
 
-type Element =
-  | { id: string; kind: 'product' | 'logo'; asset: FlowAsset<PixelAssetRole> }
-  | { id: string; kind: 'text'; layer: NodeParamsMap['text-layer'] };
+type TextLayer = NodeParamsMap['text-layer'];
 
 const TEXT_SLOT: Record<TextRole, SlotKind> = {
   headline: 'headline',
@@ -30,51 +36,182 @@ const TEXT_SLOT: Record<TextRole, SlotKind> = {
   custom: 'subheadline',
 };
 
-export function planLayout(input: LayoutInput): LayoutResult {
-  const plan: LayoutPlan = { variantId: {}, transforms: {}, guide: {} };
+export interface LayoutOptions {
+  /** Mặc định approxMeasurer; T4.4 truyền measurer Canvas 2D thật. */
+  measurer?: TextMeasurer;
+  /** Mặc định LAYOUT_VARIANTS; truyền vào để test thứ tự thử variant. */
+  variants?: Record<RatioClass, LayoutVariant[]>;
+}
+
+export function planLayout(input: LayoutInput, options: LayoutOptions = {}): LayoutResult {
+  const measurer = options.measurer ?? approxMeasurer;
+  const plan: LayoutPlan = { variantId: {}, productScale: {}, transforms: {}, text: {}, guide: {} };
 
   for (const ratio of input.ratios) {
     if (!(ratio.width > 0 && ratio.height > 0)) {
       return { ok: false, reason: 'invalid-ratio', ratioId: ratio.id,
         message: `Kích thước ${ratio.name} không hợp lệ (${ratio.width}×${ratio.height}).` };
     }
-    const variant = LAYOUT_VARIANTS[classifyRatio(ratio.width, ratio.height)][0]!;
-    const transforms = layoutRatio(variant, ratio, input);
     const overrides = input.overrides[ratio.id] ?? {};
-    for (const [id, t] of Object.entries(overrides)) if (id in transforms) transforms[id] = t;
+    const res = layoutRatio(ratio, input, overrides, measurer, options.variants ?? LAYOUT_VARIANTS);
+    if (!res.ok) {
+      const names = res.elementIds.map((id) => `"${input.textLayers.find((l) => l.layerId === id)?.content ?? id}"`);
+      return {
+        ok: false, reason: 'no-fit', ratioId: ratio.id, elementIds: res.elementIds,
+        message: `${ratio.name} (${ratio.width}×${ratio.height}): không đủ chỗ cho ${names.join(', ')}. `
+          + 'Rút gọn nội dung, tăng số dòng tối đa hoặc giảm cỡ chữ tối thiểu.',
+      };
+    }
+    const transforms = res.transforms;
+    for (const [id, t] of Object.entries(overrides)) if (isElement(id, input)) transforms[id] = t;
 
-    plan.variantId[ratio.id] = variant.id;
+    plan.variantId[ratio.id] = res.variantId;
+    plan.productScale[ratio.id] = res.productScale;
     plan.transforms[ratio.id] = transforms;
+    plan.text[ratio.id] = res.text;
     plan.guide[ratio.id] = buildGuide(transforms, input);
   }
   return { ok: true, plan };
 }
 
-function layoutRatio(variant: LayoutVariant, ratio: RatioSpec, input: LayoutInput): Record<string, Transform> {
-  const bySlot = new Map<SlotKind, Element[]>();
-  const push = (slot: SlotKind, el: Element) => bySlot.set(slot, [...(bySlot.get(slot) ?? []), el]);
+/* ── Một ratio ──────────────────────────────────────────────── */
 
-  for (const asset of input.products) {
-    if (asset.role === 'logo') push('logo', { id: asset.assetId, kind: 'logo', asset });
-    else push('product', { id: asset.assetId, kind: 'product', asset });
-  }
-  // Ổn định thứ tự text theo priority (số nhỏ trước), cùng priority giữ thứ tự gốc.
-  const texts = input.textLayers.map((layer, i) => ({ layer, i }))
-    .sort((a, b) => a.layer.priority - b.layer.priority || a.i - b.i);
-  for (const { layer } of texts) push(TEXT_SLOT[layer.role], { id: layer.layerId, kind: 'text', layer });
+type RatioOk = {
+  ok: true; variantId: string; productScale: number;
+  transforms: Record<string, Transform>; text: Record<string, PlacedText>;
+};
+type RatioFail = { ok: false; elementIds: string[] };
 
-  const out: Record<string, Transform> = {};
-  for (const [slot, elements] of bySlot) {
-    const rect = variant.slots[slot];
-    const axis = elements[0]!.kind === 'text' ? 'vertical' : longerAxis(rect, ratio);
-    const cells = splitRect(rect, elements.length, axis);
-    elements.forEach((el, i) => {
-      const cell = cells[i]!;
-      out[el.id] = el.kind === 'text' ? rectToTransform(cell) : fitAsset(cell, el.asset.originalDims, ratio);
-    });
+function layoutRatio(
+  ratio: RatioSpec,
+  input: LayoutInput,
+  overrides: Record<string, Transform>,
+  measurer: TextMeasurer,
+  variants: Record<RatioClass, LayoutVariant[]>,
+): RatioOk | RatioFail {
+  const scale = Math.min(ratio.width, ratio.height) / 1080;
+  const free = (id: string) => !(id in overrides);
+  const products = input.products.filter((a) => a.role !== 'logo' && free(a.assetId));
+  const logos = input.products.filter((a) => a.role === 'logo' && free(a.assetId));
+  const texts = sortByPriority(input.textLayers.filter((l) => free(l.layerId)));
+
+  let lastFail: string[] = [];
+  for (const variant of variants[classifyRatio(ratio.width, ratio.height)]) {
+    const fit = fitVariant(variant, ratio, texts, scale, measurer);
+    if (!fit.ok) {
+      lastFail = fit.elementIds;
+      continue;
+    }
+    const slots = variant.slots(fit.productScale);
+    const transforms: Record<string, Transform> = {};
+    placeAssets(slots.product, products, ratio, transforms);
+    placeAssets(slots.logo, logos, ratio, transforms);
+    for (const [slot, placed] of fit.bySlot) placeTextStack(slots[slot], placed, ratio, transforms);
+    const text = Object.fromEntries(
+      [...fit.bySlot.values()].flat().map((p) => [p.layer.layerId, { fontSizePx: p.fontSizePx, lines: p.box.lines }]),
+    );
+    return { ok: true, variantId: variant.id, productScale: fit.productScale, transforms, text };
   }
-  return out;
+  return { ok: false, elementIds: lastFail };
 }
+
+type Placed = { layer: TextLayer; fontSizePx: number; box: TextBox };
+
+/** Thử co sản phẩm, rồi co chữ theo priority; trả cỡ chữ cuối cùng của từng layer. */
+function fitVariant(
+  variant: LayoutVariant, ratio: RatioSpec, texts: TextLayer[], scale: number, measurer: TextMeasurer,
+): { ok: true; productScale: number; bySlot: Map<SlotKind, Placed[]> } | RatioFail {
+  const size = new Map(texts.map((l) => [l.layerId, l.style.fontSizePx * scale]));
+  const min = new Map(texts.map((l) => [l.layerId, Math.min(l.minFontSizePx, l.style.fontSizePx) * scale]));
+
+  const attempt = (s: number) => {
+    const slots = variant.slots(s);
+    const bySlot = new Map<SlotKind, Placed[]>();
+    for (const layer of texts) {
+      const slot = TEXT_SLOT[layer.role];
+      const rect = slots[slot];
+      const fontSizePx = size.get(layer.layerId)!;
+      const box = layoutText(layer.content, layer.style, fontSizePx, rect.w * ratio.width, scale, measurer);
+      bySlot.set(slot, [...(bySlot.get(slot) ?? []), { layer, fontSizePx, box }]);
+    }
+    // Slot vừa khi không layer nào tràn và tổng chiều cao (kèm khoảng cách) ≤ chiều cao slot.
+    const failing = [...bySlot].filter(([slot, placed]) =>
+      placed.some((p) => p.box.overflow) || stackHeight(placed, slots[slot], ratio) > slots[slot].h * ratio.height);
+    return { bySlot, failing };
+  };
+
+  // 1. Co sản phẩm.
+  for (const s of PRODUCT_STEPS) {
+    const r = attempt(s);
+    if (!r.failing.length) return { ok: true, productScale: s, bySlot: r.bySlot };
+  }
+
+  // 2. Ở scale nhỏ nhất, co chữ: trong các slot còn tràn, co layer priority thấp nhất còn co được.
+  const s = MIN_PRODUCT_SCALE;
+  for (;;) {
+    const r = attempt(s);
+    if (!r.failing.length) return { ok: true, productScale: s, bySlot: r.bySlot };
+    const candidates = r.failing.flatMap(([, placed]) => placed)
+      .filter((p) => size.get(p.layer.layerId)! > min.get(p.layer.layerId)! + 1e-6);
+    if (!candidates.length) {
+      return { ok: false, elementIds: r.failing.flatMap(([, placed]) => placed.map((p) => p.layer.layerId)) };
+    }
+    // Priority số lớn = ưu tiên thấp → co trước; cùng priority: layer sau co trước.
+    const target = candidates.reduce((a, b) => (b.layer.priority >= a.layer.priority ? b : a));
+    const id = target.layer.layerId;
+    const next = Math.min(size.get(id)! * FONT_STEP, size.get(id)! - 1);
+    size.set(id, Math.max(next, min.get(id)!));
+  }
+}
+
+function stackGap(slot: Rect, ratio: RatioSpec): number {
+  return slot.h * ratio.height * GAP;
+}
+
+function stackHeight(placed: Placed[], slot: Rect, ratio: RatioSpec): number {
+  return placed.reduce((h, p) => h + p.box.height, 0) + stackGap(slot, ratio) * (placed.length - 1);
+}
+
+/** Xếp chồng các layer trong slot, cả khối căn giữa dọc; ngang theo `style.align`. */
+function placeTextStack(slot: Rect, placed: Placed[], ratio: RatioSpec, out: Record<string, Transform>) {
+  const W = ratio.width;
+  const H = ratio.height;
+  const gap = stackGap(slot, ratio);
+  let y = slot.y * H + (slot.h * H - stackHeight(placed, slot, ratio)) / 2;
+  for (const p of placed) {
+    const left = slot.x * W;
+    const right = (slot.x + slot.w) * W;
+    const x = p.layer.style.align === 'left' ? left
+      : p.layer.style.align === 'right' ? right - p.box.width
+      : (left + right - p.box.width) / 2;
+    out[p.layer.layerId] = {
+      cx: (x + p.box.width / 2) / W,
+      cy: (y + p.box.height / 2) / H,
+      w: p.box.width / W,
+      h: p.box.height / H,
+      rotationDeg: 0,
+    };
+    y += p.box.height + gap;
+  }
+}
+
+function placeAssets(slot: Rect, assets: FlowAsset<PixelAssetRole>[], ratio: RatioSpec, out: Record<string, Transform>) {
+  if (!assets.length) return;
+  const cells = splitRect(slot, assets.length, longerAxis(slot, ratio));
+  assets.forEach((a, i) => { out[a.assetId] = fitAsset(cells[i]!, a.originalDims, ratio); });
+}
+
+function sortByPriority(layers: TextLayer[]): TextLayer[] {
+  return layers.map((layer, i) => ({ layer, i }))
+    .sort((a, b) => a.layer.priority - b.layer.priority || a.i - b.i)
+    .map(({ layer }) => layer);
+}
+
+function isElement(id: string, input: LayoutInput): boolean {
+  return input.products.some((a) => a.assetId === id) || input.textLayers.some((l) => l.layerId === id);
+}
+
+/* ── Hình học ───────────────────────────────────────────────── */
 
 /** Chiều dài hơn của slot tính theo pixel thật của ratio. */
 function longerAxis(r: Rect, ratio: RatioSpec): 'horizontal' | 'vertical' {
@@ -126,11 +263,11 @@ function buildGuide(transforms: Record<string, Transform>, input: LayoutInput): 
 }
 
 /** Layout cho job composed: overrides lấy từ node Auto Layout (`composed.layoutOverrides`). */
-export function planLayoutForJob(job: CompiledJob): LayoutResult {
+export function planLayoutForJob(job: CompiledJob, options?: LayoutOptions): LayoutResult {
   return planLayout({
     ratios: job.ratios,
     products: job.products,
     textLayers: job.textLayers,
     overrides: job.composed?.layoutOverrides ?? {},
-  });
+  }, options);
 }

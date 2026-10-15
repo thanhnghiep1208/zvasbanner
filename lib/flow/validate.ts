@@ -1,4 +1,6 @@
-import type { FlowGraph, FlowNode } from './schema';
+import type { FlowGraph, FlowNode, NodeParamsMap } from './schema';
+import { planLayout } from './layout/engine';
+import type { TextMeasurer } from './layout/measure';
 import { getDefinition, PORT_TYPE_LABELS } from './node-definitions';
 import { validateTextStyle } from './text/text-style';
 
@@ -10,7 +12,12 @@ export interface ValidationIssue {
   edgeId?: string;
 }
 
-export function validateGraph(graph: FlowGraph): ValidationIssue[] {
+export interface ValidateOptions {
+  /** Measurer cho kiểm tra layout; mặc định ước lượng (T4.4 truyền Canvas 2D). */
+  measurer?: TextMeasurer;
+}
+
+export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const byId = new Map(graph.nodes.map((n) => [n.id, n]));
 
@@ -93,6 +100,27 @@ export function validateGraph(graph: FlowGraph): ValidationIssue[] {
     if (n.type === 'product-asset' && !(n as FlowNode<'product-asset'>).params.hasAlpha && feedsCompose(graph, n.id)) {
       issues.push({ severity: 'warning', code: 'product-no-alpha', nodeId: n.id,
         message: 'Ảnh sản phẩm chưa tách nền: auto shadow tắt, viền nền gốc sẽ hiện trên banner.' });
+    }
+  }
+
+  // Auto Layout: chữ phải vừa ở mọi kích thước (SPEC 5.2) – lỗi hiện ngay trên node, không đợi chạy.
+  for (const n of graph.nodes) {
+    if (n.type !== 'auto-layout') continue;
+    const from = <T extends FlowNode['type']>(port: string) => graph.edges
+      .filter((e) => e.target === n.id && e.targetPort === port)
+      .map((e) => graph.nodes.find((x) => x.id === e.source))
+      .filter((x): x is FlowNode => Boolean(x)) as FlowNode<T>[];
+    const ratioNode = from<'ratio'>('ratio')[0];
+    if (!ratioNode) continue; // đã báo missing-input
+    const res = planLayout({
+      ratios: ratioNode.params.ratios,
+      products: from<'product-asset'>('product').map((x) => x.params),
+      textLayers: from<'text-layer'>('text').map((x) => x.params),
+      overrides: (n.params as NodeParamsMap['auto-layout']).overrides,
+    }, { measurer: options.measurer });
+    if (!res.ok) {
+      issues.push({ severity: 'error', code: res.reason === 'no-fit' ? 'layout-no-fit' : 'layout-invalid-ratio',
+        nodeId: n.id, message: res.message });
     }
   }
 
