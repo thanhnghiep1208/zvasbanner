@@ -7,6 +7,7 @@ import { LayoutDashboard, PanelLeft, PanelRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ExportPopover } from "./ExportPopover";
+import { OpenInCanvasButton } from "./OpenInCanvasButton";
 import { useEditorStore } from "@/store/editor";
 import { useCanViewDashboard } from "@/lib/use-can-view-dashboard";
 import { cn } from "@/lib/utils";
@@ -14,12 +15,15 @@ import { cn } from "@/lib/utils";
 export type EditorToolbarProps = {
   onOpenLeftDrawer: () => void;
   onOpenRightDrawer: () => void;
+  /** User có flag FLOW_CANVAS → hiện nút "Mở trong canvas" (T6.2). */
+  flowCanvasEnabled?: boolean;
   className?: string;
 };
 
 export function EditorToolbar({
   onOpenLeftDrawer,
   onOpenRightDrawer,
+  flowCanvasEnabled = false,
   className,
 }: EditorToolbarProps) {
   const canvasConfig = useEditorStore((s) => s.canvasConfig);
@@ -79,6 +83,7 @@ export function EditorToolbar({
       </div>
 
       <div className="flex items-center justify-end gap-2 justify-self-end">
+        {flowCanvasEnabled ? <OpenInCanvasButton /> : null}
         <ExportPopover />
         <Show when="signed-out">
           <SignInButton mode="redirect" forceRedirectUrl="/">
