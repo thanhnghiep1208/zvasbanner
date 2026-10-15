@@ -54,7 +54,7 @@ Style/Brand/Ref┘        └──── transforms ─────────
 | Executor engine | `lib/flow/executor.ts` | **Chưa có** |
 | RF adapter | `lib/flow-ui/rf-adapter.ts` (FlowNode ↔ React Flow node) | Có (T2.1) |
 | Store | `store/flow-store.ts` | Giữ `FlowGraph` domain + ui riêng (T2.2) |
-| UI | `components/flow/` | Canvas trống |
+| UI | `components/flow/` | Canvas + `FlowNodeCard` (T2.3); chưa có node library/inspector |
 | Route | `app/(studio)/flow/page.tsx` (hoặc `src/app/...`) | Có, sau flag |
 
 Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, brief, text-layer, brand-kit, ratio, style, auto-layout, generate-background, generate-flat (legacy, đã gồm harmony pass server-side: 2 AI call/ratio), compose, export. Node `harmony-pass` bị bỏ (Q4).
@@ -147,7 +147,7 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 ### Bước 2 – Canvas chạy được 1 path
 - [x] **T2.1** `lib/flow-ui/rf-adapter.ts`: FlowNode/FlowEdge ↔ React Flow node/edge (handle id = port id)
 - [x] **T2.2** `flow-store.ts` giữ `FlowGraph` domain; `onConnect` dùng `canConnect`, lỗi → toast
-- [ ] **T2.3** Node component chung `FlowNodeCard` render từ `NODE_DEFINITIONS` (ports, label, run state)
+- [x] **T2.3** Node component chung `FlowNodeCard` render từ `NODE_DEFINITIONS` (ports, label, run state)
 - [ ] **T2.4** Node library kéo thả + Inspector cơ bản
 - [ ] **T2.5** Layout engine bản tối thiểu (1 variant/ratio class, chưa co giãn) để path chạy được
 - [ ] **T2.6** Executor tối thiểu: Run all → compile → toLegacyConfig → gọi API hiện có → hiển thị kết quả
@@ -205,3 +205,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 - **2026-10-12** – Xong T1.5, đóng bước 1. `lib/flow/text/text-style.ts`: `TextStyle` (font registry `FLOW_FONTS`, weight, italic, cỡ/giãn dòng/letter-spacing, transform, align, maxLines, fill, stroke, shadow, plate), mặc định theo role, `validateTextStyle` → lỗi `text-style-invalid` trong `validateGraph`. `text-layer.style` thay `typography`. Thêm Q10 (bộ font). 82 test pass, tsc pass. Tiếp theo: T2.1.
 - **2026-10-12** – Xong T2.1. `lib/flow-ui/rf-adapter.ts`: `toRFNode`/`fromRFNode` (RF `type` = NodeType, `data.params`), `toRFEdge`/`fromRFEdge` (handle id = port id), `graphToRF`/`rfToGraph`, `toConnectionAttempt` (cho `isValidConnection`/`onConnect`), `attemptToEdge`. Thêm `makeEdgeId` vào `schema.ts` (decompiler dùng chung). Field riêng của RF không đi ngược vào domain. 91 test pass, tsc pass. Tiếp theo: T2.2.
 - **2026-10-15** – Xong T2.2. `store/flow-store.ts` giữ `graph` domain; trạng thái hiển thị của RF (selected, dragging, measured) để riêng trong `nodeUi`/`edgeUi`, RF nodes/edges dẫn xuất qua `selectRFNodes`/`selectRFEdges`; đổi ui không tạo object graph mới. `connect()` chạy `canConnect`; `lib/flow-ui/connection-feedback.ts` dùng cùng luật cho `isValidConnection` và toast Sonner khi thả dây vào handle sai (kể cả kéo ngược input → output). Xoá node xoá luôn edge nối vào. `/flow` compile, chưa đăng nhập → 307 về /sign-in. 102 test pass, tsc pass. Chưa xem được canvas trên trình duyệt vì cần đăng nhập; graph vẫn rỗng cho tới T2.3/T2.4. Tiếp theo: T2.3.
+- **2026-10-15** – Xong T2.3. `components/flow/nodes/FlowNodeCard.tsx` dùng chung cho 12 node type: header (icon lucide + nhãn + trạng thái chạy), tóm tắt params (`lib/flow-ui/node-summary.ts`, nhãn model/style lấy từ form cũ), port theo `NODE_DEFINITIONS` (handle id = port id, màu theo `PortType` từ bảng Tailwind, `*` bắt buộc, `+` nhiều kết nối), stale = viền amber, running = shimmer (tắt khi reduced-motion), error = message + nút Thử lại (hiện khi canvas cấp `onRetry`, T2.6), done = preview. Nhãn node/port tiếng Việt (`PORT_TYPE_LABELS`), thêm `lib/flow/run-state.ts`, store có `runInfo`. a11y: `ariaLabel` node = nhãn + tóm tắt, `aria-label` cho từng port, focus ring. Kiểm tra trên trang xem thử tạm (đã xoá): 15 node, 20 dây, kéo dây sai kiểu → toast "Hai port khác kiểu dữ liệu.", không thêm dây. **Còn thiếu** cho 5.6: nối port bằng bàn phím (React Flow không có sẵn), làm cùng T3.1 hoặc T4. 109 test pass, tsc pass. Tiếp theo: T2.4.
