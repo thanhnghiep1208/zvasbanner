@@ -30,8 +30,9 @@ type Summarizers = { [K in NodeType]: (p: NodeParamsMap[K]) => string | null };
 const SUMMARIZERS: Summarizers = {
   'product-asset': (p) => p.fileName || null,
   'reference-image': (p) => p.fileName || null,
-  'brief': (p) => (p.prompt ? truncate(p.prompt) : null),
-  'text-layer': (p) => `${TEXT_ROLE_LABELS[p.role]}: ${p.content ? truncate(p.content, 28) : '(trống)'}`,
+  // Text / Brief: nội dung đầy đủ hiện trong card (FlowNodeCard → node-details), header không lặp lại.
+  'brief': (p) => (p.prompt ? null : 'Chưa có mô tả'),
+  'text-layer': (p) => TEXT_ROLE_LABELS[p.role],
   'brand-kit': (p) => (p.colors.length ? `${p.colors.length} màu` : null),
   // Nhiều kích thước: card liệt kê đủ bên dưới (FlowNodeCard → RatioList), header chỉ cần số lượng.
   'ratio': (p) => {

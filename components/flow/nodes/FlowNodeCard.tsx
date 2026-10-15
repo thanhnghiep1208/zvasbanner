@@ -29,8 +29,34 @@ import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { checkConnection } from '@/lib/flow-ui/connection-feedback';
 import { useFlowStore } from '@/store/flow-store';
 import { KIND_CHIP, PORT_HANDLE, RUN_BORDER, RUN_DOT, RUN_PILL } from '../flow-styles';
+import { nodeDetails, type NodeDetails } from './node-details';
 
 type AssetParams = { assetId: string; url: string; fileName: string };
+
+/** Nội dung chữ đầy đủ + tuỳ chọn đã chọn (node-details.ts). Không cắt: card cao theo nội dung. */
+function DetailsBlock({ details }: { details: NodeDetails }) {
+  const hasText = details.text !== undefined;
+  if (!hasText && !details.chips.length) return null;
+  return (
+    <div className="flex flex-col gap-2 border-t px-3 py-2">
+      {hasText && (
+        <p className={cn('text-xs leading-snug break-words whitespace-pre-wrap', !details.text && 'text-muted-foreground italic')}>
+          {details.text || '(trống)'}
+        </p>
+      )}
+      {details.chips.length > 0 && (
+        <ul className="flex flex-wrap gap-1" aria-label="Tuỳ chọn">
+          {details.chips.map((c, i) => (
+            <li key={i} className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] leading-4 text-muted-foreground">
+              {c.swatch && <span className="size-2.5 shrink-0 rounded-sm border" style={{ background: c.swatch }} aria-hidden />}
+              <span className="truncate">{c.label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /**
  * Node Kích thước: liệt kê đủ mọi kích thước (header chỉ có chỗ cho 1). Hình chữ nhật nhỏ theo đúng tỉ lệ để nhận ra
@@ -177,7 +203,9 @@ function PortRow({ port, direction, candidate }: {
 function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
   const def = NODE_DEFINITIONS[type];
   const run = data.run ?? { state: 'idle' as const };
-  const summary = summarizeNode({ id, type, params: data.params, position: { x: 0, y: 0 } } as FlowNode);
+  const domainNode = { id, type, params: data.params, position: { x: 0, y: 0 } } as FlowNode;
+  const summary = summarizeNode(domainNode);
+  const details = nodeDetails(domainNode);
   const { onRetry } = useContext(FlowNodeActionsContext);
   // Đang kéo dây: chuỗi primitive để node chỉ render lại khi bắt đầu/kết thúc kéo, không phải mỗi lần chuột di chuyển.
   const dragging = useConnection((c) =>
@@ -218,6 +246,8 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
           </span>
         )}
       </header>
+
+      {details && <DetailsBlock details={details} />}
 
       {(def.inputs.length > 0 || def.outputs.length > 0) && (
         <ul className="border-t py-1.5">

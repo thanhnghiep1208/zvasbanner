@@ -1,6 +1,7 @@
 import type { FlowEdge, FlowGraph, FlowNode, NodeParamsMap, NodeType } from './schema';
 import { makeEdgeId } from './schema';
 import type { CompiledJob } from './compiled-job';
+import { NODE_DEFINITIONS } from './node-definitions';
 
 /**
  * CompiledJob → graph. Dùng cho: migrate project cũ, sinh graph từ template.
@@ -17,7 +18,7 @@ export function decompileJob(job: CompiledJob): FlowGraph {
   ): FlowNode<T> => {
     const key = x === COL.input ? 'input' : x === COL.config ? 'config' : null;
     const rowY = key ? col[key] : 0;
-    if (key) col[key] += ROW_GAP * rowsFor(type, params);
+    if (key) col[key] += estimateNodeHeight(type, params) + NODE_GAP;
     // Sao chép: graph không được dùng chung object với job (sửa node sẽ làm đổi job/fixture).
     const node: FlowNode<T> = { id, type, params: structuredClone(params), position: { x, y: y ?? rowY } };
     nodes.push(node as FlowNode);
@@ -83,23 +84,50 @@ export function decompileJob(job: CompiledJob): FlowGraph {
   return { nodes, edges };
 }
 
-const ROW_GAP = 140;
-/** Card node thường ~92px; danh sách kích thước thêm ~16 + 20px/size. */
-const RATIO_ROW_PX = 20;
-const ASSET_TYPES: ReadonlySet<NodeType> = new Set(['product-asset', 'reference-image']);
+/** Khoảng trống giữa 2 node xếp chồng trong cột. */
+const NODE_GAP = 32;
 const COL = { input: 0, config: 280, layout: 560, exec: 840, compose: 1120, export: 1400 } as const;
 
 /**
- * Số hàng (ROW_GAP) node chiếm trong cột để không đè node bên dưới:
- * - node ảnh hiện thumbnail khi đã upload → ~2 node thường;
- * - node Kích thước liệt kê mọi size (FlowNodeCard) → cao theo số size.
+ * Chiều cao (px) ước tính của node card (components/flow/nodes/FlowNodeCard) để xếp node trong cột không đè nhau.
+ * Hiệu chỉnh theo đo thực tế trên canvas: header ~60, mỗi port 24 (+12 đệm), khối chi tiết (chữ đầy đủ ~30 ký tự/dòng
+ * × 17px, chip ~3/hàng × 22px), thumbnail ảnh ~124, danh sách kích thước 20px/size. Ước dư một chút là được.
  */
-function rowsFor(type: NodeType, params: unknown): number {
-  if (ASSET_TYPES.has(type)) return 2;
-  if (type === 'ratio') {
-    const n = (params as NodeParamsMap['ratio']).ratios.length;
-    return Math.max(1, Math.ceil((92 + 16 + RATIO_ROW_PX * n + 12) / ROW_GAP));
+export function estimateNodeHeight(type: NodeType, params: unknown): number {
+  const def = NODE_DEFINITIONS[type];
+  const ports = def.inputs.length + def.outputs.length;
+  const h = 60 + (ports ? ports * 24 + 12 : 0);
+  const details = (textLen: number | null, chips: number) => {
+    const lines = textLen === null ? 0 : Math.max(1, Math.ceil(textLen / 30));
+    const chipRows = Math.ceil(chips / 3);
+    return 16 + lines * 17 + (lines && chipRows ? 8 : 0) + chipRows * 22;
+  };
+  switch (type) {
+    case 'product-asset': case 'reference-image':
+      return h + 124; // thumbnail khi đã upload
+    case 'ratio':
+      return h + 16 + 20 * (params as NodeParamsMap['ratio']).ratios.length;
+    case 'text-layer': {
+      const p = params as NodeParamsMap['text-layer'];
+      const s = p.style;
+      const chips = 4 + [p.renderSource === 'ai', s.textTransform === 'uppercase', s.italic, s.maxLines > 0,
+        !!s.stroke, !!s.shadow, !!s.plate].filter(Boolean).length;
+      return h + details(p.content.length, chips);
+    }
+    case 'brief': {
+      const p = params as NodeParamsMap['brief'];
+      return h + details(p.prompt.length, p.marketingBrief.campaignIntents.length + p.marketingBrief.focalSubjects.length);
+    }
+    case 'style': {
+      const bg = (params as NodeParamsMap['style']).backgroundConfig;
+      return h + details(null, 4 + bg.tones.length + bg.grains.length + bg.shapes.length + bg.effects.length);
+    }
+    case 'brand-kit': {
+      const p = params as NodeParamsMap['brand-kit'];
+      return h + details(null, p.colors.length + (p.fontPreference ? 1 : 0) + (p.logoPosition ? 1 : 0));
+    }
+    default:
+      return h;
   }
-  return 1;
 }
 

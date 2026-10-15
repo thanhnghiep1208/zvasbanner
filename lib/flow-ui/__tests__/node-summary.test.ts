@@ -31,9 +31,10 @@ describe('summarizeNode', () => {
     expect(summarizeNode(g.nodes.find((n) => n.type === 'style')!)).toBe('Doanh nghiệp · Chuyên nghiệp');
   });
 
-  it('text layer: role + nội dung', () => {
+  it('text layer / brief: header chỉ role (nội dung đầy đủ nằm trong card)', () => {
     const g = decompileJob(flatLegacy);
-    expect(summarizeNode(g.nodes.find((n) => n.id === 'n-text-cta')!)).toBe('CTA: mua ngay');
+    expect(summarizeNode(g.nodes.find((n) => n.id === 'n-text-cta')!)).toBe('CTA');
+    expect(summarizeNode(g.nodes.find((n) => n.id === 'n-brief')!)).toBeNull();
   });
 
   it('truncate gộp khoảng trắng và cắt bằng …', () => {
