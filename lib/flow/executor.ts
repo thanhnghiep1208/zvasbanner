@@ -23,7 +23,8 @@ import { hashParts, hashString, nodeKeys } from './cache-keys';
 import { NODE_DEFINITIONS } from './node-definitions';
 import type { LegacyRuntime } from './legacy/from-legacy-config';
 import type { NodeRunInfo } from './run-state';
-import type { FlowGraph } from './schema';
+import type { FlowAsset, FlowGraph } from './schema';
+import { dataUrlByteSize, REFERENCE_MAX_BYTES, referenceTooBigMessage } from './asset-limits';
 
 export type GenerateResult =
   | { ok: true; image: string; source: 'gemini' | 'placeholder'; placeholderError?: string }
@@ -78,6 +79,15 @@ export const flatAdaptStepKey = (adapted: GenerationRequest) => hashParts('flat-
 export const backgroundStepKey = (draft: BackgroundRequestDraft, guideStyle: GuideStyle) =>
   hashParts('bg', guideStyle, { ...draft, references: draft.references.map((r) => ({ ...r, dataUrl: hashString(r.dataUrl) })) });
 
+/**
+ * Flat: ảnh sản phẩm/logo/trang trí đi qua AI nên luôn bật "giữ nguyên chủ thể" (không đổi tỉ lệ, màu, hình dạng),
+ * bất kể giá trị trong node hay payload form cũ. Chỉ composed mới giữ pixel tuyệt đối (ghép, không qua AI).
+ */
+function lockAssets(request: GenerationRequest): GenerationRequest {
+  return request.styleControls.strictPreserveMode ? request
+    : { ...request, styleControls: { ...request.styleControls, strictPreserveMode: true } };
+}
+
 /** Request kích thước phụ – giống "Biến thể kích thước" của form (AdditionalCanvasSizesPanel). */
 function adaptRequest(request: GenerationRequest, firstImage: string): GenerationRequest {
   return {
@@ -110,6 +120,15 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
     return fail(deps, compiled.errors.map((e) => ({ message: e.message, nodeId: e.nodeId })));
   }
 
+  // Ảnh tham chiếu đi nguyên trong body request → giới hạn riêng (asset-limits.ts), chặn trước khi tốn lượt AI.
+  const heavyRefs = graph.nodes.filter((n) => n.type === 'reference-image').filter((n) => {
+    const data = runtime.dataUrls[(n.params as FlowAsset).assetId];
+    return data !== undefined && dataUrlByteSize(data) > REFERENCE_MAX_BYTES;
+  });
+  if (heavyRefs.length) {
+    return fail(deps, heavyRefs.map((n) => ({ nodeId: n.id, message: referenceTooBigMessage((n.params as FlowAsset).fileName) })));
+  }
+
   if (compiled.job.renderMode === 'composed') {
     return runComposed(graph, compiled.job, runtime, deps, compiled.warnings.map((w) => ({ message: w.message, nodeId: w.nodeId })));
   }
@@ -136,7 +155,7 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
 
   // Chỉ sinh kích thước được xuất (T4.6), giữ thứ tự node Kích thước.
   const exported = new Set(exportedRatios(compiled.job).map((r) => r.id));
-  const requests = legacy.requests.filter((r) => exported.has(r.ratioId));
+  const requests = legacy.requests.filter((r) => exported.has(r.ratioId)).map((r) => ({ ...r, request: lockAssets(r.request) }));
 
   // Body quá giới hạn server → 413 sau khi đã chờ; chặn sớm, báo trên các node ảnh.
   const tooBig = oversizeIssues(graph, requests.map((r) => r.request));
@@ -173,7 +192,7 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
     if (!first) {
       res = await deps.generate(request);
     } else {
-      // Kích thước phụ: thích nghi từ ảnh đầu, ép Nano Banana 2 + giữ nguyên chủ thể; lỗi/placeholder thì thử lại
+      // Kích thước phụ: thích nghi từ ảnh đầu, ép Nano Banana 2.1 + giữ nguyên chủ thể; lỗi/placeholder thì thử lại
       // 1 lần với prompt "layout translation" (giống form).
       res = await deps.generate(adapted!);
       if (!res.ok || res.source === 'placeholder') res = await deps.generate({ ...adapted!, userPrompt: retryPrompt });
@@ -327,7 +346,7 @@ export function pendingAiCalls(
   const legacy = toLegacyConfig(job, runtime);
   if (!legacy.ok) return { calls: exported.length * per, reused: 0 };
   const ids = new Set(exported.map((r) => r.id));
-  const requests = legacy.requests.filter((r) => ids.has(r.ratioId));
+  const requests = legacy.requests.filter((r) => ids.has(r.ratioId)).map((r) => ({ ...r, request: lockAssets(r.request) }));
   if (forced('generate-flat')) return { calls: requests.length * per, reused: 0 };
   let hits = 0;
   let first: string | undefined;

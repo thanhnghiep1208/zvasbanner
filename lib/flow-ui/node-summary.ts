@@ -7,7 +7,7 @@ import type { FlowNode, ModelId, NodeParamsMap, NodeType, TextRole } from '@/lib
 /** Cùng nhãn với form hiện tại (components/canvas/CanvasArea.tsx). */
 export const MODEL_LABELS: Record<ModelId, string> = {
   'nano-banana-pro': 'Nano Banana Pro',
-  'nano-banana-2': 'Nano Banana 2',
+  'nano-banana-2': 'Nano Banana 2.1',
 };
 
 const TEXT_ROLE_LABELS: Record<TextRole, string> = {

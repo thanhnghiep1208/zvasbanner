@@ -28,14 +28,15 @@ export const HARMONY_EDIT_PROMPT = [
 ].join("\n");
 
 const ENHANCE_MODELS = [
-  "gemini-3.1-flash-image-preview",
+  "gemini-nano-banana-2.1",
   "gemini-2.5-flash-preview-05-20",
   "gemini-2.0-flash",
 ] as const;
 
 export const IMAGE_MODEL_MAP: Record<ImageGenerationModel, string> = {
   "nano-banana-pro": "gemini-3-pro-image-preview",
-  "nano-banana-2": "gemini-3.1-flash-image-preview",
+  // Slug giữ "nano-banana-2" (payload, project đã lưu, analytics); model thật là bản 2.1 thay cho 3.1 Flash Image.
+  "nano-banana-2": "gemini-nano-banana-2.1",
 };
 
 export type ImageGenerationMeta = {

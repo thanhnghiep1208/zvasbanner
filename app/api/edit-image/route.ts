@@ -4,6 +4,7 @@ import { requirePermissionJson } from "@/lib/require-user";
 import {
   geminiEditImage,
   getGeminiApiKey,
+  IMAGE_MODEL_MAP,
   type ImageGenerationMeta,
 } from "@/lib/gemini-server";
 import { parseCanvasConfig } from "@/lib/validate-generation";
@@ -157,7 +158,7 @@ export async function POST(req: Request) {
     const mapped = classifyEditError(reason);
     console.error("[edit-image] gemini edit failed", reason);
     const meta: ImageGenerationMeta = {
-      model: "gemini-3.1-flash-image-preview",
+      model: IMAGE_MODEL_MAP["nano-banana-2"],
       elapsedMs: Date.now() - startedAt,
     };
     return NextResponse.json(

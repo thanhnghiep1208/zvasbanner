@@ -100,9 +100,10 @@ function NodeEditor({ node }: { node: FlowNode }) {
       return (
         <>
           <SelectField label="Model" value={p.model} options={MODEL_OPTIONS} onChange={(model) => set<'generate-flat'>({ model })} />
-          <CheckboxField label="Giữ nguyên chủ thể upload" checked={p.strictPreserveMode}
-            hint="Hạn chế sửa sản phẩm/logo; AI chủ yếu thêm nền, ánh sáng."
-            onChange={(strictPreserveMode) => set<'generate-flat'>({ strictPreserveMode })} />
+          <p className="text-xs text-muted-foreground">
+            Luôn giữ nguyên sản phẩm/logo (không đổi tỉ lệ, màu, hình dạng). Chế độ này để AI vẽ cả banner nên ảnh vẫn
+            có thể lệch nhẹ; muốn giữ đúng từng pixel, dùng template ghép layer (Tạo nền + Ghép layer).
+          </p>
         </>
       );
     }

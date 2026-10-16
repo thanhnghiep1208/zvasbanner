@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildComposition, contactShadow, lightVector, type ImageLayer, type TextLayerDraw } from '../compose/plan';
+import { buildComposition, contactShadow, fitAspect, lightVector, type ImageLayer, type TextLayerDraw } from '../compose/plan';
 import { planLayoutForJob } from '../layout/engine';
 import type { FlowAsset, PixelAssetRole, ShadowConfig } from '../schema';
 import { composedFull, composedMinimal } from './fixtures';
@@ -87,6 +87,33 @@ describe('buildComposition', () => {
     const doc = buildComposition(job, plan(job), r.id, 'bg');
     const cta = doc.layers.find((l): l is TextLayerDraw => l.kind === 'text' && l.layerId === 'cta')!;
     expect(cta.style.plate!.paddingX).toBeCloseTo(40 * (645 / 1080));
+  });
+
+  it('sản phẩm/logo luôn đúng tỉ lệ gốc ở mọi kích thước, kể cả khi override tay khung lệch tỉ lệ', () => {
+    const job = composedFull;
+    for (const r of job.ratios) {
+      const doc = buildComposition(job, plan(job), r.id, 'bg');
+      for (const l of doc.layers.filter((x): x is ImageLayer => x.kind === 'image')) {
+        const dims = job.products.find((p) => p.assetId === l.assetId)!.originalDims;
+        expect(l.rect.w / l.rect.h).toBeCloseTo(dims.width / dims.height, 5);
+      }
+    }
+    const logo = job.products.find((p) => p.role === 'logo')!;
+    const r0 = job.ratios[0]!;
+    const skewed = { ...job, composed: { ...job.composed!, layoutOverrides: {
+      [r0.id]: { [logo.assetId]: { cx: 0.5, cy: 0.5, w: 0.6, h: 0.05, rotationDeg: 0 } },
+    } } };
+    const doc = buildComposition(skewed, plan(skewed), r0.id, 'bg');
+    const l = doc.layers.find((x): x is ImageLayer => x.kind === 'image' && x.assetId === logo.assetId)!;
+    expect(l.rect.w / l.rect.h).toBeCloseTo(logo.originalDims.width / logo.originalDims.height, 5);
+    // Nằm gọn trong khung override, căn giữa.
+    expect(l.rect.h).toBeCloseTo(0.05 * r0.height, 5);
+    expect(l.rect.x + l.rect.w / 2).toBeCloseTo(0.5 * r0.width, 5);
+  });
+
+  it('fitAspect: contain + căn giữa; không rõ kích thước gốc thì giữ khung', () => {
+    expect(fitAspect({ x: 0, y: 0, w: 200, h: 100 }, { width: 100, height: 100 })).toEqual({ x: 50, y: 0, w: 100, h: 100 });
+    expect(fitAspect({ x: 10, y: 10, w: 50, h: 40 }, { width: 0, height: 0 })).toEqual({ x: 10, y: 10, w: 50, h: 40 });
   });
 
   it('text bị override tay vẫn được vẽ (renderer tự xuống dòng), không bỏ layer', () => {

@@ -7,6 +7,7 @@ import type { NodeRunInfo } from '../run-state';
 import { composedFull, composedMinimal } from './fixtures';
 import type { BackgroundRequest } from '../background/request';
 import { LEGACY_FIXTURES } from './fixtures/legacy';
+import { REFERENCE_MAX_BYTES, referenceTooBigMessage } from '../asset-limits';
 
 const fx = LEGACY_FIXTURES['logged-full-text-logo']!;
 
@@ -166,6 +167,18 @@ describe('runAll – composed (T4.2)', () => {
     expect(out.ok).toBe(false);
     expect(bgCalls).toHaveLength(0);
     expect(last('n-ref-0')).toEqual({ state: 'error', message: 'Cần tải lại ảnh trước khi chạy.' });
+  });
+
+  it('ảnh tham chiếu quá 4MB → không gọi API, báo trên node ảnh tham chiếu đó', async () => {
+    const { deps, bgCalls, last } = setupBg();
+    const runtime: { dataUrls: Record<string, string> } = runtimeFor(composedFull);
+    const heavy = composedFull.references[0]!;
+    runtime.dataUrls[heavy.assetId] = `data:image/png;base64,${'A'.repeat(Math.ceil((REFERENCE_MAX_BYTES + 1) * 4 / 3) + 4)}`;
+    const out = await runAll(decompileJob(composedFull), runtime, deps);
+    expect(out.ok).toBe(false);
+    expect(bgCalls).toHaveLength(0);
+    expect(last('n-ref-0')).toEqual({ state: 'error', message: referenceTooBigMessage(heavy.fileName) });
+    expect(last('n-ref-1')).toBeUndefined();
   });
 
   it('thiếu deps sinh nền → lỗi rõ trên node Sinh nền', async () => {

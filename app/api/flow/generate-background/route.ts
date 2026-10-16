@@ -24,7 +24,7 @@ function friendlyError(raw: string): { status: number; errorCode: string; error:
     return { status: 429, errorCode: "GEMINI_QUOTA_OR_RATE_LIMIT", error: "Gemini API đã chạm giới hạn quota/rate limit. Vui lòng đợi vài phút rồi thử lại." };
   }
   if (msg.includes("503") || msg.includes("high demand") || msg.includes("unavailable")) {
-    return { status: 503, errorCode: "GEMINI_HIGH_DEMAND_503", error: "Model Gemini đang quá tải tạm thời. Vui lòng thử lại sau ít phút hoặc chọn Nano Banana 2." };
+    return { status: 503, errorCode: "GEMINI_HIGH_DEMAND_503", error: "Model Gemini đang quá tải tạm thời. Vui lòng thử lại sau ít phút hoặc chọn Nano Banana 2.1." };
   }
   if (msg.includes("timed out") || msg.includes("deadline")) {
     return { status: 504, errorCode: "GEMINI_TIMEOUT", error: "Gemini phản hồi quá chậm và đã bị timeout. Vui lòng thử lại." };

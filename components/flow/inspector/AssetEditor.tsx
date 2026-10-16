@@ -30,7 +30,7 @@ export function AssetEditor<R extends PixelAssetRole | ReferenceAssetRole>({ nod
   const onFile = async (file: File) => {
     setBusy(true);
     try {
-      const res = await readAssetFile(file);
+      const res = await readAssetFile(file, params.role);
       if (!res.ok) return toast.error(res.message);
       setAssetData(res.patch.assetId, res.dataUrl);
       update<'product-asset'>(nodeId, res.patch);

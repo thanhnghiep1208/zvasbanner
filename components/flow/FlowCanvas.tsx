@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { REJECT_MESSAGES } from '@/lib/flow/connection-rules';
 import { getDefinition, NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
-import type { NodeType } from '@/lib/flow/schema';
+import type { FlowAsset, NodeType } from '@/lib/flow/schema';
 import { DEFAULT_TEMPLATES, getTemplate } from '@/lib/flow/template';
 import { validateGraph } from '@/lib/flow/validate';
 import {
@@ -226,7 +226,7 @@ function FlowCanvasInner() {
       // Thay ảnh node có sẵn: chỉ lấy file đầu (1 node = 1 ảnh), file còn lại tạo node mới.
       let rest = files;
       if (target) {
-        const res = await readAssetFile(files[0]!);
+        const res = await readAssetFile(files[0]!, (target.params as FlowAsset).role);
         if (res.ok) {
           setAssetData(res.patch.assetId, res.dataUrl);
           updateNodeParams<'product-asset'>(target.id, res.patch);

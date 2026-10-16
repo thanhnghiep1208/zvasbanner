@@ -5,6 +5,7 @@ import {
   buildPlaceholderDataUrl,
   geminiGenerateOneImage,
   getGeminiApiKey,
+  IMAGE_MODEL_MAP,
   runHarmonyPass,
   type ImageGenerationMeta,
 } from "@/lib/gemini-server";
@@ -48,7 +49,7 @@ function normalizeGenerationError(raw: string): {
     return {
       errorCode: "GEMINI_HIGH_DEMAND_503",
       userMessage:
-        "Model Gemini đang quá tải tạm thời (503 - high demand). Vui lòng thử lại sau ít phút hoặc chuyển sang Nano Banana 2 để chạy nhanh hơn.",
+        "Model Gemini đang quá tải tạm thời (503 - high demand). Vui lòng thử lại sau ít phút hoặc chuyển sang Nano Banana 2.1 để chạy nhanh hơn.",
     };
   }
 
@@ -167,7 +168,7 @@ async function generateOneVariation(
         model: request.imageModel,
         elapsedMs: Date.now() - startedAt,
       },
-      failedStep: "gemini-3.1-flash-image-preview",
+      failedStep: IMAGE_MODEL_MAP[request.imageModel],
       errorCode: normalized.errorCode,
       placeholderError: normalized.userMessage,
     };
