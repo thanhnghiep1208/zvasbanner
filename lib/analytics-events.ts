@@ -78,3 +78,38 @@ export type AnalyticsEventPayloadMap = {
   open_canva_success: AnalyticsBasePayload;
   open_canva_error: AnalyticsBasePayload;
 };
+
+/* ── Flow canvas (T6.3, SPEC 5.9, Q12) ──────────────────────────
+ * Ghi qua POST /api/flow/track vào bảng flow_events (props JSONB) – không qua /api/track + banner_events
+ * (cột cố định, allowlist 8 event cũ).
+ */
+
+export type FlowAnalyticsEventName =
+  | "flow_opened"
+  | "flow_run_started"
+  | "flow_run_completed"
+  | "flow_run_failed"
+  | "flow_view_switched"
+  | "flow_template_used";
+
+export type FlowRenderMode = "composed" | "flat";
+
+/** Field chung: phiên mở trang /flow, project đang mở (nếu đã lưu), template của graph. */
+export type FlowAnalyticsBase = {
+  session_id: string;
+  doc_id?: string | null;
+  template_id?: string | null;
+  timestamp?: number;
+};
+
+export type FlowAnalyticsPropsMap = {
+  flow_opened: { source: "direct" | "template_url" | "doc" | "form" };
+  flow_run_started: { ai_calls: number; reusable: number; render_mode: FlowRenderMode; ratio_count: number; from_node: boolean };
+  flow_run_completed: { duration_ms: number; render_mode: FlowRenderMode; image_count: number; reused: number };
+  flow_run_failed: { code: string; duration_ms: number; render_mode: FlowRenderMode | null };
+  flow_view_switched: { view: "simple" | "canvas" };
+  flow_template_used: { source: "default" | "url" | "picker" | "empty_canvas" };
+};
+
+export type FlowAnalyticsPayload<E extends FlowAnalyticsEventName> = FlowAnalyticsBase &
+  FlowAnalyticsPropsMap[E] & { event: E };

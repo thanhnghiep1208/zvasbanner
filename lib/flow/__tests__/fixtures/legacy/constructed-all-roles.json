@@ -1,0 +1,38 @@
+{
+  "source": "constructed",
+  "description": "Tự dựng (Q1B) cho trường hợp form log chưa phủ: đủ 5 asset role, backgroundConfig, brand kit, canvas custom, layoutAdaptationFromBanner. Form hiện không có UI nhập brand kit.",
+  "request": {
+    "canvasConfig": { "width": 1200, "height": 1500, "platform": "Custom", "name": "Custom" },
+    "assets": [
+      { "id": "asset-product", "url": "blob:http://localhost:3000/asset-product", "dataUrl": "data:image/png;base64,FIXTURE", "fileName": "product.png", "role": "image", "hasAlpha": true, "originalDims": { "width": 1536, "height": 1024 } },
+      { "id": "asset-style", "url": "blob:http://localhost:3000/asset-style", "dataUrl": "data:image/jpeg;base64,FIXTURE", "fileName": "style.jpg", "role": "style-reference", "hasAlpha": false, "originalDims": { "width": 1080, "height": 1080 } },
+      { "id": "asset-logo", "url": "blob:http://localhost:3000/asset-logo", "dataUrl": "data:image/png;base64,FIXTURE", "fileName": "logo.png", "role": "logo", "hasAlpha": true, "originalDims": { "width": 512, "height": 512 } },
+      { "id": "asset-bg", "url": "blob:http://localhost:3000/asset-bg", "dataUrl": "data:image/jpeg;base64,FIXTURE", "fileName": "background.jpg", "role": "background", "hasAlpha": false, "originalDims": { "width": 1920, "height": 1080 } },
+      { "id": "asset-deco", "url": "blob:http://localhost:3000/asset-deco", "dataUrl": "data:image/png;base64,FIXTURE", "fileName": "deco.png", "role": "decoration", "hasAlpha": true, "originalDims": { "width": 400, "height": 400 } }
+    ],
+    "brandKit": { "colors": ["#0068FF", "#FFFFFF"], "fontPreference": "sans", "logoPosition": "top-left" },
+    "userPrompt": "Ra mắt gói ZMP3 plus cho sinh viên, tông xanh tươi\nSubheadline: Nghe nhạc không giới hạn",
+    "styleControls": {
+      "style": "playful",
+      "mood": "festive",
+      "colorPalette": "brand",
+      "fontStyle": "display",
+      "strictPreserveMode": true,
+      "backgroundConfig": {
+        "tones": ["ocean-breeze", "pastel-dream"],
+        "grains": ["subtle-grain"],
+        "shapes": ["liquid-flow"],
+        "effects": ["dreamy-ethereal"]
+      }
+    },
+    "imageModel": "nano-banana-pro",
+    "layoutAdaptationFromBanner": "data:image/png;base64,APPROVED",
+    "marketingBrief": { "campaignIntents": ["product-launch", "event"], "focalSubjects": ["person", "scene"] }
+  },
+  "form": {
+    "userPrompt": "Ra mắt gói ZMP3 plus cho sinh viên, tông xanh tươi",
+    "headline": "",
+    "subheadline": "Nghe nhạc không giới hạn",
+    "ctaText": ""
+  }
+}

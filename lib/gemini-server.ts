@@ -33,7 +33,7 @@ const ENHANCE_MODELS = [
   "gemini-2.0-flash",
 ] as const;
 
-const IMAGE_MODEL_MAP: Record<ImageGenerationModel, string> = {
+export const IMAGE_MODEL_MAP: Record<ImageGenerationModel, string> = {
   "nano-banana-pro": "gemini-3-pro-image-preview",
   "nano-banana-2": "gemini-3.1-flash-image-preview",
 };
@@ -51,7 +51,7 @@ export type ImageGenerationMeta = {
 const INPUT_COST_PER_1K_TOKENS_USD = 0.00015;
 const OUTPUT_COST_PER_1K_TOKENS_USD = 0.0006;
 
-function estimateGenerationCostUsd(params: {
+export function estimateGenerationCostUsd(params: {
   promptTokens?: number;
   outputTokens?: number;
 }): number {

@@ -37,7 +37,7 @@ function RightSidebarBody() {
   );
 }
 
-export function EditorWorkspace() {
+export function EditorWorkspace({ flowCanvasEnabled = false }: { flowCanvasEnabled?: boolean }) {
   const [leftOpen, setLeftOpen] = React.useState(false);
   const [rightOpen, setRightOpen] = React.useState(false);
   const { isSignedIn } = useAuth();
@@ -45,6 +45,7 @@ export function EditorWorkspace() {
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-50 text-zinc-900 [background-image:linear-gradient(180deg,oklch(0.995_0.01_270)_0%,oklch(0.985_0.004_260)_55%,oklch(0.98_0.002_250)_100%)]">
       <EditorToolbar
+        flowCanvasEnabled={flowCanvasEnabled}
         onOpenLeftDrawer={() => setLeftOpen(true)}
         onOpenRightDrawer={() => setRightOpen(true)}
       />
