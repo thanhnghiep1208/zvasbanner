@@ -7,6 +7,7 @@ import {
   BackgroundVariant,
   Controls,
   MiniMap,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useNodesInitialized,
@@ -20,7 +21,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import './flow-theme.css';
 import { Show, UserButton } from '@clerk/nextjs';
-import { CircleAlert, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, TriangleAlert } from 'lucide-react';
+import { CircleAlert, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from '@/components/ui/badge';
@@ -264,6 +265,27 @@ function FlowCanvasInner() {
     [addAt, dropFiles],
   );
 
+  // Xoá mọi node Asset / Ảnh tham chiếu (cùng dây nối) trong 1 lần; toast cho hoàn tác nếu graph chưa đổi tiếp.
+  const imageNodeIds = useMemo(
+    () => graph.nodes.filter((n) => n.type === 'product-asset' || n.type === 'reference-image').map((n) => n.id),
+    [graph],
+  );
+  const removeAllImages = useCallback(() => {
+    const before = useFlowStore.getState();
+    const snapshot = { graph: before.graph, nodeUi: before.nodeUi, edgeUi: before.edgeUi };
+    onNodesChange(imageNodeIds.map((id) => ({ type: 'remove' as const, id })));
+    const after = useFlowStore.getState().graph;
+    toast.success(`Đã xoá ${imageNodeIds.length} node ảnh.`, {
+      action: {
+        label: 'Hoàn tác',
+        onClick: () => {
+          if (useFlowStore.getState().graph !== after) return void toast.error('Canvas đã thay đổi, không hoàn tác được.');
+          useFlowStore.setState(snapshot);
+        },
+      },
+    });
+  }, [imageNodeIds, onNodesChange]);
+
   return (
     <FlowNodeActionsContext.Provider value={nodeActions}>
     <div
@@ -385,6 +407,14 @@ function FlowCanvasInner() {
               <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} />
               <Controls showInteractive={false} position="bottom-left" />
               <MiniMap pannable zoomable position="bottom-right" />
+              {imageNodeIds.length > 0 && (
+                <Panel position="top-right">
+                  <Button type="button" size="sm" variant="outline" className="bg-card shadow-xs" onClick={removeAllImages}>
+                    <Trash2 aria-hidden />
+                    Xoá tất cả ảnh ({imageNodeIds.length})
+                  </Button>
+                </Panel>
+              )}
             </ReactFlow>
 
           {fileDrag && (
