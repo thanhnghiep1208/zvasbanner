@@ -20,8 +20,8 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './flow-theme.css';
-import { Show, UserButton } from '@clerk/nextjs';
-import { CircleAlert, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, Trash2, TriangleAlert } from 'lucide-react';
+import { Show, UserButton, useAuth } from '@clerk/nextjs';
+import { CircleAlert, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, Redo2, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from '@/components/ui/badge';
@@ -40,13 +40,16 @@ import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import {
   freePosition, selectRFEdges, selectRFNodes, selectSingleSelectedNode, useFlowStore,
 } from '@/store/flow-store';
+import { isTypingTarget, redo, undo, useFlowHistory } from '@/store/flow-history';
 import { EDGE_CLASS } from './flow-styles';
 import { FLOW_FONT_VARIABLES } from './flow-fonts';
 import { Inspector } from './inspector/Inspector';
 import { readAssetFile } from './inspector/read-asset-file';
+import { filledImageNodes, removeAllImages } from '@/lib/flow/image-nodes';
 import { TemplatePicker } from './TemplatePicker';
 import { ProjectMenu } from './ProjectMenu';
 import { useFlowDocs } from './use-flow-docs';
+import { restoreFlowDraft, useFlowDraftAutosave } from './use-flow-draft';
 import { takeFlowOpenSource, trackFlow } from './flow-analytics';
 import { SimpleView } from './simple/SimpleView';
 import { NODE_DRAG_MIME, NodeLibrary } from './NodeLibrary';
@@ -106,6 +109,23 @@ function FlowCanvasInner() {
     fittedVersion.current = graphVersion;
     void fitView({ padding: 0.12, maxZoom: 1 });
   }, [nodesInitialized, graphVersion, fitView, view]);
+  const canUndo = useFlowHistory((h) => h.past.length > 0);
+  const canRedo = useFlowHistory((h) => h.future.length > 0);
+  // ⌘/Ctrl+Z hoàn tác, ⇧⌘Z / Ctrl+Y làm lại. Đang gõ trong ô nhập thì để ô nhập tự xử lý.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || isTypingTarget(e.target)) return;
+      const key = e.key.toLowerCase();
+      const isRedo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey);
+      const isUndo = key === 'z' && !e.shiftKey;
+      if (!isUndo && !isRedo) return;
+      e.preventDefault();
+      if (isUndo) undo();
+      else redo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const paneRef = useRef<HTMLDivElement>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -266,16 +286,15 @@ function FlowCanvasInner() {
   );
 
   // Xoá mọi node Asset / Ảnh tham chiếu (cùng dây nối) trong 1 lần; toast cho hoàn tác nếu graph chưa đổi tiếp.
-  const imageNodeIds = useMemo(
-    () => graph.nodes.filter((n) => n.type === 'product-asset' || n.type === 'reference-image').map((n) => n.id),
-    [graph],
-  );
-  const removeAllImages = useCallback(() => {
+  // Chỉ đếm node đã có ảnh; ô ảnh template (exposed) chỉ làm trống để Simple view không mất field.
+  const exposedNodeIds = useFlowStore(useShallow((s) => s.exposed.map((e) => e.nodeId)));
+  const imageNodeIds = useMemo(() => filledImageNodes(graph).map((n) => n.id), [graph]);
+  const removeAllImagesNow = useCallback(() => {
     const before = useFlowStore.getState();
     const snapshot = { graph: before.graph, nodeUi: before.nodeUi, edgeUi: before.edgeUi };
-    onNodesChange(imageNodeIds.map((id) => ({ type: 'remove' as const, id })));
+    useFlowStore.getState().editGraph((g) => removeAllImages(g, new Set(exposedNodeIds)));
     const after = useFlowStore.getState().graph;
-    toast.success(`Đã xoá ${imageNodeIds.length} node ảnh.`, {
+    toast.success(`Đã xoá ${imageNodeIds.length} ảnh.`, {
       action: {
         label: 'Hoàn tác',
         onClick: () => {
@@ -284,7 +303,7 @@ function FlowCanvasInner() {
         },
       },
     });
-  }, [imageNodeIds, onNodesChange]);
+  }, [imageNodeIds, exposedNodeIds]);
 
   return (
     <FlowNodeActionsContext.Provider value={nodeActions}>
@@ -335,7 +354,7 @@ function FlowCanvasInner() {
 
         <div className="flex items-center gap-1.5 justify-self-center text-xs text-muted-foreground" aria-live="polite">
           {!isEmpty && (
-            <span className="hidden tabular-nums lg:inline">{graph.nodes.length} node · {graph.edges.length} dây</span>
+            <span className="hidden tabular-nums 2xl:inline">{graph.nodes.length} node · {graph.edges.length} dây</span>
           )}
           {errorCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 font-medium text-destructive">
@@ -352,6 +371,16 @@ function FlowCanvasInner() {
         </div>
 
         <div className="flex min-w-0 items-center gap-2 justify-self-end">
+          <div className="flex items-center">
+            <Button type="button" variant="ghost" size="icon-sm" aria-label="Hoàn tác" title="Hoàn tác (⌘/Ctrl+Z)"
+              disabled={!canUndo} onClick={() => undo()}>
+              <Undo2 />
+            </Button>
+            <Button type="button" variant="ghost" size="icon-sm" aria-label="Làm lại" title="Làm lại (⇧⌘Z / Ctrl+Y)"
+              disabled={!canRedo} onClick={() => redo()}>
+              <Redo2 />
+            </Button>
+          </div>
           <ProjectMenu />
           <Button type="button" size="sm" onClick={() => void run()} disabled={isRunning || isEmpty} aria-busy={isRunning}>
             {isRunning
@@ -409,7 +438,7 @@ function FlowCanvasInner() {
               <MiniMap pannable zoomable position="bottom-right" />
               {imageNodeIds.length > 0 && (
                 <Panel position="top-right">
-                  <Button type="button" size="sm" variant="outline" className="bg-card shadow-xs" onClick={removeAllImages}>
+                  <Button type="button" size="sm" variant="outline" className="bg-card shadow-xs" onClick={removeAllImagesNow}>
                     <Trash2 aria-hidden />
                     Xoá tất cả ảnh ({imageNodeIds.length})
                   </Button>
@@ -482,10 +511,15 @@ const noopSubscribe = () => () => {};
  */
 export default function FlowCanvas({ initialTemplateId, initialDocId }: { initialTemplateId?: string; initialDocId?: string }) {
   const { open } = useFlowDocs();
+  const { isLoaded, userId } = useAuth();
+  // Tự lưu nháp chỉ bật sau khi đã quyết định nạp gì (doc / template / nháp) – tránh ghi đè nháp bằng template mặc định.
+  const draftReady = useRef(false);
+  useFlowDraftAutosave(userId, draftReady);
   // flow_opened chỉ 1 lần mỗi lần mount (StrictMode chạy effect 2 lần với cùng ref).
   const openedTracked = useRef(false);
   // Chỉ chạy ở client: store là singleton module, nạp lúc render server sẽ dùng chung giữa các request.
   useEffect(() => {
+    if (!isLoaded) return;
     const first = !openedTracked.current;
     openedTracked.current = true;
     const fromForm = first ? takeFlowOpenSource() : null;
@@ -493,19 +527,23 @@ export default function FlowCanvas({ initialTemplateId, initialDocId }: { initia
       const loaded = useFlowStore.getState().docId !== initialDocId ? open(initialDocId) : Promise.resolve(true);
       // Đợi tải xong để event mang doc_id/template_id của project.
       if (first) void loaded.then(() => trackFlow('flow_opened', { source: 'doc' }));
+      draftReady.current = true;
       return;
     }
     const t = initialTemplateId ? getTemplate(initialTemplateId) : undefined;
     if (t && useFlowStore.getState().templateId !== t.id) useFlowStore.getState().loadTemplate(t);
+    // Mở /flow trống (không doc/template, không từ form) lần đầu: có nháp trên máy thì mở lại nháp.
+    const restored = first && !t && !fromForm && userId ? restoreFlowDraft(userId) : false;
+    draftReady.current = true;
     if (!first) return;
     const source = fromForm ?? (t ? 'template_url' : 'direct');
     trackFlow('flow_opened', { source });
     // Graph đúng là template vừa nạp (chưa sửa) → tính 1 lần dùng template.
     const s = useFlowStore.getState();
-    if (source !== 'form' && s.templateId && s.graph === s.templateBaseline) {
+    if (!restored && source !== 'form' && s.templateId && s.graph === s.templateBaseline) {
       trackFlow('flow_template_used', { source: t ? 'url' : 'default' });
     }
-  }, [initialTemplateId, initialDocId, open]);
+  }, [initialTemplateId, initialDocId, open, isLoaded, userId]);
 
   // Studio đo chữ/vẽ bằng Canvas 2D (validate, ước tính lượt AI) – chỉ có ở trình duyệt. Graph mặc định đã có chữ
   // (T5.4) nên không render ở server; server trả khung trống cùng nền để không nháy.

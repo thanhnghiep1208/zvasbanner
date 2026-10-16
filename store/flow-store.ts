@@ -44,6 +44,11 @@ type FlowState = {
   savedGraph: FlowGraph | null;
   /** Mở project đã lưu: graph + exposed/templateId của project, Simple view nếu có exposed. */
   loadDoc: (d: { id: string; title: string; doc: StoredFlowDoc }) => void;
+  /** Mở lại bản nháp trên máy (tự lưu): coi như đã sửa (không có baseline/savedGraph) để đổi template/lưu đều hỏi đúng. */
+  restoreDraft: (d: {
+    graph: FlowGraph; exposed: ExposedParam[]; templateId: string | null; docId: string | null; docTitle: string;
+    view: FlowView;
+  }) => void;
   /** Sau khi lưu xong: `graph` là graph đã gửi đi (user có thể sửa tiếp trong lúc chờ). */
   markSaved: (d: { id: string; title: string; graph: FlowGraph }) => void;
   setDocTitle: (title: string) => void;
@@ -104,6 +109,14 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     const { graph, exposed, templateId } = instantiateTemplate(t);
     get().setGraph(graph);
     set({ exposed, templateId, templateBaseline: graph, view: exposed.length ? 'simple' : 'canvas', docTitle: t.name });
+  },
+
+  restoreDraft: ({ graph, exposed, templateId, docId, docTitle, view }) => {
+    get().setGraph(graph);
+    set({
+      exposed, templateId, templateBaseline: null, view: view === 'simple' && exposed.length ? 'simple' : 'canvas',
+      docId, docTitle, savedGraph: null,
+    });
   },
 
   loadDoc: ({ id, title, doc }) => {

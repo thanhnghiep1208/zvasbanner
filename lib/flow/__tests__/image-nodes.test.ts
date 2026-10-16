@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compileGraph } from '../compiler';
-import { addImageNode, removeImageNode, setImageRole } from '../image-nodes';
+import { addImageNode, filledImageNodes, removeAllImages, removeImageNode, setImageRole } from '../image-nodes';
 import type { FlowAsset, FlowGraph, NodeParamsMap } from '../schema';
 import { getTemplate, instantiateTemplate, setExposedValue } from '../template';
 import { validateGraph } from '../validate';
@@ -66,5 +66,18 @@ describe('image-nodes (Simple view nhiều ảnh)', () => {
     const next = removeImageNode(graph, id);
     expect(next.nodes.some((n) => n.id === id)).toBe(false);
     expect(next.edges.some((e) => e.source === id)).toBe(false);
+  });
+
+  it('xoá tất cả ảnh: ô ảnh template chỉ làm trống (giữ node + dây), ảnh thêm thì xoá; node trống không tính', () => {
+    const base = heroWithProduct();
+    const { graph, id } = addImageNode(base, asset('logo'));
+    expect(filledImageNodes(graph).map((n) => n.id).sort()).toEqual([id, 'n-product-0'].sort());
+    const next = removeAllImages(graph, new Set(['n-product-0']));
+    const kept = next.nodes.find((n) => n.id === 'n-product-0')!;
+    expect((kept.params as FlowAsset).assetId).toBe('');
+    expect((kept.params as FlowAsset).role).toBe('image');
+    expect(next.edges.filter((e) => e.source === 'n-product-0')).toEqual(base.edges.filter((e) => e.source === 'n-product-0'));
+    expect(next.nodes.some((n) => n.id === id)).toBe(false);
+    expect(filledImageNodes(next)).toEqual([]);
   });
 });

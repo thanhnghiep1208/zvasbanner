@@ -84,6 +84,29 @@ export function setImageRole(graph: FlowGraph, nodeId: string, role: AssetRole):
   return { nodes, edges: rewire({ ...graph, nodes }, nodeId, type) };
 }
 
+/** Làm trống ảnh của node (giữ node, dây, vai trò) – dùng cho ô ảnh template cần giữ lại. */
+export function clearImageNode(graph: FlowGraph, nodeId: string): FlowGraph {
+  return {
+    ...graph,
+    nodes: graph.nodes.map((n) => (n.id === nodeId && isImageNode(n)
+      ? ({ ...n, params: { ...NODE_DEFINITIONS[n.type].defaultParams, role: n.params.role } } as ImageNode) : n)),
+  };
+}
+
+/** Node ảnh đã có ảnh (node trống – vd. ô ảnh template chưa tải – không tính). */
+export function filledImageNodes(graph: FlowGraph): ImageNode[] {
+  return graph.nodes.filter(isImageNode).filter((n) => n.params.assetId);
+}
+
+/**
+ * Bỏ mọi ảnh đã tải: node nằm trong `keep` (ô ảnh template lộ ra ở Simple view) chỉ làm trống, còn lại xoá node + dây.
+ */
+export function removeAllImages(graph: FlowGraph, keep: ReadonlySet<string>): FlowGraph {
+  let g = graph;
+  for (const n of filledImageNodes(graph)) g = keep.has(n.id) ? clearImageNode(g, n.id) : removeImageNode(g, n.id);
+  return g;
+}
+
 /** Xoá node ảnh cùng dây nối của nó. */
 export function removeImageNode(graph: FlowGraph, nodeId: string): FlowGraph {
   return {
