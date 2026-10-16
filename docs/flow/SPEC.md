@@ -17,10 +17,10 @@ Graph là source of truth duy nhất.
 ## 2. Nguyên tắc không được vi phạm
 
 1. **Asset fidelity**: pixel gốc của sản phẩm không bao giờ đi qua model AI (trừ executor `legacy`). Đã khoá bằng test `rules.test.ts`; không được xoá hoặc nới test này.
-2. **Không viết lại pipeline cũ** trong P1. Graph biên dịch xuống `CompiledJob` → adapter → input mà pipeline hiện tại đã hiểu. Không sửa Route Handler, `lib/prompt-builder.ts`, `lib/export.ts`, `lib/gemini-server.ts`, `lib/client-generation.ts` trừ khi task ghi rõ; nếu buộc phải sửa, dừng lại và ghi câu hỏi (mục 9).
+2. **Không viết lại pipeline cũ** trong P1. Graph biên dịch xuống `CompiledJob` → adapter → input mà pipeline hiện tại đã hiểu. Không sửa Route Handler, `lib/prompt-builder.ts`, `lib/export.ts`, `lib/gemini-server.ts`, `lib/client-generation.ts` trừ khi task ghi rõ; nếu buộc phải sửa, dừng lại và ghi câu hỏi (mục 9). Đã duyệt: rate limit dùng chung (Q8), Nano Banana 2.1 + prompt bám banner mẫu (Q15).
 3. **`lib/flow/` là domain thuần**: không import React, React Flow, Next.js, Zustand.
 4. **Feature flag**: mọi UI mới nằm sau `FLOW_CANVAS` (`lib/flags.ts`, logic `lib/flow-rollout.ts`): `off` | `allowlist` | `rollout` (`FLOW_CANVAS_PERCENT`, bucket sha256 ổn định theo userId + `FLOW_CANVAS_SALT`) | `on`; `FLOW_CANVAS_DENYLIST` luôn tắt. Form cũ giữ nguyên đến bước 6.
-5. **Không persist graph vào localStorage**. Lưu Postgres (JSONB) qua `StoredFlowDoc` với `schemaVersion`.
+5. **Project lưu Postgres** (JSONB) qua `StoredFlowDoc` với `schemaVersion`, không dùng localStorage làm nơi lưu project. Ngoại lệ (Q14): bản nháp tự động trên máy user (graph trong localStorage, ảnh trong IndexedDB) chỉ để mở lại khi tải lại trang; không thay cho "Lưu".
 6. **Không đoán field**: trước khi dùng type có sẵn, đọc định nghĩa thật trong `lib/types.ts` (`GenerationRequest`, `CanvasConfig`, `UploadedAsset`, `AssetRole`, `BrandKit`, `StyleControls`, `ImageGenerationModel`, `MarketingBrief`) và tái sử dụng, không định nghĩa lại. Repo **không có** `TextLayer`, `ComposedDoc`, `ProductLayer`, `LightingProfile`, `lib/text-layer-render.ts`: các phần này phải xây mới (Q2, Q3).
 7. Rate limit hiện có (20 request/giờ/user) và body size cap phải được tôn trọng; graph không được tạo đường vòng qua chúng.
 
@@ -45,12 +45,17 @@ Style/Brand/Ref┘        └──── transforms ─────────
 
 | Lớp | Vị trí | Trạng thái |
 |---|---|---|
-| Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có, 82 test pass |
+| Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có; toàn repo 417 test pass (2026-10-16) |
 | IR | `lib/flow/compiled-job.ts` (`CompiledJob`, `estimateAiCalls`) | Có |
 | Adapter legacy | `lib/flow/legacy/to-legacy-config.ts`, `from-legacy-config.ts` (legacy = `GenerationRequest`) | Có (T1.2–T1.4) |
 | Text layer + renderer | `lib/flow/text/` (model) + `lib/flow-ui/compose-render.ts` | Đủ (T4.4): 5 font tiếng Việt, measurer + vẽ dùng chung layout/preview/export, UI typography |
 | Compose | `lib/flow/compose/` (plan, pure) + `lib/flow-ui/compose-render.ts` (Canvas 2D) | Có (T4.3) |
-| Layout engine | `lib/flow/layout/` | Đầy đủ (T4.1): 2 variant/class, co sản phẩm → co chữ → variant kế, báo no-fit; đo chữ ước lượng tới T4.4 |
+| Layout engine | `lib/flow/layout/` | Đầy đủ (T4.1): 2 variant/class, co sản phẩm → co chữ → variant kế, báo no-fit; đo chữ bằng measurer Canvas 2D (T4.4) |
+| Node ảnh | `lib/flow/image-nodes.ts` | Thêm/đổi loại/xoá ảnh + tự nối dây (Simple view), xoá tất cả ảnh |
+| Giới hạn ảnh | `lib/flow/asset-limits.ts` | Ảnh tham chiếu ≤ 4MB |
+| Chữ tự động | `lib/flow/text/auto-style.ts` | Font/cỡ theo Phong cách + Brand kit, màu theo nền thật (5.10) |
+| Undo/redo | `store/flow-history.ts` | Lịch sử `graph`, gộp thay đổi liên tiếp |
+| Nháp trên máy | `lib/flow-ui/flow-draft.ts`, `components/flow/use-flow-draft.ts` | localStorage + IndexedDB (Q14) |
 | Executor engine | `lib/flow/executor.ts` + `cache-keys.ts` | Run all / chạy lại từ node, cache theo request, stale (T4.7) |
 | RF adapter | `lib/flow-ui/rf-adapter.ts` (FlowNode ↔ React Flow node) | Có (T2.1) |
 | Store | `store/flow-store.ts` | Giữ `FlowGraph` domain + ui riêng (T2.2) |
@@ -80,16 +85,22 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - Ngoại lệ: text layer `role=headline, renderSource='ai'` → cho phép chữ **chỉ** trong slot headline, vùng khác vẫn cấm.
 - Mặc định `guideStyle: 'natural'`: không gửi ảnh guide (ảnh guide + toạ độ % làm model vẽ chữ/khung kiểu mockup, T4.2b). `'hatched'` còn trong code để so sánh. Không gửi pixel sản phẩm.
 - Mỗi ratio = 1 lần gọi. Hiển thị `estimateAiCalls()` trước khi Run.
+- Model mặc định Nano Banana 2.1 (slug `nano-banana-2` → `gemini-nano-banana-2.1`, Q15).
+- Ảnh tham chiếu style = banner mẫu: prompt yêu cầu dựng lại **nền** của mẫu (loại nền, màu, ánh sáng, hoạ tiết và vị trí của chúng), bỏ chữ/logo/nút/sản phẩm (`REFERENCE_BACKGROUND_RULES`). Bố cục chữ/sản phẩm vẫn do layout engine – muốn theo cả bố cục mẫu thì dùng template "Theo banner mẫu" (flat, Q13).
 
 ### 5.4 Compose + auto shadow
 - Compose client-side **viết mới** bằng Canvas 2D (repo chưa có composed mode, Q3): nền + product alpha + contact shadow + text layer. Không thêm thư viện canvas (Konva/Fabric).
 - Auto shadow P1: contact shadow mềm dưới đáy alpha bbox, lệch theo `lightDirectionDeg`. Product không alpha → shadow tắt + warning `product-no-alpha` (đã có trong `validate.ts`).
 - Custom: opacity, blurPx, offsetX, offsetY chỉnh trong inspector.
+- Ảnh luôn đúng tỉ lệ gốc (`fitAspect`): khung layout/override lệch tỉ lệ thì ảnh thu vào giữa khung, không kéo giãn; không filter màu.
+- Chữ "tự động theo banner": trước khi vẽ, đo vùng nền đã vẽ dưới chữ rồi chọn màu chữ/bóng/màu nút (5.10).
 
 ### 5.5 Executor engine
 - Topological sort; mỗi node có `runState: idle | stale | queued | running | done | error`.
 - `cacheKey = hash(params + cacheKey các node upstream)`; đổi param → đánh dấu `stale` downstream, không chạy lại node không đổi.
 - Hỗ trợ "Run all" và "Run từ node này".
+- Chặn trước khi tốn lượt AI: ảnh thiếu dữ liệu, ảnh tham chiếu > 4MB, body vượt ngân sách 29MB.
+- Flat: luôn gửi `strictPreserveMode = true` (sản phẩm/logo không đổi tỉ lệ, màu, hình dạng), kể cả graph mở từ form có giá trị false.
 - Executor gọi API qua Route Handler: flat dùng `/api/generate` hiện có; composed dùng route mới `app/api/flow/generate-background/route.ts` (Q8A), tái sử dụng `requireUser`, `createRateLimiter`, `readJsonWithSizeLimit`, model profile trong `lib/gemini-server.ts` (chỉ import, không sửa). Nếu một lần chạy có thể vượt timeout serverless: ghi vào QUESTIONS.md đề xuất job queue (Inngest/QStash/Vercel Workflow), chưa tự thêm hạ tầng.
 
 ### 5.6 UI canvas
@@ -100,21 +111,39 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - Không bao giờ mở canvas trống: mặc định load template.
 - Theo design token/component hiện có của app, không tự đặt bảng màu mới.
 - Accessibility: điều hướng bàn phím giữa node, nối port bằng phím, `aria-label` cho node và port, focus ring rõ, tôn trọng `prefers-reduced-motion`.
-- Copy UI tiếng Việt, kỹ thuật, ngắn, không mơ hồ.
+- Copy UI tiếng Việt, kỹ thuật, ngắn, không mơ hồ. Động từ tạo ảnh dùng "Tạo" (không dùng "Sinh").
+- Tiện ích đã có (sau P1):
+  - Kéo thả ảnh từ máy vào canvas: thả lên node ảnh → thay ảnh; thả chỗ trống → mỗi file 1 node Asset.
+  - Nút "Xoá tất cả ảnh (N)": chỉ đếm ảnh đã tải; ô ảnh của template chỉ làm trống; có Hoàn tác.
+  - Hoàn tác / Làm lại: nút trên header, ⌘/Ctrl+Z, ⇧⌘Z / Ctrl+Y (không bắt khi đang gõ trong ô nhập).
+  - Node ảnh chưa nối: viền vàng + lời nhắc trên node, warning `asset-unconnected`.
+  - Node/Inspector Kích thước: hình chữ nhật đúng tỉ lệ + W×H + tỉ lệ (`RatioShape`, `aspectLabel`).
+  - Header co gọn ở 1024px (số node/dây chỉ hiện ≥ 2xl, badge Beta ≥ xl).
 - Naming: component PascalCase. Style bằng Tailwind utility + component shadcn như phần còn lại của app (đổi từ CSS module BEM ở T3.1). Màu riêng của flow là token CSS-first trong `app/globals.css` (`--color-port-*`, `--color-node-*`, `--color-run-*`, giá trị từ bảng Tailwind, có biến thể `.dark`); class tĩnh trong `components/flow/flow-styles.ts`. Phần React Flow tự render (handle, edge, minimap, controls) theme qua biến `--xy-*` trong `components/flow/flow-theme.css`, vì CSS của xyflow không nằm trong cascade layer nên thắng mọi utility.
 
 ### 5.7 Simple view
 - Template = graph + danh sách `exposed: { id, nodeId, path, label, control, … }[]` (`lib/flow/template/`). `path` (mảng) thay `paramKey` vì nhiều field nằm sâu (vd. `style.fill.color`); `path: []` = cả params (ảnh). `control` cho Simple view biết vẽ input gì.
 - Simple view render form từ `exposed`; sửa ở đây ghi thẳng vào graph.
 - Nút "Mở canvas" chuyển sang Canvas view cùng graph.
+- Field ảnh (`ImageListField`): 1 ô kéo thả/chọn nhiều tệp + danh sách ảnh (thumbnail, tên, X, dropdown chức năng: sản phẩm, logo, trang trí, nền, tham chiếu style). Ảnh thêm tự nối dây như ảnh cùng loại; đổi giữa nhóm giữ pixel ↔ tham chiếu thì đổi type node.
+- Cột phải có tab "Xem trước bố cục | Kết quả": xem trước dùng đúng layout engine + hàm vẽ Compose trên nền xám tạm (không tốn lượt AI); template flat chỉ xem được sau khi chạy.
+- Mục "Kiểu chữ: Tự động theo banner | Chỉnh tay" đầu nhóm Phong cách, áp cho mọi text layer.
+- Template mặc định (`lib/flow/template/defaults.ts`): Sản phẩm nổi bật (mặc định), Theo banner mẫu (flat, Q13), Khuyến mãi đa kích thước, Bài đăng mạng xã hội, Sự kiện theo thương hiệu.
 
 ### 5.8 Persistence + migration
 - Bảng/cột lưu `StoredFlowDoc` (JSONB). Migration DB theo cách repo đang làm (tìm helper `pool`).
 - Không có kho lưu asset trong P1 (Q7B): graph lưu metadata asset (`assetId`, `fileName`, `role`, `hasAlpha`, `originalDims`) nhưng không lưu `blob:` hay `dataUrl`; mở lại project → node asset báo "Cần tải lại ảnh", user upload lại rồi mới chạy.
 - App cũ không lưu project nên không có dữ liệu migrate (Q5). Thay bằng nút "Mở trong canvas" trên form: state editor → `GenerationRequest` → `fromLegacyConfig` → `decompileJob`.
+- Nháp trên máy (Q14): tự lưu sau 800ms và khi rời trang (theo userId); mở `/flow` không có `?doc`/`?template` và không từ form → mở lại nháp kèm nút "Bỏ nháp". Template chưa sửa hoặc project đã lưu chưa sửa thì xoá nháp.
 
 ### 5.9 Analytics
 Type trong `lib/analytics-events.ts`; ghi qua `/api/flow/track` vào bảng `flow_events` (props JSONB, Q12). Event mới: `flow_opened`, `flow_run_started` (aiCalls), `flow_run_completed` (durationMs, renderMode), `flow_run_failed` (code), `flow_view_switched` (simple/canvas), `flow_template_used`.
+
+### 5.10 Chữ tự động theo banner
+- Text layer có `autoStyle` (thiếu = false: project cũ giữ style tay). Mặc định bật cho text mới và mọi template.
+- `autoTypography` (chạy trong compiler và validate, trước layout): font = font Brand kit > `FONT_FOR_STYLE[fontStyle]` (chữ viết tay chỉ cho tiêu đề); cỡ tiêu đề theo phong cách (bold 104, playful 92, luxury/corporate 80, minimalist 76 – px tại cạnh ngắn 1080), phụ 0.42×, CTA/khác 0.36×; IN HOA + giãn chữ khi bold/energetic; nút CTA bo góc theo phong cách; giữ căn lề của layer.
+- `autoTextColors` (lúc ghép, đo màu trung bình + độ rối của vùng nền dưới chữ): tiêu đề ưu tiên màu thương hiệu đủ tương phản (≥ 3.5), không thì trắng/đen; chữ nhỏ trắng/đen ≥ 4.5; nền rối hoặc tương phản sát ngưỡng → bóng mềm ngược màu; CTA: nút màu thương hiệu nổi trên nền (≥ 3), chữ trên nút trắng/đen.
+- Tắt trong Inspector (chỉnh tay bắt đầu từ đúng kiểu đang tự động) hoặc mục "Kiểu chữ" ở Simple view.
 
 ## 6. Quy tắc làm việc cho Claude Code
 
@@ -247,3 +276,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 - **2026-10-16** – Ngoài task (Nghiệp yêu cầu): hình tỉ lệ cho kích thước. `components/flow/RatioShape.tsx` (hình chữ nhật đúng tỉ lệ trong ô vuông, màu currentColor) + `aspectLabel` (rút gọn được thì 16:9/5:3/3:1, không thì 1.92:1). Inspector node Kích thước (cũng là field Kích thước ở Simple view): mỗi kích thước đã chọn là 1 thẻ có hình 32px + tên + W×H · tỉ lệ; menu "Thêm kích thước" mỗi mục có hình 20px + tên + W×H · tỉ lệ (2 dòng, không bị cắt). Node card dùng chung RatioShape. Header ở 1024px không còn chồng: cột header minmax(0,1fr), badge Beta chỉ hiện ≥ xl, tên template/project co hẹp hơn dưới xl. Kiểm trong pane trên sale-multi-ratio: 4 thẻ 5:3, 1.92:1, 3:1, 6:5; menu đủ chữ; header trái 16–446px, phải 523–1008px.
 - **2026-10-16** – Ngoài task (Nghiệp yêu cầu): cảnh báo ảnh chưa nối. `validateGraph` thêm warning `asset-unconnected` (node Asset / Ảnh tham chiếu không có dây ra – compiler bỏ qua nên ảnh không lên banner), message chung `ASSET_UNCONNECTED_MESSAGE`. Thẻ node: viền vàng + khối nhắc "…Kéo dây từ ô ra bên phải vào node cần dùng ảnh."; Inspector và số cảnh báo trên header lấy từ validate. Ảnh thêm ở Simple view vẫn được nối sẵn nên không cảnh báo. Kiểm trong pane: thả 1 ảnh vào chỗ trống trên canvas → node viền vàng có lời nhắc, header "1 cảnh báo", Inspector báo. 1 test mới, 408 test pass, tsc + eslint pass.
 - **2026-10-16** – Ngoài task (Nghiệp yêu cầu): chữ "Tự động theo banner" (`autoStyle` trên text layer, thiếu = false nên project cũ giữ style tay). `lib/flow/text/auto-style.ts`: (1) `autoTypography` – font (font Brand kit > `FONT_FOR_STYLE[fontStyle]`; viết tay chỉ cho tiêu đề), độ đậm, cỡ theo phong cách (tiêu đề bold 104 / playful 92 / luxury, corporate 80 / minimalist 76; phụ 0.42×, CTA/khác 0.36×), IN HOA + giãn chữ khi bold/energetic, nút CTA bo góc theo phong cách; giữ căn lề của layer; chạy trong compiler (job) và validate (kiểm chữ vừa) để đo/vẽ khớp. (2) `autoTextColors` – lúc ghép, `compose-render` đo vùng nền đã vẽ dưới chữ (màu trung bình + độ rối): tiêu đề dùng màu thương hiệu đầu tiên đủ tương phản (≥ 3.5), không thì trắng/đen; chữ nhỏ trắng/đen ≥ 4.5; nền rối hoặc tương phản sát ngưỡng → bóng mềm ngược màu; CTA: nút màu thương hiệu nổi trên nền (≥ 3), chữ trên nút trắng/đen. Mặc định bật cho text mới (`addNode`) và mọi template. UI: Inspector có ô "Tự động theo banner" (bật → xem trước + tóm tắt font/cỡ, ẩn chỉnh tay; tắt → chỉnh tay bắt đầu từ đúng kiểu đang tự động); Simple view có "Kiểu chữ: Tự động theo banner | Chỉnh tay" đầu nhóm Phong cách (áp cho mọi text), field màu chữ/nút của template báo "Đang tự động"; thẻ node text hiện chip "Tự động theo banner". Kiểm trong pane: sale-multi-ratio 4 kích thước vẫn vừa chữ với font thật (0 lỗi); chạy thật product-hero (1 lượt AI) với brief "rừng tre tối" → tiêu đề + mô tả tự chuyển trắng có bóng mềm, đọc rõ trên nền tối. 9 test mới, 417 test pass, tsc + eslint pass.
+- **2026-10-16** – Cập nhật docs (Nghiệp yêu cầu): SPEC mục 2 (#2 ghi ngoại lệ đã duyệt Q8/Q15, #5 cho phép nháp trên máy – Q14), bảng kiến trúc mục 4 (thêm node ảnh, giới hạn ảnh, chữ tự động, undo/redo, nháp), 5.3–5.8 theo hành vi hiện tại, mục mới 5.10 Chữ tự động; QUESTIONS thêm Q14, Q15. Docs chung: README (link Flow SPEC, tính năng), architecture (model 2.1, thư mục + mục Flow canvas), backend (IMAGE_MODEL_MAP, banner mẫu, route/bảng flow), api (model mặc định 2.1, banner mẫu, mục 11–13 cho /api/flow/*), frontend (chọn model, mục /flow), workflow (model, biến FLOW_CANVAS*, checklist flow), deploy (biến FLOW_CANVAS*, bảng flow tự tạo, smoke test flow).

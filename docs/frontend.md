@@ -28,8 +28,9 @@ Tài liệu mô tả **UI, state client, và luồng tương tác người dùng
 
 Layout 3 cột, lắp bởi `components/layout/EditorWorkspace.tsx`:
 
-1. **Panel trái** — chọn canvas (`components/canvas/CanvasSizeSelector.tsx`) + upload asset (`components/assets/AssetPanel.tsx`, `AssetUploader.tsx` — logo/ảnh sản phẩm/nền/decoration/style-reference).
+1. **Panel trái** — chọn canvas (`components/canvas/CanvasSizeSelector.tsx`) + upload asset (`components/assets/AssetPanel.tsx`, `AssetUploader.tsx` — logo/ảnh sản phẩm/nền/decoration/style-reference). Ảnh "Banner tham chiếu style" là **banner mẫu**: kết quả bám bố cục + phong cách mẫu, chữ và sản phẩm thay bằng của user.
 2. **Panel giữa** — `components/prompt/PromptInput.tsx`:
+   - Chọn model: **Nano Banana 2.1** (mặc định, `nano-banana-2`) hoặc Nano Banana Pro.
    - Nhập `userPrompt`, headline/sub/CTA.
    - Toggle **"Giữ nguyên chủ thể upload"** (`strictPreserveMode`).
    - `components/prompt/MarketingBriefChips.tsx` — chip chọn **campaign intent** (`flash-sale` | `product-launch` | `brand-awareness` | `event`) và **focal subject** (`product` | `person` | `text` | `scene`); optional, inject phrase vào prompt server (`lib/prompt-builder.ts`) và gợi ý style (`lib/style-suggestions.ts`) — không tự override style user đã chọn.
@@ -54,6 +55,16 @@ Các route/action yêu cầu **đăng nhập Clerk** (gate `<Show>` signed-in/si
 - `currentBannerId` — id dùng để nhóm các event analytics (`preview_banner` chỉ track một lần theo id này).
 
 State không persist (reload mất draft) — không có middleware `persist` trong store hiện tại.
+
+## Flow canvas (`/flow`)
+
+Chỉ hiện khi cờ `FLOW_CANVAS` bật cho user (form có thêm nút **Mở trong canvas**). Code: `components/flow/`, state `store/flow-store.ts`.
+
+- **Header**: chọn template, chuyển **Đơn giản / Canvas**, Hoàn tác / Làm lại (⌘/Ctrl+Z, ⇧⌘Z), menu project (Lưu ⌘/Ctrl+S, mở, xoá), **Chạy tất cả** kèm số lượt AI.
+- **Đơn giản** (`components/flow/simple/`): form từ template – ô ảnh kéo thả nhiều ảnh + dropdown chức năng từng ảnh, nội dung, phong cách (gồm "Kiểu chữ: Tự động theo banner / Chỉnh tay"), kích thước; cột phải có tab **Xem trước bố cục** (không tốn lượt AI) và **Kết quả**.
+- **Canvas**: thư viện node (kéo thả), canvas React Flow, Inspector node đang chọn. Kéo ảnh từ máy thả vào canvas; nút "Xoá tất cả ảnh"; node ảnh chưa nối có cảnh báo; node Kích thước có hình tỉ lệ.
+- **Nháp**: tự lưu trên trình duyệt (localStorage + IndexedDB, theo tài khoản), mở lại `/flow` thì khôi phục, có "Bỏ nháp".
+- Chi tiết: [Flow SPEC](./flow/SPEC.md).
 
 ## Dashboard (`/dashboard`)
 

@@ -59,6 +59,7 @@ Sau khi có URL production (Vercel hoặc domain riêng), cấu hình trong Cler
   ```
    Hoặc dán nội dung `db/banner_events.sql` vào SQL editor của nhà cung cấp.
 4. Kiểm tra: `SELECT COUNT(*) FROM banner_events;` (có thể là `0` — chỉ cần bảng tồn tại).
+5. Flow canvas: bảng `flow_docs` và `flow_events` **tự tạo** ở lần lưu project / ghi event đầu tiên (không cần chạy SQL tay; mẫu ở `db/flow_docs.sql`, `db/flow_events.sql`).
 
 ---
 
@@ -99,6 +100,7 @@ Thêm trong **Settings → Environment Variables** (scope **Production**; có th
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Production | `pk_live_...`                                                |
 | `CLERK_SECRET_KEY`                  | Production | `sk_live_...`                                                |
 | `DATABASE_URL`                      | Production | Postgres production; nhớ `sslmode=require` nếu host yêu cầu. |
+| `FLOW_CANVAS` (+ `FLOW_CANVAS_ALLOWLIST`, `FLOW_CANVAS_PERCENT`, `FLOW_CANVAS_SALT`, `FLOW_CANVAS_DENYLIST`) | Production (tùy chọn) | Bật Flow canvas `/flow`. Mặc định `off` → `/flow` trả 404. Nên mở dần: `allowlist` (Clerk userId của team) → `rollout` + `FLOW_CANVAS_PERCENT` → `on`. Đổi biến phải **redeploy**. |
 | `ADMIN_EMAIL`                       | Production (tùy chọn) | Email primary luôn được coi là `admin` bất kể metadata Clerk. Ưu tiên set role qua Clerk Dashboard (`privateMetadata.role`); chỉ dùng biến này cho tài khoản chủ dự án lúc chưa set metadata. |
 
 
@@ -123,6 +125,7 @@ Thực hiện trên URL production (domain hoặc `*.vercel.app`):
 - Sau đăng nhập: thấy canvas / có thể **tạo banner** (gọi Gemini thành công).
 - **Export** ảnh tải xuống được.
 - Mở `/dashboard` (nếu không chặn): dữ liệu aggregate không 500; sau vài hành động, số liệu thay đổi (cần DB + event `track`).
+- Nếu bật Flow canvas: đăng nhập bằng tài khoản được bật cờ → mở `/flow`, chạy 1 template (1 lượt AI/kích thước), lưu project và mở lại; thử thêm 1 ảnh tham chiếu 3–4MB (giới hạn body của hosting có thể nhỏ hơn giới hạn 30MB của route).
 - Mở DevTools → Console khi tải trang: **không** có lỗi `Content-Security-Policy` (nếu có, thường do domain Clerk trong CSP không khớp — xem mục CSP ở bước 4.1). Kiểm tra header nhanh: `curl -sI https://<domain> | grep -i content-security-policy`.
 
 ---

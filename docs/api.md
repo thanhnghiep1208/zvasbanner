@@ -5,7 +5,7 @@ Tài liệu mô tả **contract** các Route Handlers dưới `app/api/`. Mọi 
 ## Ghi chú chung
 
 - **Auth & RBAC**: một số endpoint yêu cầu **đã đăng nhập** Clerk và có **permission** phù hợp (xem từng mục). `401` khi chưa đăng nhập; `403` khi thiếu quyền hoặc tài khoản **blocked**. Logic role/permission: `lib/authz.ts`, gate: `requirePermissionJson` trong `lib/require-user.ts`.
-- **Model ảnh (generate)**: theo field `imageModel` trong body — `nano-banana-pro` → `gemini-3-pro-image-preview`, `nano-banana-2` → `gemini-3.1-flash-image-preview` (mặc định server nếu thiếu/sai: Pro). **Edit-image** dùng model theo implementation trong `lib/gemini-server.ts` (thường cùng family flash/pro tùy route).
+- **Model ảnh (generate)**: theo field `imageModel` trong body — `nano-banana-2` → `gemini-nano-banana-2.1` (Nano Banana 2.1, **mặc định server nếu thiếu/sai**), `nano-banana-pro` → `gemini-3-pro-image-preview`. **Edit-image** dùng model theo implementation trong `lib/gemini-server.ts` (thường cùng family flash/pro tùy route).
 - **Ảnh trả về**: thường là chuỗi **data URL** (`data:image/png;base64,...`) hoặc định dạng tương thích client (ví dụ thẻ img với `src` trỏ tới data URL).
 - **Lỗi thân thiện + mã ngắn**: client có thể hiển thị tiền tố dạng `[E-GEN-…]`, `[E-ENH-…]`, `[E-EXP-…]`; server `edit-image` trả các mã kiểu `EDIT_TIMEOUT`, `EDIT_AUTH`, … trong trường `errorCode`. **Chi tiết kỹ thuật (raw error từ Gemini SDK) không còn trả về client** — chỉ `console.error` server-side; client chỉ nhận message thân thiện + `errorCode`.
 - **Rate limit + kích thước request** (`/api/generate`, `/api/enhance-prompt`, `/api/edit-image`): mặc định **20 request/giờ/user** (in-memory, per-instance — xem `lib/request-limits.ts`), vượt hạn mức trả `429`. Kích thước body cap **30MB** (`generate`, `enhance-prompt`) hoặc **20MB** (`edit-image`), enforce trên **byte thực tế đọc từ stream** (không chỉ header `Content-Length`) → `413` nếu vượt.
@@ -56,11 +56,12 @@ Tạo **một** banner từ prompt + assets (multimodal).
       "effects": []
     }
   },
-  "imageModel": "nano-banana-pro"
+  "imageModel": "nano-banana-2"
 }
 ```
 
-- `imageModel` (tùy chọn): `nano-banana-pro` | `nano-banana-2`. Thiếu hoặc không hợp lệ → server dùng `nano-banana-pro`.
+- `imageModel` (tùy chọn): `nano-banana-2` (Nano Banana 2.1) | `nano-banana-pro`. Thiếu hoặc không hợp lệ → server dùng `nano-banana-2`.
+- Asset role `style-reference` được coi là **banner mẫu**: ảnh kết quả bám bố cục + phong cách mẫu, thay bằng chữ (`Headline:` / `Subheadline:` / `CTA:` trong `userPrompt`) và sản phẩm/logo của user.
 
 ### Success — `200`
 
@@ -99,16 +100,16 @@ Sau generate Gemini thành công, `app/api/generate/route.ts` gọi `runHarmonyP
   "image": "data:image/svg+xml;charset=utf-8,...",
   "source": "placeholder",
   "meta": {
-    "model": "nano-banana-pro",
+    "model": "nano-banana-2",
     "elapsedMs": 45001
   },
-  "failedStep": "gemini-3.1-flash-image-preview",
+  "failedStep": "gemini-nano-banana-2.1",
   "placeholderError": "…",
   "errorCode": "GEMINI_TIMEOUT"
 }
 ```
 
-- Khi fallback, `meta.model` hiện là **id `imageModel` phía client** (ví dụ `nano-banana-pro`), không phải tên model Gemini đầy đủ. Trường `failedStep` trong response là nhãn lỗi cố định theo implementation (xem `app/api/generate/route.ts`).
+- Khi fallback, `meta.model` hiện là **id `imageModel` phía client** (ví dụ `nano-banana-2`), không phải tên model Gemini đầy đủ. Trường `failedStep` là id model Gemini đã gọi (`IMAGE_MODEL_MAP[imageModel]`, xem `app/api/generate/route.ts`).
 
 ### Lỗi — `400` / `401` / `403` / `413` / `429` / `500` / `502` (tùy implementation)
 
@@ -188,7 +189,7 @@ Chỉnh sửa **ảnh đã tạo** (multimodal: ảnh hiện tại + hướng d�
   "image": "data:image/png;base64,...",
   "source": "gemini",
   "meta": {
-    "model": "gemini-3.1-flash-image-preview",
+    "model": "gemini-nano-banana-2.1",
     "elapsedMs": 12000,
     "promptTokens": 0,
     "outputTokens": 0,
@@ -487,6 +488,28 @@ Admin thu hồi phiên của user khác. Cần `CLERK_SECRET_KEY`.
 ### Lỗi — `400` / `401` / `403` / `500`
 
 ---
+
+## 11) `POST /api/flow/generate-background`
+
+Tạo **nền** cho chế độ ghép layer của Flow canvas (1 kích thước/lần). Cần đăng nhập + quyền `generate_image` + cờ `FLOW_CANVAS`; dùng chung rate limit 20 request/giờ với `/api/generate`; body ≤ 30MB.
+
+- Body: `BackgroundRequest` (`lib/flow/background/request.ts`) – kích thước, brief, style/brand, hướng sáng, vùng giữ trống (`guide`), `guideStyle` (`natural` mặc định), ảnh tham chiếu (`references[]`, mỗi ảnh ≤ 4MB phía client), `model`, `aiHeadline` tuỳ chọn. Không có pixel sản phẩm.
+- `200`: `{ "image": "data:image/...", "meta": { "model", "elapsedMs", ... } }`.
+- Lỗi: `400` (dữ liệu sai), `401`/`403`, `404` (cờ tắt), `413`, `429` (rate limit / quota Gemini), `500` (thiếu key), `502`/`503`/`504` kèm `errorCode` (`GEMINI_HIGH_DEMAND_503`, `GEMINI_TIMEOUT`, `GEMINI_EMPTY_IMAGE`, …).
+
+## 12) `/api/flow/docs` — project Flow canvas
+
+Cần đăng nhập + cờ `FLOW_CANVAS` (tắt → 404). Mọi thao tác lọc theo user; project của user khác → 404.
+
+- `GET /api/flow/docs` → `{ "docs": [{ id, title, templateId, updatedAt }] }`.
+- `POST /api/flow/docs` body `{ "title", "doc": StoredFlowDoc }` → `201 { "doc" }`; quá 200 project → `409`.
+- `GET /api/flow/docs/:id` → `{ "doc": { ...record, doc } }`; project hỏng / phiên bản mới hơn → `422`.
+- `PUT /api/flow/docs/:id` body như POST → `{ "doc" }`. `DELETE /api/flow/docs/:id` → `204`.
+- Body ≤ 1MB; graph được kiểm cấu trúc (`parseStoredFlowDoc`) và luôn bỏ `url` ảnh (không lưu ảnh). Lỗi DB → `503`.
+
+## 13) `POST /api/flow/track`
+
+Ghi 1 event Flow canvas vào `flow_events` (`flow_opened`, `flow_template_used`, `flow_view_switched`, `flow_run_started`, `flow_run_completed`, `flow_run_failed`). Cần đăng nhập + cờ; body ≤ 4KB; field sai/thừa → `400`; thành công `204`.
 
 ## Liên kết
 

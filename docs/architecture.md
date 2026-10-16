@@ -25,8 +25,8 @@ Google Gemini API (generate / enhance / edit / harmony pass)
 | UI | Tailwind CSS v4, shadcn-style components, Base UI, Sonner (toast) |
 | State client | Zustand (`store/editor.ts`) |
 | Auth | Clerk (`@clerk/nextjs`), middleware `proxy.ts` |
-| AI | `@google/generative-ai`; model ảnh theo lựa chọn: `gemini-3-pro-image-preview` (Nano Banana Pro) hoặc `gemini-3.1-flash-image-preview` (Nano Banana 2) |
-| Analytics DB | `pg`, bảng `banner_events` (`db/banner_events.sql`) |
+| AI | `@google/generative-ai`; model ảnh theo lựa chọn: `gemini-nano-banana-2.1` (Nano Banana 2.1, slug `nano-banana-2`, **mặc định**) hoặc `gemini-3-pro-image-preview` (Nano Banana Pro, slug `nano-banana-pro`) |
+| Analytics DB | `pg`, bảng `banner_events` (`db/banner_events.sql`); Flow canvas thêm `flow_docs`, `flow_events` (tự tạo lần gọi đầu) |
 | Deploy | Vercel + Postgres hosted (Neon, Supabase, …) |
 
 ## Cấu trúc thư mục (rút gọn)
@@ -34,7 +34,8 @@ Google Gemini API (generate / enhance / edit / harmony pass)
 - **`app/`** — Trang (`page.tsx`), layout, Route Handlers dưới `app/api/**/route.ts`.
 - **`components/`** — UI theo vùng: `canvas/`, `layout/`, `prompt/`, `dashboard/`, `account/`, `auth/`, `assets/`, `results/`, `ui/`.
 - **`lib/`** — Logic dùng chung: `gemini-server.ts`, `prompt-builder.ts`, `client-generation.ts`, `analytics.ts`, `authz.ts`, `require-user.ts`, `request-limits.ts`, `clerk-sessions.ts`, `dashboard*.ts`, `db.ts`, `validate-generation.ts`, presets canvas.
-- **`store/`** — Zustand: canvas config, assets, prompt/style, ảnh đã tạo, `currentBannerId` (analytics).
+- **`store/`** — Zustand: canvas config, assets, prompt/style, ảnh đã tạo, `currentBannerId` (analytics). Flow canvas: `flow-store.ts` (graph), `flow-history.ts` (undo/redo).
+- **`lib/flow/`** — domain Flow canvas thuần (schema graph, validate, compiler, layout engine, compose plan, executor, template, chữ tự động); **`lib/flow-ui/`** — phần cần trình duyệt (Canvas 2D render, nháp IndexedDB); **`lib/flow-server/`** — DB/Gemini phía server; **`components/flow/`** — UI `/flow`.
 - **`proxy.ts`** — export `clerkMiddleware()` (Next.js 16 dùng tên file `proxy.ts` thay cho `middleware.ts`).
 - **`docs/`** — tài liệu dự án (file này + frontend/backend/api/deploy/workflow).
 
@@ -50,6 +51,15 @@ Google Gemini API (generate / enhance / edit / harmony pass)
 
 Chi tiết từng bước, component, và endpoint: xem [Frontend](./frontend.md), [Backend](./backend.md), [API Reference](./api.md).
 
+## Flow canvas (`/flow`)
+
+Trình tạo banner dạng node, nằm sau cờ `FLOW_CANVAS` (`lib/flags.ts`). Graph (node + dây) là nguồn dữ liệu duy nhất; có 2 cách xem: **Đơn giản** (form sinh từ template) và **Canvas** (đầy đủ node).
+
+- **Chế độ ghép layer (composed, mặc định của template)**: layout engine xếp sản phẩm + chữ cho từng kích thước → AI chỉ tạo **nền** (`POST /api/flow/generate-background`) → client ghép sản phẩm (giữ nguyên pixel, đúng tỉ lệ), bóng đổ và chữ bằng Canvas 2D. Chữ "tự động theo banner" chọn font/cỡ theo phong cách và màu theo nền thật.
+- **Chế độ flat**: AI vẽ cả banner qua `POST /api/generate` như form (template "Theo banner mẫu", project mở từ form).
+- Lưu project: `/api/flow/docs` → bảng `flow_docs` (không lưu ảnh); nháp tự động trên máy (localStorage + IndexedDB). Analytics: `/api/flow/track` → `flow_events`.
+- Spec chi tiết, quyết định và nhật ký: [docs/flow/SPEC.md](./flow/SPEC.md).
+
 ## Auth & Analytics (tóm tắt)
 
 - **Clerk** quản lý session; role (`admin`/`mod`/`editor`) + `blocked` lưu trong Clerk metadata; hỗ trợ đa phiên/đa thiết bị, user tự quản lý tại `/account/sessions`, admin quản lý qua dashboard. Chi tiết RBAC: [Backend § RBAC](./backend.md#rbac-libauthzts-librequire-userts).
@@ -62,3 +72,4 @@ Chi tiết từng bước, component, và endpoint: xem [Frontend](./frontend.md
 - [API Reference](./api.md) — contract từng endpoint.
 - [Deploy](./deploy.md) — Vercel, Clerk, domain, Postgres production.
 - [Workflow](./workflow.md) — setup local, env, checklist thử nghiệm.
+- [Flow Canvas SPEC](./flow/SPEC.md) — spec + nhật ký Flow canvas.

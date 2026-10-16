@@ -118,3 +118,13 @@ Trạng thái: **đã chốt A** (2026-10-15)
 Bối cảnh: Nghiệp muốn khi đưa banner mẫu thì kết quả giống mẫu nhất (bố cục, phong cách), chỉ đổi kích thước và chữ. Chế độ ghép layer chỉ cho AI vẽ nền; vị trí chữ/sản phẩm do layout engine → không theo bố cục mẫu được.
 Lựa chọn: A. Thêm template "Theo banner mẫu" chạy flat (AI vẽ cả banner, prompt bám mẫu) / B. Giữ mọi template composed.
 Trạng thái: **đã chốt A** (2026-10-16) – Nghiệp chọn "Làm nhóm 1", gồm template này. SPEC 3 #4 đã sửa.
+
+## Q14 – Bản nháp tự động trên máy (SPEC 2 #5)
+Bối cảnh: tải lại trang / đóng tab mất việc đang làm (ảnh không lưu server – Q7B). SPEC 2 #5 cấm persist graph vào localStorage.
+Lựa chọn: A. Nháp trên máy theo userId: graph trong localStorage, ảnh trong IndexedDB, chỉ để mở lại; project vẫn lưu Postgres / B. Không có nháp.
+Trạng thái: **đã chốt A** (2026-10-16) – Nghiệp chọn "Làm nhóm 1" (gồm tự lưu nháp). SPEC 2 #5 đã sửa.
+
+## Q15 – Sửa pipeline cũ: Nano Banana 2.1 + prompt bám banner mẫu (SPEC 2 #2)
+Bối cảnh: Nghiệp yêu cầu thay Nano Banana 2 bằng 2.1 (mặc định) và khi có ảnh tham chiếu thì làm giống mẫu nhất. Cần sửa `lib/gemini-server.ts`, `lib/prompt-builder.ts`, `lib/validate-generation.ts`, `store/editor.ts`, `components/prompt/PromptInput.tsx` – ảnh hưởng cả form cũ.
+Trạng thái: **đã làm theo yêu cầu trực tiếp** (2026-10-16). Slug giữ `nano-banana-2` (payload, project, analytics không đổi).
+
