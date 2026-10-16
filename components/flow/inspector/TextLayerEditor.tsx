@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { FLOW_FONTS, TEXT_ROLE_DEFAULTS, defaultTextStyle, type FontId, type FontWeight, type TextStyle } from '@/lib/flow/text/text-style';
 import type { NodeParamsMap, TextRole } from '@/lib/flow/schema';
 import { renderTextPreview } from '@/lib/flow-ui/compose-render';
 import { useFlowStore } from '@/store/flow-store';
 import { isHexColor } from '@/lib/flow/brand';
+import { autoStyleContextFromGraph, autoTypography } from '@/lib/flow/text/auto-style';
 
 const EMPTY: string[] = [];
 import {
@@ -73,6 +75,9 @@ export function TextLayerEditor({ nodeId, p }: { nodeId: string; p: TextParams }
   const setStyle = (patch: Partial<TextStyle>) => set({ style: { ...p.style, ...patch } });
   const s = p.style;
   const weights = FLOW_FONTS[s.fontFamily].weights as readonly FontWeight[];
+  // Kiểu chữ tự động: tính lại theo Phong cách / Brand kit hiện có (cùng hàm compiler dùng).
+  const autoCtx = useFlowStore(useShallow((st) => autoStyleContextFromGraph(st.graph)));
+  const resolved = p.autoStyle ? autoTypography(p, autoCtx) : p;
 
   return (
     <>
@@ -96,6 +101,29 @@ export function TextLayerEditor({ nodeId, p }: { nodeId: string; p: TextParams }
           Chữ do AI vẽ vào nền trong vùng tiêu đề, nên không chỉnh được font/màu ở đây.
         </p>
       ) : (
+        <>
+          <CheckboxField
+            label="Tự động theo banner"
+            checked={Boolean(p.autoStyle)}
+            hint="Font, cỡ chữ theo Phong cách và Brand kit; màu chữ, bóng, màu nút chọn theo nền thật khi ghép."
+            // Tắt: bắt đầu chỉnh tay từ đúng kiểu đang tự động (không nhảy về kiểu cũ).
+            onChange={(on) => set(on ? { autoStyle: true } : { autoStyle: false, style: resolved.style, minFontSizePx: resolved.minFontSizePx })}
+          />
+        </>
+      )}
+
+      {p.renderSource !== 'ai' && p.autoStyle && (
+        <>
+          <TextPreview content={p.content} style={resolved.style} />
+          <p className="text-xs text-muted-foreground">
+            {FLOW_FONTS[resolved.style.fontFamily].label} · {WEIGHT_LABELS[resolved.style.fontWeight]} · {resolved.style.fontSizePx}px
+            {resolved.style.textTransform === 'uppercase' ? ' · IN HOA' : ''}. Màu ở bản xem trước là tạm – màu thật chọn theo nền
+            khi chạy. Muốn tự chọn font/màu, tắt &quot;Tự động theo banner&quot;.
+          </p>
+        </>
+      )}
+
+      {p.renderSource !== 'ai' && !p.autoStyle && (
         <>
           <TextPreview content={p.content} style={s} />
 

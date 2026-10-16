@@ -8,7 +8,7 @@
  */
 import type { CompiledJob } from '../compiled-job';
 import type { LayoutPlan } from '../layout/types';
-import type { FlowAsset, PixelAssetRole, RatioSpec, ShadowConfig, Transform } from '../schema';
+import type { FlowAsset, PixelAssetRole, RatioSpec, ShadowConfig, TextRole, Transform } from '../schema';
 import type { TextStyle } from '../text/text-style';
 
 export interface PxRect {
@@ -56,6 +56,8 @@ export interface TextLayerDraw {
   fontSizePx: number;
   /** Style đã scale sang px của ratio (plate, stroke, shadow, letter spacing). */
   style: TextStyle;
+  /** Chữ "tự động theo banner": renderer đo vùng nền dưới chữ rồi chọn màu (auto-style.ts `autoTextColors`). */
+  auto?: { role: TextRole; palette: string[] };
 }
 
 export interface Composition {
@@ -208,6 +210,7 @@ export function buildComposition(
       content: layer.content,
       fontSizePx: placed?.fontSizePx ?? layer.style.fontSizePx * scale,
       style: scaleStyle(layer.style, scale),
+      ...(layer.autoStyle ? { auto: { role: layer.role, palette: job.brandKit?.colors ?? [] } } : {}),
     });
   }
 

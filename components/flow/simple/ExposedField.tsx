@@ -27,6 +27,15 @@ export function ExposedField({ e }: { e: ExposedParam }) {
   const node = graph.nodes.find((n) => n.id === e.nodeId);
   if (!node) return null;
 
+  // Chữ đang "tự động theo banner": font/cỡ/màu do app chọn → field style chỉnh tay không có tác dụng, chỉ nhắc.
+  if (node.type === 'text-layer' && e.path[0] === 'style' && (node.params as NodeParamsMap['text-layer']).autoStyle) {
+    return (
+      <Field label={e.label}>
+        {() => <p className="text-xs text-muted-foreground">Đang tự động theo banner. Chọn &quot;Chỉnh tay&quot; ở mục Kiểu chữ để tự đặt.</p>}
+      </Field>
+    );
+  }
+
   const value = getExposedValue(graph, e);
   const set = (v: unknown) => setExposed(e, v);
   const label = e.required ? `${e.label} *` : e.label;

@@ -12,9 +12,12 @@ import { RunResults } from '../inspector/RunResults';
 import { ExposedField } from './ExposedField';
 import { ImageListField } from './ImageListField';
 import { LayoutPreview } from './LayoutPreview';
+import { TextStyleModeField } from './TextStyleModeField';
 import { isImageNode } from '@/lib/flow/image-nodes';
 
 const DEFAULT_GROUP = 'Thiết lập';
+/** Nhóm template đặt field màu/kiểu (defaults.ts `G.look`) – đặt lựa chọn Kiểu chữ ở đầu nhóm này. */
+const LOOK_GROUP = 'Phong cách';
 
 /**
  * Simple view (T5.2, SPEC 5.7): form sinh từ `exposed` của template, ghi thẳng vào graph.
@@ -80,6 +83,7 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
           {groups.map(([group, items]) => (
             <section key={group} className="flex flex-col gap-4" aria-labelledby={`grp-${group}`}>
               <h3 id={`grp-${group}`} className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{group}</h3>
+              {group === LOOK_GROUP && <TextStyleModeField />}
               {items.map((f) => (
                 <div key={f.id} className="flex flex-col gap-1.5">
                   {f.control === 'asset'
@@ -94,6 +98,13 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
               ))}
             </section>
           ))}
+
+          {!groups.some(([g]) => g === LOOK_GROUP) && (
+            <section className="flex flex-col gap-4" aria-label="Kiểu chữ">
+              <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{LOOK_GROUP}</h3>
+              <TextStyleModeField />
+            </section>
+          )}
 
           {otherIssues.length > 0 && (
             <div className="flex flex-col gap-1.5 rounded-lg bg-destructive/10 p-3 text-xs text-destructive" role="alert">

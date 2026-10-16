@@ -96,6 +96,11 @@ export interface NodeParamsMap {
     minFontSizePx: number;
     /** Model text layer mới (Q2), xem lib/flow/text/text-style.ts. */
     style: TextStyle;
+    /**
+     * Tự chọn font/cỡ/màu theo phong cách banner và nền thật (lib/flow/text/auto-style.ts); `style` khi đó bị thay lúc
+     * compile/vẽ. Không có = false (project cũ giữ style chỉnh tay).
+     */
+    autoStyle?: boolean;
   };
   'brand-kit': BrandKit;
   'ratio': { ratios: RatioSpec[] };

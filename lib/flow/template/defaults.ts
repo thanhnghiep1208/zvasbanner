@@ -45,6 +45,8 @@ function text(
     layerId, role, content, renderSource: 'layer', priority,
     minFontSizePx: TEXT_ROLE_DEFAULTS[role].minFontSizePx,
     style: { ...defaultTextStyle(role), ...style },
+    // Mặc định chữ tự động theo banner; style ở trên là điểm bắt đầu khi user chuyển sang chỉnh tay.
+    autoStyle: true,
   };
 }
 

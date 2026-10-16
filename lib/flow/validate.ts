@@ -4,6 +4,7 @@ import { asLogoPosition, isHexColor } from './brand';
 import type { TextMeasurer } from './layout/measure';
 import { getDefinition, PORT_TYPE_LABELS } from './node-definitions';
 import { validateTextStyle } from './text/text-style';
+import { autoStyleContextFromGraph, autoTypography } from './text/auto-style';
 
 export interface ValidationIssue {
   severity: 'error' | 'warning';
@@ -132,6 +133,7 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
 
   // Auto Layout: chữ phải vừa ở mọi kích thước (SPEC 5.2) – lỗi hiện ngay trên node, không đợi chạy.
   const brand = graph.nodes.find((n) => n.type === 'brand-kit') as FlowNode<'brand-kit'> | undefined;
+  const autoCtx = autoStyleContextFromGraph(graph);
   for (const n of graph.nodes) {
     if (n.type !== 'auto-layout') continue;
     const from = <T extends FlowNode['type']>(port: string) => graph.edges
@@ -143,7 +145,7 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
     const res = planLayout({
       ratios: ratioNode.params.ratios,
       products: from<'product-asset'>('product').map((x) => x.params),
-      textLayers: from<'text-layer'>('text').map((x) => x.params),
+      textLayers: from<'text-layer'>('text').map((x) => autoTypography(x.params, autoCtx)),
       overrides: (n.params as NodeParamsMap['auto-layout']).overrides,
       logoPosition: asLogoPosition(brand?.params.logoPosition),
     }, { measurer: options.measurer });

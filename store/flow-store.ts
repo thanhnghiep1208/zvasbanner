@@ -157,6 +157,8 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     if (type === 'text-layer') {
       const text = params as NodeParamsMap['text-layer'];
       text.layerId = id;
+      // Text mới: tự chọn font/cỡ/màu theo banner; user tắt trong Inspector nếu muốn chỉnh tay.
+      text.autoStyle = true;
       // Font mặc định: font thương hiệu (Brand kit, T4.5) > kiểu chữ của node Phong cách (Q10B).
       const brandNode = graph.nodes.find((n) => n.type === 'brand-kit');
       const styleNode = graph.nodes.find((n) => n.type === 'style');

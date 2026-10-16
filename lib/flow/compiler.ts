@@ -2,6 +2,7 @@ import type { FlowEdge, FlowGraph, FlowNode, NodeType } from './schema';
 import { FLOW_SCHEMA_VERSION } from './schema';
 import type { CompiledJob } from './compiled-job';
 import { validateGraph, type ValidationIssue } from './validate';
+import { autoTypography } from './text/auto-style';
 
 export type CompileResult =
   | { ok: true; job: CompiledJob; warnings: ValidationIssue[] }
@@ -22,6 +23,8 @@ export function compileGraph(graph: FlowGraph): CompileResult {
     const gen = g.single(compose.id, 'background', 'generate-background');
     const layout = g.single(compose.id, 'layout', 'auto-layout');
     const ratio = g.single(layout.id, 'ratio', 'ratio');
+    const style = g.optional(gen.id, 'style', 'style')?.params;
+    const brandKit = g.optional(gen.id, 'brand', 'brand-kit')?.params;
 
     return {
       ok: true,
@@ -31,12 +34,13 @@ export function compileGraph(graph: FlowGraph): CompileResult {
         renderMode: 'composed',
         ratios: ratio.params.ratios,
         brief: g.single(gen.id, 'brief', 'brief').params,
-        style: g.optional(gen.id, 'style', 'style')?.params,
-        brandKit: g.optional(gen.id, 'brand', 'brand-kit')?.params,
+        style,
+        brandKit,
         references: g.many(gen.id, 'image', 'reference-image').map((n) => n.params),
         model: gen.params.model,
         products: g.many(compose.id, 'product', 'product-asset').map((n) => n.params),
-        textLayers: g.many(compose.id, 'text', 'text-layer').map((n) => n.params),
+        // Chữ "tự động theo banner": font/cỡ theo Phong cách + Brand kit, trước layout (màu chọn lúc ghép).
+        textLayers: g.many(compose.id, 'text', 'text-layer').map((n) => autoTypography(n.params, { style, brandKit })),
         composed: {
           lightDirectionDeg: gen.params.lightDirectionDeg,
           strictNoText: gen.params.strictNoText,
