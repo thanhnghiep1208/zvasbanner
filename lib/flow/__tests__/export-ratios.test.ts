@@ -37,7 +37,7 @@ describe('exportedRatios', () => {
 });
 
 describe('flat nhiều kích thước – parity với "Biến thể kích thước" của form', () => {
-  it('kích thước đầu giữ model/style của job; kích thước phụ ép Nano Banana 2 + giữ chủ thể + thích nghi ảnh đầu', async () => {
+  it('kích thước đầu giữ model của job; mọi kích thước luôn giữ nguyên chủ thể; kích thước phụ ép Nano Banana 2 + thích nghi ảnh đầu', async () => {
     const { job, runtime } = flatJob();
     job.model = 'nano-banana-pro';
     job.flat = { strictPreserveMode: false };
@@ -46,7 +46,8 @@ describe('flat nhiều kích thước – parity với "Biến thể kích thư�
       { ok: true, image: 'img-2', source: 'gemini' },
     ]);
     expect(out.ok).toBe(true);
-    expect(calls[0]).toMatchObject({ imageModel: 'nano-banana-pro', styleControls: { strictPreserveMode: false } });
+    // Node tắt "giữ nguyên" vẫn bị ép bật: logo/sản phẩm không được đổi tỉ lệ, màu, hình dạng.
+    expect(calls[0]).toMatchObject({ imageModel: 'nano-banana-pro', styleControls: { strictPreserveMode: true } });
     expect(calls[0]!.layoutAdaptationFromBanner).toBeUndefined();
     expect(calls[1]).toMatchObject({
       imageModel: 'nano-banana-2', styleControls: { strictPreserveMode: true }, layoutAdaptationFromBanner: 'img-1',

@@ -73,6 +73,18 @@ const toPx = (t: Transform, r: RatioSpec): PxRect => ({
   h: t.h * r.height,
 });
 
+/**
+ * Ảnh luôn giữ đúng tỉ lệ gốc: khung từ layout (kể cả override tay) lệch tỉ lệ thì thu ảnh vào giữa khung
+ * (contain) thay vì kéo giãn. Ảnh chưa rõ kích thước gốc → giữ khung.
+ */
+export function fitAspect(rect: PxRect, dims: { width: number; height: number }): PxRect {
+  if (!(dims.width > 0 && dims.height > 0 && rect.w > 0 && rect.h > 0)) return rect;
+  const k = Math.min(rect.w / dims.width, rect.h / dims.height);
+  const w = dims.width * k;
+  const h = dims.height * k;
+  return { x: rect.x + (rect.w - w) / 2, y: rect.y + (rect.h - h) / 2, w, h };
+}
+
 /** Hướng sáng → vector đơn vị trỏ TỚI nguồn sáng (0 = trên, theo chiều kim đồng hồ; trục y hướng xuống). */
 export function lightVector(deg: number): { x: number; y: number } {
   const rad = (deg * Math.PI) / 180;
@@ -167,7 +179,7 @@ export function buildComposition(
   for (const asset of job.products) {
     const t = transforms[asset.assetId];
     if (!t) continue;
-    const rect = toPx(t, ratio);
+    const rect = fitAspect(toPx(t, ratio), asset.originalDims);
     const layer: ImageLayer = { kind: 'image', assetId: asset.assetId, role: asset.role, rect, rotationDeg: t.rotationDeg };
     if (asset.role === 'logo') {
       logos.push(layer);

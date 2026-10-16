@@ -79,6 +79,15 @@ export const flatAdaptStepKey = (adapted: GenerationRequest) => hashParts('flat-
 export const backgroundStepKey = (draft: BackgroundRequestDraft, guideStyle: GuideStyle) =>
   hashParts('bg', guideStyle, { ...draft, references: draft.references.map((r) => ({ ...r, dataUrl: hashString(r.dataUrl) })) });
 
+/**
+ * Flat: ảnh sản phẩm/logo/trang trí đi qua AI nên luôn bật "giữ nguyên chủ thể" (không đổi tỉ lệ, màu, hình dạng),
+ * bất kể giá trị trong node hay payload form cũ. Chỉ composed mới giữ pixel tuyệt đối (ghép, không qua AI).
+ */
+function lockAssets(request: GenerationRequest): GenerationRequest {
+  return request.styleControls.strictPreserveMode ? request
+    : { ...request, styleControls: { ...request.styleControls, strictPreserveMode: true } };
+}
+
 /** Request kích thước phụ – giống "Biến thể kích thước" của form (AdditionalCanvasSizesPanel). */
 function adaptRequest(request: GenerationRequest, firstImage: string): GenerationRequest {
   return {
@@ -146,7 +155,7 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
 
   // Chỉ sinh kích thước được xuất (T4.6), giữ thứ tự node Kích thước.
   const exported = new Set(exportedRatios(compiled.job).map((r) => r.id));
-  const requests = legacy.requests.filter((r) => exported.has(r.ratioId));
+  const requests = legacy.requests.filter((r) => exported.has(r.ratioId)).map((r) => ({ ...r, request: lockAssets(r.request) }));
 
   // Body quá giới hạn server → 413 sau khi đã chờ; chặn sớm, báo trên các node ảnh.
   const tooBig = oversizeIssues(graph, requests.map((r) => r.request));
@@ -337,7 +346,7 @@ export function pendingAiCalls(
   const legacy = toLegacyConfig(job, runtime);
   if (!legacy.ok) return { calls: exported.length * per, reused: 0 };
   const ids = new Set(exported.map((r) => r.id));
-  const requests = legacy.requests.filter((r) => ids.has(r.ratioId));
+  const requests = legacy.requests.filter((r) => ids.has(r.ratioId)).map((r) => ({ ...r, request: lockAssets(r.request) }));
   if (forced('generate-flat')) return { calls: requests.length * per, reused: 0 };
   let hits = 0;
   let first: string | undefined;
