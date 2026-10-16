@@ -45,7 +45,7 @@ export async function generateBackground(
   for (const r of req.references) {
     parts.push({
       text: r.role === 'style-reference'
-        ? `STYLE REFERENCE (${r.fileName}): match palette, gradients, grain, graphic language. Do not copy text, logos or products.`
+        ? `REFERENCE BANNER (${r.fileName}): recreate its background, palette, lighting and decorative elements as closely as possible. Do not copy its text, logos, buttons, products or people.`
         : `BACKGROUND (${r.fileName}): base scene to adapt; keep reserved zones clean.`,
     });
     parts.push(inline(r.dataUrl));

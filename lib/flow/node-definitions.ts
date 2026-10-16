@@ -128,7 +128,7 @@ export const NODE_DEFINITIONS: Registry = {
       inPort('image', 'image', false, true),
     ],
     outputs: [out('background', 'background')],
-    defaultParams: { model: 'nano-banana-pro', lightDirectionDeg: 315, strictNoText: true },
+    defaultParams: { model: 'nano-banana-2', lightDirectionDeg: 315, strictNoText: true },
     aiCallsPerRatio: 1,
   },
   'generate-flat': {
@@ -144,7 +144,7 @@ export const NODE_DEFINITIONS: Registry = {
       inPort('image', 'image', false, true),
     ],
     outputs: [out('raster', 'raster')],
-    defaultParams: { model: 'nano-banana-pro', strictPreserveMode: true },
+    defaultParams: { model: 'nano-banana-2', strictPreserveMode: true },
     // Generate + harmony pass server luôn chạy ngay sau (app/api/generate/route.ts) – Q4.
     aiCallsPerRatio: 2,
   },

@@ -61,6 +61,57 @@ function formatAssetLine(asset: UploadedAsset): string {
 }
 
 /**
+ * Ảnh "Banner tham chiếu style": user muốn banner mới giống ảnh mẫu nhất có thể – cùng bố cục và phong cách,
+ * chỉ đổi kích thước, chữ, sản phẩm/logo của user.
+ */
+export const REFERENCE_BANNER_RULES = [
+  "- CRITICAL — REFERENCE BANNER: the user wants the new banner to look as close as possible to this reference.",
+  "- Copy its LAYOUT: where the hero subject, headline, subheadline, CTA button and logo sit, their relative sizes, alignment and spacing.",
+  "- Copy its LOOK: background type, color palette, gradients, lighting, texture, decorative graphic elements, typography style (weight, case, color, outline/shadow effects) and CTA button shape.",
+  "- Re-fit it to the target canvas: keep the same arrangement and proportions, reflowed for this aspect ratio. Do not crop, letterbox or stretch the reference.",
+  "- Replace ALL wording with the user's text from the brief (exact spelling and Vietnamese diacritics). Never keep the reference's original words.",
+  "- Put the user's uploaded product/logo where the reference has its product/logo. Do not copy the reference's own logo, brand marks or people.",
+] as const;
+
+/** Dòng "Headline: …" / "Subheadline: …" / "CTA: …" trong userPrompt (form ghép sẵn) → danh sách chữ cần giữ. */
+function extractCopyLines(userPrompt: string): string[] {
+  return userPrompt
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line) => {
+      const m = line.match(/^(headline|subheadline|cta)\s*:\s*(.+)$/i);
+      if (!m) return [];
+      const label =
+        m[1].toLowerCase() === "cta"
+          ? "CTA"
+          : m[1].toLowerCase() === "headline"
+            ? "Headline"
+            : "Subheadline";
+      return [`- ${label}: ${m[2].trim()}`];
+    });
+}
+
+function hasStyleReference(request: GenerationRequest): boolean {
+  return request.assets.some((a) => a.role === "style-reference");
+}
+
+/** Có ảnh tham chiếu: chữ thay vào đúng vị trí chữ tương ứng của ảnh mẫu. */
+function buildReferenceTextBlock(request: GenerationRequest): string {
+  const copy = extractCopyLines(request.userPrompt);
+  return [
+    "=== REFERENCE BANNER: TEXT REPLACEMENT ===",
+    ...(copy.length
+      ? [
+          "Use exactly this text, each in the position and style of the matching text block in the reference (headline → reference headline, etc.):",
+          ...copy,
+          "Do not add any other words from the reference. If the reference has more text blocks than these, leave those areas as clean design space.",
+        ]
+      : ["The user gave no headline/CTA text: do not copy any wording from the reference; keep its text areas as clean design space."]),
+  ].join("\n");
+}
+
+/**
  * Layer 2 — Structured context: canvas, assets (by role with URLs), brand kit, and industry context.
  */
 export function buildContextBlock(config: GenerationRequest): string {
@@ -100,12 +151,7 @@ export function buildContextBlock(config: GenerationRequest): string {
       if (!list?.length) continue;
       lines.push(`Role: ${role}`);
       if (role === "style-reference") {
-        lines.push(
-          "- CRITICAL: Treat these as style anchors. Reuse their color logic, graphic element system, texture/noise character, and overall art direction."
-        );
-        lines.push(
-          "- Do not clone exact text, logo, brand identity, or copyrighted composition."
-        );
+        lines.push(...REFERENCE_BANNER_RULES);
       }
       for (const asset of list) {
         lines.push(formatAssetLine(asset));
@@ -309,6 +355,17 @@ export function buildOutputPriorityDirective(): string {
   ].join(" ");
 }
 
+/** Có "Banner tham chiếu style": bám ảnh mẫu thay vì sáng tạo mới. */
+export function buildOutputPriorityDirectiveReference(): string {
+  return [
+    "Generate one final banner only (no alternatives).",
+    "Prioritize FAITHFULNESS to the reference banner (layout, look, typography style) over originality.",
+    "Only the canvas size, the text, and the product/logo change; everything else should read as the same design.",
+    "Preserve uploaded product/logo items with minimal alteration.",
+    "Keep composition production-ready for direct use at the exact requested pixel dimensions.",
+  ].join(" ");
+}
+
 /** When adapting from an approved reference banner to a new canvas size. */
 export function buildOutputPriorityDirectiveLayoutAdaptation(): string {
   return [
@@ -322,21 +379,7 @@ export function buildOutputPriorityDirectiveLayoutAdaptation(): string {
 
 function buildLayoutAdaptationBlock(request: GenerationRequest): string {
   const { width, height, platform, name } = request.canvasConfig;
-  const lockedCopyLines = request.userPrompt
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .flatMap((line) => {
-      const m = line.match(/^(headline|subheadline|cta)\s*:\s*(.+)$/i);
-      if (!m) return [];
-      const label =
-        m[1].toLowerCase() === "cta"
-          ? "CTA"
-          : m[1].toLowerCase() === "headline"
-            ? "Headline"
-            : "Subheadline";
-      return [`- ${label}: ${m[2].trim()}`];
-    });
+  const lockedCopyLines = extractCopyLines(request.userPrompt);
 
   return [
     "=== LAYOUT ADAPTATION (REFERENCE BANNER) ===",
@@ -380,9 +423,13 @@ export function assembleFullPrompt(request: GenerationRequest): string {
   const adaptation = request.layoutAdaptationFromBanner
     ? buildLayoutAdaptationBlock(request)
     : null;
+  // Thích nghi kích thước (ảnh đầu đã theo mẫu) thắng; còn lại có ảnh tham chiếu thì bám ảnh mẫu.
+  const followReference = !request.layoutAdaptationFromBanner && hasStyleReference(request);
   const outputDirective = request.layoutAdaptationFromBanner
     ? buildOutputPriorityDirectiveLayoutAdaptation()
-    : buildOutputPriorityDirective();
+    : followReference
+      ? buildOutputPriorityDirectiveReference()
+      : buildOutputPriorityDirective();
   const blocks = [
     SECTION.system,
     buildSystemPrompt(),
@@ -392,6 +439,9 @@ export function assembleFullPrompt(request: GenerationRequest): string {
     "",
     ...(adaptation ? [adaptation, ""] : []),
     SECTION.creative,
+    ...(followReference
+      ? ["The REFERENCE BANNER overrides the style, mood, palette and typography settings below wherever they conflict."]
+      : []),
     buildStylePhrase(request.styleControls, request.marketingBrief),
     "",
     buildCohesionInstructions(),
@@ -401,6 +451,7 @@ export function assembleFullPrompt(request: GenerationRequest): string {
     "",
     strictPreserveInstruction,
     "",
+    ...(followReference ? [buildReferenceTextBlock(request), ""] : []),
     SECTION.output,
     outputDirective,
   ];
