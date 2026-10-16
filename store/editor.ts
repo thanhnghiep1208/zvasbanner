@@ -145,7 +145,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     set((s) => ({
       styleControls: { ...s.styleControls, ...partial },
     })),
-  imageModel: "nano-banana-pro",
+  imageModel: "nano-banana-2",
   setImageModel: (value) => set({ imageModel: value }),
   brandKit: defaultBrandKit,
   setBrandKit: (partial) =>

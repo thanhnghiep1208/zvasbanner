@@ -41,6 +41,18 @@ function where(r: { x: number; y: number; w: number; h: number }): string {
   return `the ${v === 'middle' && hz === 'center' ? 'central' : `${v} ${hz}`} part of the picture (${size})`;
 }
 
+/**
+ * Ảnh "Banner tham chiếu style" ở chế độ ghép: nền phải giống ảnh mẫu nhất có thể (loại nền, màu, ánh sáng, hoạ tiết
+ * và vị trí của chúng). Chữ, sản phẩm, logo do phần mềm ghép sau nên không lấy từ ảnh mẫu.
+ */
+export const REFERENCE_BACKGROUND_RULES = [
+  'Recreate the BACKGROUND of the attached REFERENCE BANNER as closely as possible: same kind of backdrop (studio, scene or',
+  'gradient), same palette and gradients, same lighting mood, same texture/grain, and the same decorative graphic elements',
+  'placed in the same areas of the frame, re-fitted to this canvas size.',
+  'Leave out everything that will be added later: its text, logos, buttons, products and people.',
+  'The reference wins over the style settings above wherever they conflict; the reserved zones above still apply.',
+];
+
 function naturalPrompt(
   req: Parameters<typeof buildBackgroundPrompt>[0], zones: GuideRect[], aiZone: GuideRect | undefined | false,
   light: string, style: string,
@@ -69,7 +81,7 @@ function naturalPrompt(
   ];
   if (req.brandKit?.colors.length) lines.push(`Build the palette around these brand colors: ${req.brandKit.colors.join(', ')}.`);
   if (refs.some((r) => r.role === 'style-reference')) {
-    lines.push('Match the attached STYLE REFERENCE images: palette relationships, gradients, grain and graphic language. Do not copy their text, logos or products.');
+    lines.push(...REFERENCE_BACKGROUND_RULES);
   }
   if (refs.some((r) => r.role === 'background')) lines.push('Use the attached BACKGROUND image as the base scene, adapted to this format.');
   lines.push('');
@@ -135,7 +147,7 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
   // Font/vị trí logo của brand không áp cho nền (chữ và logo ghép sau) – chỉ dùng màu.
   if (brand?.colors.length) lines.push(`Brand colors to build the palette around: ${brand.colors.join(', ')}.`);
   if (refs.some((r) => r.role === 'style-reference')) {
-    lines.push('Match the attached STYLE REFERENCE images: palette relationships, gradients, grain and graphic language. Do not copy their text, logos or products.');
+    lines.push(...REFERENCE_BACKGROUND_RULES);
   }
   if (refs.some((r) => r.role === 'background')) {
     lines.push('Use the attached BACKGROUND image as the base scene; adapt it to the canvas size and keep reserved zones clean.');

@@ -54,8 +54,11 @@ describe('buildBackgroundPrompt (SPEC 5.3)', () => {
   it('brand màu + ảnh tham chiếu style/background', () => {
     const p = buildBackgroundPrompt(draft(composedFull));
     expect(p).toContain('#C8102E, #FFD700');
-    expect(p).toContain('STYLE REFERENCE');
+    expect(p).toContain('REFERENCE BANNER');
+    expect(p).toContain('Leave out everything that will be added later');
     expect(p).toContain('BACKGROUND image');
+    // Cả chế độ natural cũng bám ảnh mẫu.
+    expect(buildBackgroundPrompt({ ...draft(composedFull), guideStyle: 'natural' })).toContain('REFERENCE BANNER');
   });
 });
 

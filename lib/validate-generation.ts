@@ -229,7 +229,7 @@ export function parseGenerationRequest(v: unknown): GenerationRequest | null {
     typeof imageModelRaw === "string" &&
     IMAGE_MODELS.includes(imageModelRaw as ImageGenerationModel)
       ? (imageModelRaw as ImageGenerationModel)
-      : "nano-banana-pro";
+      : "nano-banana-2";
   if (!canvasConfig || !brandKit || !styleControls) return null;
   if (typeof userPrompt !== "string") return null;
   if (!Array.isArray(v.assets)) return null;

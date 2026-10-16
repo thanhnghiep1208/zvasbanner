@@ -173,7 +173,7 @@ export async function geminiGenerateOneImage(
 ): Promise<{ image: string; meta: ImageGenerationMeta }> {
   const startedAt = Date.now();
   const genAI = new GoogleGenerativeAI(apiKey);
-  const imageModelId = IMAGE_MODEL_MAP[options?.imageModel ?? "nano-banana-pro"];
+  const imageModelId = IMAGE_MODEL_MAP[options?.imageModel ?? "nano-banana-2"];
   const referenceParts: Array<
     { text: string } | { inlineData: { mimeType: string; data: string } }
   > = [];
@@ -255,7 +255,7 @@ function buildAssetInlineParts(assets: UploadedAsset[]) {
     if (!p) continue;
     const roleInstruction =
       asset.role === "style-reference"
-        ? "Use this as a strict style reference: match its color palette, gradient treatment, lighting mood, and graphic element language (shapes, lines, texture/noise, decorative motifs). Keep the same visual DNA and styling direction. Do not copy brand marks, faces, or exact text/content."
+        ? "REFERENCE BANNER: recreate this design as closely as possible – same layout (positions and sizes of hero, headline, subheadline, CTA, logo), same background, palette, lighting, graphic elements and typography style – re-fitted to the target canvas size. Replace all of its text with the user's text and its product/logo with the user's uploaded ones; do not copy its own wording, logo or brand marks."
         : "Preserve this uploaded item as-is: keep its identity, proportions, silhouette, and key details. Do not redesign, replace, or heavily alter it; only harmonize lighting/color grading to match the new background and effects.";
     parts.push({
       text: `Reference asset (${asset.role}): ${asset.fileName}. ${roleInstruction}`,
@@ -269,7 +269,7 @@ function buildAssetInlineParts(assets: UploadedAsset[]) {
     if (asset.role === "style-reference") {
       // Repeat style anchor once to increase conditioning strength.
       parts.push({
-        text: `Style anchor reinforcement for ${asset.fileName}: preserve palette, gradients, texture grain, and graphic motif language.`,
+        text: `Reference banner reinforcement for ${asset.fileName}: keep its layout, palette, typography style and graphic elements; only size, text and product/logo change.`,
       });
       parts.push({
         inlineData: {

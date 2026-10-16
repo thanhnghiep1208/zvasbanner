@@ -194,16 +194,16 @@ export function PromptInput({ className }: { className?: string }) {
           {(
             [
               {
+                value: "nano-banana-2",
+                title: "Mặc định - Nano Banana 2.1",
+                description:
+                  "Nhanh, chất lượng cao, bám ảnh tham chiếu và viết chữ tốt. Phù hợp hầu hết banner.",
+              },
+              {
                 value: "nano-banana-pro",
                 title: "Thiết kế Banner (Chất lượng cao) - Nano Banana Pro",
                 description:
                   "Hình ảnh có chiều sâu, tính nghệ thuật và độ chi tiết chuyên nghiệp.",
-              },
-              {
-                value: "nano-banana-2",
-                title: "Tạo banner nhanh/số lượng lớn - Nano Banana 2.1",
-                description:
-                  "Tốc độ cực nhanh, phù hợp cho việc chạy thử nghiệm (A/B testing) nhiều ý tưởng.",
               },
             ] as const
           ).map((item) => {
