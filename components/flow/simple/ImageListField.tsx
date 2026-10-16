@@ -7,6 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MAX_ASSETS, MAX_BYTES } from '@/lib/asset-upload';
+import {
+  dataUrlByteSize, isReferenceRole, REFERENCE_MAX_BYTES, REFERENCE_MAX_LABEL, referenceTooBigMessage,
+} from '@/lib/flow/asset-limits';
 import { addImageNode, isImageNode, removeImageNode, setImageRole, type ImageNode } from '@/lib/flow/image-nodes';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { FlowAsset, FlowGraph } from '@/lib/flow/schema';
@@ -120,7 +123,7 @@ export function ImageListField({ requiredNodeId, label, hint, messagesFor }: {
         <Upload className="size-5 shrink-0 text-muted-foreground" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{busy ? 'Đang đọc ảnh…' : 'Kéo thả nhiều ảnh vào đây'}</p>
-          <p className="text-xs text-muted-foreground">PNG, JPG, SVG, WebP · ≤ {MAX_BYTES / (1024 * 1024)}MB</p>
+          <p className="text-xs text-muted-foreground">PNG, JPG, SVG, WebP · ≤ {MAX_BYTES / (1024 * 1024)}MB · tham chiếu ≤ {REFERENCE_MAX_LABEL}</p>
         </div>
         <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>
           Chọn tệp
@@ -179,7 +182,15 @@ export function ImageListField({ requiredNodeId, label, hint, messagesFor }: {
                       value={params.role}
                       items={ROLE_ITEMS}
                       onValueChange={(v) => {
-                        if (v) editGraph((g) => setImageRole(g, n.id, v as AssetRole));
+                        if (!v) return;
+                        const role = v as AssetRole;
+                        // Đổi sang ảnh tham chiếu: ảnh đã tải phải dưới giới hạn tham chiếu.
+                        const data = assetData[params.assetId];
+                        if (isReferenceRole(role) && data && dataUrlByteSize(data) > REFERENCE_MAX_BYTES) {
+                          toast.error(referenceTooBigMessage(params.fileName));
+                          return;
+                        }
+                        editGraph((g) => setImageRole(g, n.id, role));
                       }}
                     >
                       <SelectTrigger id={`img-role-${n.id}`} size="sm" className="h-7 w-full min-w-0 text-xs">

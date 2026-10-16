@@ -1,7 +1,9 @@
 import {
   guessHasAlpha, isAllowedAssetType, isWithinSizeLimit, loadImageDimensions, MAX_BYTES,
 } from '@/lib/asset-upload';
+import { isReferenceRole, REFERENCE_MAX_BYTES, referenceTooBigMessage } from '@/lib/flow/asset-limits';
 import type { FlowAsset } from '@/lib/flow/schema';
+import type { AssetRole } from '@/lib/types';
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -19,10 +21,12 @@ export type AssetFileResult =
 /**
  * Đọc file ảnh user chọn/thả vào (Inspector, kéo thả lên canvas). Kiểm định dạng, dung lượng giống form.
  * `patch` ghi thẳng vào params node ảnh (giữ role); `dataUrl` vào `assetData` (chỉ có lúc chạy).
+ * `role` = vai trò ảnh sẽ nhận: ảnh tham chiếu có giới hạn nhỏ hơn (asset-limits.ts).
  */
-export async function readAssetFile(file: File): Promise<AssetFileResult> {
+export async function readAssetFile(file: File, role?: AssetRole): Promise<AssetFileResult> {
   if (!isAllowedAssetType(file)) return { ok: false, message: `${file.name}: định dạng không được hỗ trợ (PNG, JPG, SVG, WebP).` };
   if (!isWithinSizeLimit(file)) return { ok: false, message: `${file.name}: dung lượng vượt quá ${MAX_BYTES / (1024 * 1024)}MB.` };
+  if (role && isReferenceRole(role) && file.size > REFERENCE_MAX_BYTES) return { ok: false, message: referenceTooBigMessage(file.name) };
   const url = URL.createObjectURL(file);
   try {
     const [originalDims, dataUrl] = await Promise.all([loadImageDimensions(url), fileToDataUrl(file)]);

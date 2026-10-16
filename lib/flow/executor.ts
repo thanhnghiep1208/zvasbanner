@@ -23,7 +23,8 @@ import { hashParts, hashString, nodeKeys } from './cache-keys';
 import { NODE_DEFINITIONS } from './node-definitions';
 import type { LegacyRuntime } from './legacy/from-legacy-config';
 import type { NodeRunInfo } from './run-state';
-import type { FlowGraph } from './schema';
+import type { FlowAsset, FlowGraph } from './schema';
+import { dataUrlByteSize, REFERENCE_MAX_BYTES, referenceTooBigMessage } from './asset-limits';
 
 export type GenerateResult =
   | { ok: true; image: string; source: 'gemini' | 'placeholder'; placeholderError?: string }
@@ -108,6 +109,15 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
   const compiled = compileGraph(graph);
   if (!compiled.ok) {
     return fail(deps, compiled.errors.map((e) => ({ message: e.message, nodeId: e.nodeId })));
+  }
+
+  // Ảnh tham chiếu đi nguyên trong body request → giới hạn riêng (asset-limits.ts), chặn trước khi tốn lượt AI.
+  const heavyRefs = graph.nodes.filter((n) => n.type === 'reference-image').filter((n) => {
+    const data = runtime.dataUrls[(n.params as FlowAsset).assetId];
+    return data !== undefined && dataUrlByteSize(data) > REFERENCE_MAX_BYTES;
+  });
+  if (heavyRefs.length) {
+    return fail(deps, heavyRefs.map((n) => ({ nodeId: n.id, message: referenceTooBigMessage((n.params as FlowAsset).fileName) })));
   }
 
   if (compiled.job.renderMode === 'composed') {
