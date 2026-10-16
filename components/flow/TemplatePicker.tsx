@@ -51,7 +51,7 @@ export function TemplatePicker() {
         className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'min-w-0 gap-1.5 px-2 font-medium')}
       >
         <LayoutTemplate className="text-muted-foreground" aria-hidden />
-        <span className="max-w-40 truncate">{current?.name ?? 'Tự dựng'}</span>
+        <span className="max-w-32 truncate xl:max-w-40">{current?.name ?? 'Tự dựng'}</span>
         <ChevronDown className="text-muted-foreground" aria-hidden />
       </PopoverTrigger>
       <PopoverContent align="start" sideOffset={8} className="w-[min(22rem,calc(100vw-2rem))] gap-2 p-2">

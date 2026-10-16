@@ -312,7 +312,7 @@ function FlowCanvasInner() {
       className={`flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground ${FLOW_FONT_VARIABLES}`}
       style={{ '--flow-handle-boost': handleBoost } as CSSProperties}
     >
-      <header className="relative grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4">
+      <header className="relative grid h-[52px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4">
         {isRunning && (
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-muted"
@@ -331,7 +331,7 @@ function FlowCanvasInner() {
           <Link href="/" className="truncate font-semibold tracking-tight hover:opacity-80">BannerAI</Link>
           <span className="hidden text-muted-foreground/60 xl:inline" aria-hidden>/</span>
           <span className="hidden truncate text-sm font-medium xl:inline">Flow canvas</span>
-          <Badge variant="secondary" className="hidden lg:inline-flex">Beta</Badge>
+          <Badge variant="secondary" className="hidden xl:inline-flex">Beta</Badge>
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
           <TemplatePicker />
           {hasExposed && (

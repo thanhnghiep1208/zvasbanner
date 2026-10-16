@@ -1,5 +1,6 @@
 'use client';
 
+import { RatioShape } from '../RatioShape';
 import { createContext, memo, useContext, useMemo } from 'react';
 import { Handle, Position, useConnection, type NodeProps } from '@xyflow/react';
 import {
@@ -72,15 +73,9 @@ function RatioList({ ratios }: { ratios: NodeParamsMap['ratio']['ratios'] }) {
     <ul className="flex flex-col gap-1 border-t px-3 py-2" aria-label="Các kích thước">
       {ratios.map((r) => {
         const exported = exportIds === 'all' || exportIds.includes(r.id);
-        const k = 16 / Math.max(r.width, r.height);
         return (
           <li key={r.id} className={cn('flex items-center gap-2 text-xs', !exported && 'opacity-50')}>
-            <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
-              <span
-                className="rounded-[2px] border border-current text-muted-foreground"
-                style={{ width: Math.max(4, r.width * k), height: Math.max(4, r.height * k) }}
-              />
-            </span>
+            <RatioShape width={r.width} height={r.height} className="text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate" title={r.name}>{r.name}</span>
             <span className="shrink-0 text-muted-foreground tabular-nums">
               {r.width}×{r.height}{!exported && ' · không xuất'}
