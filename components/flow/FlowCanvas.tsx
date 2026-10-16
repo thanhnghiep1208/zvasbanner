@@ -20,7 +20,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import './flow-theme.css';
 import { Show, UserButton } from '@clerk/nextjs';
-import { CircleAlert, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, TriangleAlert } from 'lucide-react';
+import { CircleAlert, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,7 @@ import {
 import { EDGE_CLASS } from './flow-styles';
 import { FLOW_FONT_VARIABLES } from './flow-fonts';
 import { Inspector } from './inspector/Inspector';
+import { readAssetFile } from './inspector/read-asset-file';
 import { TemplatePicker } from './TemplatePicker';
 import { ProjectMenu } from './ProjectMenu';
 import { useFlowDocs } from './use-flow-docs';
@@ -53,6 +54,13 @@ import { useFlowRun } from './use-flow-run';
 
 /** Nửa kích thước node card (w-64) – để căn node mới vào giữa điểm thả. */
 const NODE_HALF = { x: 128, y: 40 };
+
+/** Node Asset / Ảnh tham chiếu nằm dưới con trỏ khi kéo file vào canvas (null nếu chỗ trống hoặc node khác). */
+function imageNodeAt(target: EventTarget | null) {
+  const id = target instanceof Element ? target.closest('.react-flow__node')?.getAttribute('data-id') : null;
+  const node = id ? useFlowStore.getState().graph.nodes.find((n) => n.id === id) : undefined;
+  return node && (node.type === 'product-asset' || node.type === 'reference-image') ? node : null;
+}
 
 function FlowCanvasInner() {
   const { graph, nodeUi, edgeUi, runInfo, onNodesChange, onEdgesChange, connect, addNode } = useFlowStore(
@@ -172,7 +180,7 @@ function FlowCanvasInner() {
     (type: NodeType, clientX: number, clientY: number) => {
       const p = screenToFlowPosition({ x: clientX, y: clientY });
       const pos = { x: p.x - NODE_HALF.x, y: p.y - NODE_HALF.y };
-      addNode(type, freePosition(useFlowStore.getState().graph, pos));
+      return addNode(type, freePosition(useFlowStore.getState().graph, pos));
     },
     [addNode, screenToFlowPosition],
   );
@@ -188,20 +196,72 @@ function FlowCanvasInner() {
     [addAt],
   );
 
+  // Kéo ảnh từ máy vào canvas: thả lên node Asset / Ảnh tham chiếu → thay ảnh node đó; thả chỗ trống → mỗi file
+  // 1 node Asset mới tại điểm thả. `fileDrag` = đang kéo file qua canvas (để hiện lớp phủ hướng dẫn).
+  const [fileDrag, setFileDrag] = useState<{ targetLabel: string | null } | null>(null);
+
   const onDragOver = useCallback((e: DragEvent) => {
-    if (!e.dataTransfer.types.includes(NODE_DRAG_MIME)) return;
+    const types = e.dataTransfer.types;
+    if (types.includes(NODE_DRAG_MIME)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      return;
+    }
+    if (!types.includes('Files')) return;
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = 'copy';
+    const target = imageNodeAt(e.target);
+    const targetLabel = target ? getDefinition(target.type)!.label : null;
+    setFileDrag((prev) => (prev?.targetLabel === targetLabel ? prev : { targetLabel }));
   }, []);
+
+  const onDragLeave = useCallback((e: DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFileDrag(null);
+  }, []);
+
+  const dropFiles = useCallback(
+    async (files: File[], target: ReturnType<typeof imageNodeAt>, clientX: number, clientY: number) => {
+      const { setAssetData, updateNodeParams } = useFlowStore.getState();
+      // Thay ảnh node có sẵn: chỉ lấy file đầu (1 node = 1 ảnh), file còn lại tạo node mới.
+      let rest = files;
+      if (target) {
+        const res = await readAssetFile(files[0]!);
+        if (res.ok) {
+          setAssetData(res.patch.assetId, res.dataUrl);
+          updateNodeParams<'product-asset'>(target.id, res.patch);
+        } else toast.error(res.message);
+        rest = files.slice(1);
+      }
+      for (const file of rest) {
+        const res = await readAssetFile(file);
+        if (!res.ok) {
+          toast.error(res.message);
+          continue;
+        }
+        setAssetData(res.patch.assetId, res.dataUrl);
+        const id = addAt('product-asset', clientX, clientY);
+        updateNodeParams<'product-asset'>(id, res.patch);
+      }
+    },
+    [addAt],
+  );
 
   const onDrop = useCallback(
     (e: DragEvent) => {
+      setFileDrag(null);
       const type = e.dataTransfer.getData(NODE_DRAG_MIME);
-      if (!type || !getDefinition(type)) return;
+      if (type) {
+        if (!getDefinition(type)) return;
+        e.preventDefault();
+        addAt(type as NodeType, e.clientX, e.clientY);
+        return;
+      }
+      const files = Array.from(e.dataTransfer.files);
+      if (!files.length) return;
       e.preventDefault();
-      addAt(type as NodeType, e.clientX, e.clientY);
+      void dropFiles(files, imageNodeAt(e.target), e.clientX, e.clientY);
     },
-    [addAt],
+    [addAt, dropFiles],
   );
 
   return (
@@ -300,7 +360,7 @@ function FlowCanvasInner() {
           <NodeLibrary onAdd={onAddFromLibrary} />
         </aside>
 
-        <section ref={paneRef} className="relative min-h-0 min-w-0" aria-label="Flow canvas">
+        <section ref={paneRef} className="relative min-h-0 min-w-0" aria-label="Flow canvas" onDragLeave={onDragLeave}>
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -327,7 +387,16 @@ function FlowCanvasInner() {
               <MiniMap pannable zoomable position="bottom-right" />
             </ReactFlow>
 
-          {isEmpty && (
+          {fileDrag && (
+            <div className="pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-xl border-2 border-dashed border-primary/60 bg-primary/5" aria-hidden>
+              <span className="inline-flex items-center gap-2 rounded-full bg-card px-3 py-1.5 text-sm font-medium shadow-sm">
+                <ImagePlus className="size-4 text-primary" />
+                {fileDrag.targetLabel ? `Thả để thay ảnh của node ${fileDrag.targetLabel}` : 'Thả ảnh để tạo node Asset'}
+              </span>
+            </div>
+          )}
+
+          {isEmpty && !fileDrag && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center p-6" role="status">
               <div className="flex max-w-sm flex-col items-center gap-2 rounded-2xl border border-dashed bg-card/85 px-6 py-8 text-center backdrop-blur-sm">
                 <span className="grid size-10 place-items-center rounded-full bg-muted text-muted-foreground" aria-hidden>
@@ -335,7 +404,7 @@ function FlowCanvasInner() {
                 </span>
                 <p className="text-sm font-semibold">Canvas trống</p>
                 <p className="text-xs text-muted-foreground">
-                  Kéo node từ thư viện vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Brief, Kích thước và Sinh banner.
+                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Brief, Kích thước và Sinh banner.
                 </p>
                 <Button type="button" size="sm" variant="outline" className="pointer-events-auto mt-1"
                   onClick={() => {

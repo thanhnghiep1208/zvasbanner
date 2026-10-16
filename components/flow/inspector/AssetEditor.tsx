@@ -4,24 +4,13 @@ import { useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  guessHasAlpha, isAllowedAssetType, isWithinSizeLimit, loadImageDimensions, MAX_BYTES,
-} from '@/lib/asset-upload';
 import { ASSET_ROLE_OPTIONS } from '@/lib/types';
 import type { FlowAsset, PixelAssetRole, ReferenceAssetRole } from '@/lib/flow/schema';
 import { useFlowStore } from '@/store/flow-store';
 import { SelectField } from './fields';
+import { readAssetFile } from './read-asset-file';
 
 const ACCEPT = 'image/png,image/jpeg,image/svg+xml,image/webp,.png,.jpg,.jpeg,.svg,.webp';
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => (typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('read')));
-    reader.onerror = () => reject(new Error('read'));
-    reader.readAsDataURL(file);
-  });
-}
 
 /** Upload + chọn role cho node product-asset / reference-image. Kiểm tra định dạng, dung lượng giống form. */
 export function AssetEditor<R extends PixelAssetRole | ReferenceAssetRole>({ nodeId, params, roles }: {
@@ -39,17 +28,12 @@ export function AssetEditor<R extends PixelAssetRole | ReferenceAssetRole>({ nod
   const previewSrc = params.url || dataUrl;
 
   const onFile = async (file: File) => {
-    if (!isAllowedAssetType(file)) return toast.error(`${file.name}: định dạng không được hỗ trợ (PNG, JPG, SVG, WebP).`);
-    if (!isWithinSizeLimit(file)) return toast.error(`${file.name}: dung lượng vượt quá ${MAX_BYTES / (1024 * 1024)}MB.`);
     setBusy(true);
     try {
-      const url = URL.createObjectURL(file);
-      const [originalDims, dataUrl] = await Promise.all([loadImageDimensions(url), fileToDataUrl(file)]);
-      const assetId = crypto.randomUUID();
-      setAssetData(assetId, dataUrl);
-      update<'product-asset'>(nodeId, { assetId, url, fileName: file.name, hasAlpha: guessHasAlpha(file), originalDims });
-    } catch {
-      toast.error(`${file.name}: không đọc được ảnh.`);
+      const res = await readAssetFile(file);
+      if (!res.ok) return toast.error(res.message);
+      setAssetData(res.patch.assetId, res.dataUrl);
+      update<'product-asset'>(nodeId, res.patch);
     } finally {
       setBusy(false);
     }
