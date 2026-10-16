@@ -36,13 +36,20 @@ Next.js 16 dùng file `proxy.ts` (thay `middleware.ts`) cho request interception
 
 ## Tích hợp Gemini (`lib/gemini-server.ts`)
 
-- `IMAGE_MODEL_MAP`: `nano-banana-pro` → `gemini-3-pro-image-preview` (mặc định), `nano-banana-2` → `gemini-3.1-flash-image-preview`.
+- `IMAGE_MODEL_MAP`: `nano-banana-2` → `gemini-nano-banana-2.1` (Nano Banana 2.1, **mặc định** khi request không ghi model), `nano-banana-pro` → `gemini-3-pro-image-preview`. Slug `nano-banana-2` giữ nguyên để payload, project và analytics cũ không đổi.
+- Ảnh role `style-reference` = **banner mẫu**: `REFERENCE_BANNER_RULES` (`lib/prompt-builder.ts`) yêu cầu giữ bố cục + phong cách mẫu, co giãn theo kích thước mới, thay toàn bộ chữ bằng chữ của user (khối "TEXT REPLACEMENT" liệt kê Headline/Subheadline/CTA) và thay sản phẩm/logo bằng ảnh user; ảnh mẫu thắng style/mood/palette khi mâu thuẫn. Kích thước phụ (layout adaptation) vẫn theo luồng cũ.
 - `geminiGenerateOneImage()` — build multimodal parts (text + inline image data) từ assets, gọi model ảnh.
 - `runHarmonyPass()` — sau generate Gemini thành công, chạy một lần chỉnh cohesion (ánh sáng, AO shadow, color grade) qua prompt cố định `HARMONY_EDIT_PROMPT`; best-effort, timeout riêng ~30s, lỗi thì trả ảnh gốc + `harmonyApplied: false`.
 - `geminiEditImage()` — dùng cho `/api/edit-image`: sửa nhẹ ảnh đã tạo, giữ composition.
 - `runGeminiEnhance()` — viết lại prompt text (`/api/enhance-prompt`).
 - Prompt được ghép theo layer trong `lib/prompt-builder.ts`: system → context (canvas/assets/brand kit/marketing brief) → creative (`buildCohesionInstructions`, style, campaign intent/focal subject phrase) → output priority.
 - Timeout: enhance ~30s, harmony pass ~30s, generate ảnh chính ~58s; route `generate` có `maxDuration = 90`; client timeout tương ứng ~92s (`lib/client-generation.ts`).
+
+## Flow canvas (server)
+
+- Route: `/api/flow/generate-background` (tạo nền cho chế độ ghép layer, quyền `generate_image`, dùng chung bộ đếm rate limit với `/api/generate` qua `lib/generation-rate-limit.ts`, body ≤ 30MB), `/api/flow/docs` + `/api/flow/docs/[id]` (lưu/mở project), `/api/flow/track` (analytics). Mọi route kiểm đăng nhập + cờ `FLOW_CANVAS` (tắt → 404).
+- Bảng `flow_docs`, `flow_events` tự tạo ở lần gọi đầu (`lib/flow-server/flow-docs.ts`, `flow-events.ts`; SQL tham khảo `db/flow_docs.sql`, `db/flow_events.sql`). Project không lưu ảnh (chỉ metadata), tối đa 200 project/user.
+- Prompt tạo nền: `lib/flow/background/prompt.ts` (bố cục bằng lời, hướng sáng, không chữ; có ảnh tham chiếu thì dựng lại nền theo mẫu). Không gửi pixel sản phẩm.
 
 ## Analytics & Dashboard DB (PostgreSQL)
 

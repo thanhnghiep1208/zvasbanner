@@ -24,9 +24,10 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - [API Reference](docs/api.md) — contract từng endpoint (`/api/generate`, `/api/sessions`, dashboard, …)
 - [Workflow](docs/workflow.md) — cài đặt `.env.local`, RBAC, checklist thử nghiệm
 - [Deploy](docs/deploy.md) — Vercel + Clerk + domain + Postgres
+- [Flow Canvas](docs/flow/SPEC.md) — trình tạo banner dạng node (`/flow`, sau cờ `FLOW_CANVAS`): spec, quyết định ([QUESTIONS](docs/flow/QUESTIONS.md)), nhật ký
 - [Roadmap](docs/roadmap/) — đề xuất tính năng chưa triển khai (ví dụ Canva Connect)
 
-Tính năng chính: tạo banner AI (Gemini, cohesion prompt + harmony pass ngầm), chỉnh sửa ảnh, **biến thể kích thước** (preset có icon tỉ lệ), export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`.
+Tính năng chính: tạo banner AI (Gemini Nano Banana 2.1 mặc định, cohesion prompt + harmony pass ngầm), **làm theo banner mẫu** (ảnh tham chiếu style), chỉnh sửa ảnh, **biến thể kích thước** (preset có icon tỉ lệ), export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`, **Flow Canvas** `/flow` (template + chế độ Đơn giản, ghép sản phẩm giữ nguyên pixel, chữ tự động theo banner, lưu project).
 
 ## Troubleshooting (Local Dev)
 

@@ -109,6 +109,12 @@ Sau khi lưu Dashboard: đợi ~1 phút, hard reload `/sign-in`. Code app **khô
 - Lấy từ nhà cung cấp: [Neon](https://neon.tech/), [Supabase](https://supabase.com/), RDS, v.v.
 - Nếu mật khẩu hoặc URL có ký tự đặc biệt (`&`, `#`, `@`, …), hãy **URL-encode** hoặc bọc toàn bộ giá trị trong **dấu nháy đơn** trong `.env.local`, ví dụ: `DATABASE_URL='postgresql://...'`.
 
+### Biến Flow canvas (`/flow`)
+
+- `FLOW_CANVAS` = `off` | `allowlist` | `rollout` | `on` (local thường đặt `on`).
+- `FLOW_CANVAS_ALLOWLIST` (Clerk userId, phân tách dấu phẩy), `FLOW_CANVAS_PERCENT` (0–100, mode `rollout`), `FLOW_CANVAS_SALT`, `FLOW_CANVAS_DENYLIST`. Mẫu trong `.env.local.example`.
+- Lưu project/analytics của flow cần `DATABASE_URL`; bảng `flow_docs`, `flow_events` tự tạo ở lần gọi đầu.
+
 ### Ví dụ `.env.local` đầy đủ
 
 ```bash
@@ -210,7 +216,7 @@ Hướng dẫn chi tiết: checklist **Vercel + Clerk + domain + Postgres**, c�
 
 ## Quy ước phát triển
 
-- Model tạo ảnh trên UI chính: user chọn **Nano Banana Pro** (`gemini-3-pro-image-preview`) hoặc **Nano Banana 2** (`gemini-3.1-flash-image-preview`); tab **Biến thể kích thước** luôn dùng flash.
+- Model tạo ảnh trên UI chính: mặc định **Nano Banana 2.1** (`gemini-nano-banana-2.1`, slug `nano-banana-2`), có thể chọn **Nano Banana Pro** (`gemini-3-pro-image-preview`); tab **Biến thể kích thước** luôn dùng Nano Banana 2.1.
 - Prompt generate: `lib/prompt-builder.ts` — `buildCohesionInstructions()` trong creative layer; harmony pass server: `runHarmonyPass` / `HARMONY_EDIT_PROMPT` (`lib/gemini-server.ts`).
 - Client timeout generate: **92s** (khớp server `maxDuration` 90s + buffer); không rút xuống khi đã bật harmony pass.
 - Ưu tiên **giữ trung thực asset** user upload khi generate.
@@ -236,7 +242,8 @@ Hướng dẫn chi tiết: checklist **Vercel + Clerk + domain + Postgres**, c�
    - User bị `blocked` vẫn không gọi được `/api/generate` (403).
 8. **RBAC — bảo vệ admin**: đăng nhập là `mod`, thử `PATCH /api/dashboard/users` đổi role của một user đang là `admin` → phải nhận `403` (cả promote lẫn demote).
 9. **Rate limit / size cap** (tùy chọn, để xác nhận sau khi đổi `lib/request-limits.ts`): gọi `/api/generate` quá 20 lần/giờ → `429`; gửi body vượt cap → `413`.
-10. **Console không có lỗi CSP**: mở DevTools khi dùng app (đăng nhập, generate, mở dashboard) — không thấy dòng `Refused to connect/load because it violates the following Content Security Policy directive`.
+10. **Flow canvas** (`FLOW_CANVAS=on`): mở `/flow` → chế độ Đơn giản có template; tải ảnh → tab "Xem trước bố cục" thấy sản phẩm + chữ; Chạy tất cả ra ảnh; tải lại trang → nháp mở lại đủ chữ + ảnh; ⌘/Ctrl+Z hoàn tác; Lưu ⌘/Ctrl+S → mở lại từ menu project (ảnh cần tải lại).
+11. **Console không có lỗi CSP**: mở DevTools khi dùng app (đăng nhập, generate, mở dashboard) — không thấy dòng `Refused to connect/load because it violates the following Content Security Policy directive`.
 
 ## Xử lý sự cố (troubleshooting)
 
