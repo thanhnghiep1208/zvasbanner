@@ -43,10 +43,10 @@ async function generateBackground(request: BackgroundRequest): Promise<Backgroun
     const json = (await res.json().catch(() => null)) as { image?: unknown; error?: unknown; errorCode?: unknown } | null;
     if (res.ok && typeof json?.image === 'string') return { ok: true, image: json.image };
     const code = typeof json?.errorCode === 'string' ? `[E-BG-${json.errorCode}] ` : `[E-BG-${res.status}] `;
-    return { ok: false, error: code + (typeof json?.error === 'string' ? json.error : `Sinh nền thất bại (HTTP ${res.status}).`) };
+    return { ok: false, error: code + (typeof json?.error === 'string' ? json.error : `Tạo nền thất bại (HTTP ${res.status}).`) };
   } catch (e) {
     const timeout = e instanceof DOMException && e.name === 'TimeoutError';
-    return { ok: false, error: timeout ? '[E-BG-CLIENT-TIMEOUT] Sinh nền quá thời gian chờ. Vui lòng thử lại.' : 'Không gửi được yêu cầu sinh nền.' };
+    return { ok: false, error: timeout ? '[E-BG-CLIENT-TIMEOUT] Tạo nền quá thời gian chờ. Vui lòng thử lại.' : 'Không gửi được yêu cầu tạo nền.' };
   }
 }
 

@@ -210,7 +210,7 @@ async function runComposed(
 
   const guideStyle = deps.guideStyle ?? 'hatched';
   if (!deps.generateBackground || (guideStyle === 'hatched' && !deps.renderGuide)) {
-    return fail(deps, [{ nodeId: genNode.id, message: 'Môi trường hiện tại chưa hỗ trợ sinh nền.' }]);
+    return fail(deps, [{ nodeId: genNode.id, message: 'Môi trường hiện tại chưa hỗ trợ tạo nền.' }]);
   }
 
   const keys = nodeKeys(graph);
@@ -369,7 +369,7 @@ function fail(deps: ExecutorDeps, errors: RunIssue[]): RunOutcome {
 
 function composedMessage(issue: LegacyIssue): string {
   return issue.code === 'composed-not-supported'
-    ? 'Chế độ composed chưa chạy được (cần route sinh nền mới, T4.2). Dùng Sinh banner (flat).'
+    ? 'Chế độ composed chưa chạy được (cần route tạo nền mới, T4.2). Dùng Tạo banner (flat).'
     : issue.message;
 }
 

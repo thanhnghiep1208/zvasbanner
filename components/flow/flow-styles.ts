@@ -52,7 +52,7 @@ export const KIND_LABELS: Record<NodeKind, string> = {
   input: 'Đầu vào',
   config: 'Cấu hình',
   layout: 'Layout',
-  executor: 'Sinh ảnh (AI)',
+  executor: 'Tạo ảnh (AI)',
   output: 'Đầu ra',
 };
 

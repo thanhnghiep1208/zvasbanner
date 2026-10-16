@@ -434,7 +434,7 @@ function FlowCanvasInner() {
                 </span>
                 <p className="text-sm font-semibold">Canvas trống</p>
                 <p className="text-xs text-muted-foreground">
-                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Brief, Kích thước và Sinh banner.
+                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Brief, Kích thước và Tạo banner.
                 </p>
                 <Button type="button" size="sm" variant="outline" className="pointer-events-auto mt-1"
                   onClick={() => {

@@ -32,7 +32,7 @@ function friendlyError(raw: string): { status: number; errorCode: string; error:
   if (msg.includes("no image data")) {
     return { status: 502, errorCode: "GEMINI_EMPTY_IMAGE", error: "Gemini không trả ảnh nền. Vui lòng thử lại với brief rõ hơn." };
   }
-  return { status: 502, errorCode: "GEMINI_UNKNOWN_ERROR", error: "Không thể sinh nền từ Gemini do lỗi không xác định. Vui lòng thử lại sau." };
+  return { status: 502, errorCode: "GEMINI_UNKNOWN_ERROR", error: "Không thể tạo nền từ Gemini do lỗi không xác định. Vui lòng thử lại sau." };
 }
 
 export async function POST(req: Request) {
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
   const styleOk = !b || b.style === undefined || parseStyleControls(b.style) !== null;
   const brandOk = !b || b.brandKit === undefined || parseBrandKit(b.brandKit) !== null;
   if (!request || !styleOk || !brandOk) {
-    return NextResponse.json({ error: "Dữ liệu sinh nền không hợp lệ." }, { status: 400 });
+    return NextResponse.json({ error: "Dữ liệu tạo nền không hợp lệ." }, { status: 400 });
   }
 
   let apiKey: string;

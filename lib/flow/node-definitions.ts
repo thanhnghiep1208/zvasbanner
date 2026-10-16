@@ -118,8 +118,8 @@ export const NODE_DEFINITIONS: Registry = {
     defaultParams: { overrides: {} }, aiCallsPerRatio: 0,
   },
   'generate-background': {
-    type: 'generate-background', kind: 'executor', label: 'Sinh nền',
-    description: 'AI sinh nền, chừa chỗ cho sản phẩm và chữ.',
+    type: 'generate-background', kind: 'executor', label: 'Tạo nền',
+    description: 'AI tạo nền, chừa chỗ cho sản phẩm và chữ.',
     inputs: [
       inPort('layout', 'layout', true),
       inPort('brief', 'brief', true),
@@ -132,8 +132,8 @@ export const NODE_DEFINITIONS: Registry = {
     aiCallsPerRatio: 1,
   },
   'generate-flat': {
-    type: 'generate-flat', kind: 'executor', label: 'Sinh banner (flat)', legacy: true,
-    description: 'AI sinh cả banner như form hiện tại.',
+    type: 'generate-flat', kind: 'executor', label: 'Tạo banner (flat)', legacy: true,
+    description: 'AI tạo cả banner như form hiện tại.',
     inputs: [
       inPort('ratio', 'ratio', true),
       inPort('brief', 'brief', true),

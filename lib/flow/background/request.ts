@@ -54,7 +54,7 @@ export type BackgroundDraftResult =
 /** CompiledJob composed + LayoutPlan → 1 draft / ratio. */
 export function toBackgroundRequests(job: CompiledJob, plan: LayoutPlan, runtime: LegacyRuntime): BackgroundDraftResult {
   if (job.renderMode !== 'composed' || !job.composed) {
-    return { ok: false, message: 'Chỉ job composed mới sinh nền riêng.' };
+    return { ok: false, message: 'Chỉ job composed mới tạo nền riêng.' };
   }
   const missingAssetIds = job.references.filter((r) => !runtime.dataUrls[r.assetId]).map((r) => r.assetId);
   const references: BackgroundReference[] = job.references

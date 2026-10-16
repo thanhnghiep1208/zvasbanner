@@ -158,7 +158,7 @@ const saleMultiRatio: FlowTemplate = {
     fIntents,
     fTextColor('headline', 'Màu tiêu đề'),
     { id: 'cta-plate', nodeId: 'n-text-cta', path: ['style', 'plate', 'color'], label: 'Màu nút', control: 'color', group: G.look },
-    fRatios('Mỗi kích thước tốn 1 lượt AI để sinh nền.'),
+    fRatios('Mỗi kích thước tốn 1 lượt AI để tạo nền.'),
   ],
 };
 

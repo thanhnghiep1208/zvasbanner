@@ -48,7 +48,7 @@ describe('selectRFNodes', () => {
     const g = decompileJob(flatLegacy);
     const rf = selectRFNodes(g, {}, { 'n-generate-flat': { state: 'error', message: 'Hết quota' } });
     const gen = rf.find((n) => n.id === 'n-generate-flat')!;
-    expect(gen.ariaLabel).toBe('Sinh banner (flat): Nano Banana 2');
+    expect(gen.ariaLabel).toBe('Tạo banner (flat): Nano Banana 2');
     expect(gen.data.run).toEqual({ state: 'error', message: 'Hết quota' });
     expect(rf.find((n) => n.id === 'n-brief')!.data).not.toHaveProperty('run');
   });

@@ -60,7 +60,7 @@ export function ExportRatiosField({ nodeId, p }: { nodeId: string; p: NodeParams
             ))}
           </ul>
           <p className="text-xs text-muted-foreground" aria-live="polite">
-            Sinh {count} ảnh{perRatio ? ` · ~${count * perRatio} lượt AI` : ''}.
+            Tạo {count} ảnh{perRatio ? ` · ~${count * perRatio} lượt AI` : ''}.
           </p>
           {missing.length > 0 && (
             <p className="text-xs text-destructive">Đã xoá khỏi node Kích thước: {missing.join(', ')}.</p>
