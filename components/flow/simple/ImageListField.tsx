@@ -10,9 +10,8 @@ import { MAX_ASSETS, MAX_BYTES } from '@/lib/asset-upload';
 import {
   dataUrlByteSize, isReferenceRole, REFERENCE_MAX_BYTES, REFERENCE_MAX_LABEL, referenceTooBigMessage,
 } from '@/lib/flow/asset-limits';
-import { addImageNode, isImageNode, removeImageNode, setImageRole, type ImageNode } from '@/lib/flow/image-nodes';
-import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
-import type { FlowAsset, FlowGraph } from '@/lib/flow/schema';
+import { addImageNode, clearImageNode, isImageNode, removeImageNode, setImageRole } from '@/lib/flow/image-nodes';
+import type { FlowAsset } from '@/lib/flow/schema';
 import { ASSET_ROLE_OPTIONS, type AssetRole } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useFlowStore } from '@/store/flow-store';
@@ -22,15 +21,6 @@ const ACCEPT = 'image/png,image/jpeg,image/svg+xml,image/webp,.png,.jpg,.jpeg,.s
 const ROLE_ITEMS = Object.fromEntries(ASSET_ROLE_OPTIONS.map((o) => [o.value, o.label])) as Record<string, string>;
 
 export type FieldMessage = { severity: 'error' | 'warning'; message: string };
-
-/** Ô ảnh bắt buộc của template không xoá node (template cần nó) – chỉ trả về trống. */
-function clearImage(graph: FlowGraph, nodeId: string): FlowGraph {
-  return {
-    ...graph,
-    nodes: graph.nodes.map((n) => (n.id === nodeId && isImageNode(n)
-      ? ({ ...n, params: structuredClone(NODE_DEFINITIONS[n.type].defaultParams) } as ImageNode) : n)),
-  };
-}
 
 /**
  * Field ảnh của Simple view, cùng bố cục với form cũ (AssetUploader + AssetPanel): 1 ô kéo thả / chọn nhiều tệp,
@@ -66,14 +56,16 @@ export function ImageListField({ requiredNodeId, label, hint, messagesFor }: {
     setBusy(true);
     try {
       for (const file of files.slice(0, room)) {
-        const res = await readAssetFile(file);
+        // Ô ảnh bắt buộc còn trống → file này điền vào đó (theo vai trò của ô, vd. banner mẫu ≤ 4MB).
+        const required = useFlowStore.getState().graph.nodes.find((n) => n.id === requiredNodeId);
+        const fillRequired = Boolean(required && isImageNode(required) && !required.params.assetId);
+        const res = await readAssetFile(file, fillRequired && required && isImageNode(required) ? required.params.role : 'image');
         if (!res.ok) {
           toast.error(res.message);
           continue;
         }
         setAssetData(res.patch.assetId, res.dataUrl);
-        const required = useFlowStore.getState().graph.nodes.find((n) => n.id === requiredNodeId);
-        if (required && isImageNode(required) && !required.params.assetId) {
+        if (fillRequired) {
           useFlowStore.getState().updateNodeParams<'product-asset'>(requiredNodeId, res.patch);
         } else {
           editGraph((g) => addImageNode(g, { ...res.patch, role: 'image' }).graph);
@@ -162,7 +154,7 @@ export function ImageListField({ requiredNodeId, label, hint, messagesFor }: {
                       ? <img src={src} alt="" className="size-full object-contain" draggable={false} />
                       : <span className="grid size-full place-items-center text-[10px] text-muted-foreground">Trống</span>}
                     {n.id === requiredNodeId && (
-                      <Badge variant="secondary" className="pointer-events-none absolute top-0.5 left-0.5 h-3.5 px-1 text-[9px] leading-none">Chính</Badge>
+                      <Badge variant="secondary" className="pointer-events-none absolute top-0.5 left-0.5 h-3.5 px-1 text-[9px] leading-none">{n.type === 'reference-image' ? 'Mẫu' : 'Chính'}</Badge>
                     )}
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -172,7 +164,7 @@ export function ImageListField({ requiredNodeId, label, hint, messagesFor }: {
                         type="button" variant="ghost" size="icon-xs"
                         className="shrink-0 text-muted-foreground hover:text-destructive"
                         aria-label={`Xoá ảnh ${params.fileName}`}
-                        onClick={() => editGraph((g) => (n.id === requiredNodeId ? clearImage(g, n.id) : removeImageNode(g, n.id)))}
+                        onClick={() => editGraph((g) => (n.id === requiredNodeId ? clearImageNode(g, n.id) : removeImageNode(g, n.id)))}
                       >
                         <X className="size-4" />
                       </Button>

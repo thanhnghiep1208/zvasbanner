@@ -114,3 +114,7 @@ Lựa chọn:
 Đề xuất: A.
 Trạng thái: **đã chốt A** (2026-10-15)
 
+## Q13 – Template làm theo banner mẫu đi đường flat (SPEC 3 #4)
+Bối cảnh: Nghiệp muốn khi đưa banner mẫu thì kết quả giống mẫu nhất (bố cục, phong cách), chỉ đổi kích thước và chữ. Chế độ ghép layer chỉ cho AI vẽ nền; vị trí chữ/sản phẩm do layout engine → không theo bố cục mẫu được.
+Lựa chọn: A. Thêm template "Theo banner mẫu" chạy flat (AI vẽ cả banner, prompt bám mẫu) / B. Giữ mọi template composed.
+Trạng thái: **đã chốt A** (2026-10-16) – Nghiệp chọn "Làm nhóm 1", gồm template này. SPEC 3 #4 đã sửa.

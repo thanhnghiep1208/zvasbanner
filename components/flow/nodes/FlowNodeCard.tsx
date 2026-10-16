@@ -15,6 +15,7 @@ import {
   Proportions,
   RotateCcw,
   Sparkles,
+  TriangleAlert,
   Type,
   WandSparkles,
   type LucideIcon,
@@ -27,9 +28,11 @@ import type { FlowNode, NodeParamsMap, NodeType, PortType } from '@/lib/flow/sch
 import type { FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { checkConnection } from '@/lib/flow-ui/connection-feedback';
+import { ASSET_UNCONNECTED_MESSAGE } from '@/lib/flow/validate';
 import { useFlowStore } from '@/store/flow-store';
 import { KIND_CHIP, PORT_HANDLE, RUN_BORDER, RUN_DOT, RUN_PILL } from '../flow-styles';
 import { nodeDetails, type NodeDetails } from './node-details';
+import { RatioShape } from '../RatioShape';
 
 type AssetParams = { assetId: string; url: string; fileName: string };
 
@@ -72,15 +75,9 @@ function RatioList({ ratios }: { ratios: NodeParamsMap['ratio']['ratios'] }) {
     <ul className="flex flex-col gap-1 border-t px-3 py-2" aria-label="Các kích thước">
       {ratios.map((r) => {
         const exported = exportIds === 'all' || exportIds.includes(r.id);
-        const k = 16 / Math.max(r.width, r.height);
         return (
           <li key={r.id} className={cn('flex items-center gap-2 text-xs', !exported && 'opacity-50')}>
-            <span className="grid size-4 shrink-0 place-items-center" aria-hidden>
-              <span
-                className="rounded-[2px] border border-current text-muted-foreground"
-                style={{ width: Math.max(4, r.width * k), height: Math.max(4, r.height * k) }}
-              />
-            </span>
+            <RatioShape width={r.width} height={r.height} className="text-muted-foreground" />
             <span className="min-w-0 flex-1 truncate" title={r.name}>{r.name}</span>
             <span className="shrink-0 text-muted-foreground tabular-nums">
               {r.width}×{r.height}{!exported && ' · không xuất'}
@@ -211,6 +208,9 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
   const dragging = useConnection((c) =>
     c.inProgress && c.fromHandle?.id ? `${c.fromNode.id}|${c.fromHandle.id}|${c.fromHandle.type}` : null);
   const candidates = useMemo(() => portCandidates(dragging, id, type), [dragging, id, type]);
+  const isImage = type === 'product-asset' || type === 'reference-image';
+  // Ảnh chưa có dây ra → viền vàng + nhắc ngay trên node (cùng cảnh báo asset-unconnected của validate).
+  const unconnected = useFlowStore((s) => isImage && !s.graph.edges.some((e) => e.source === id));
 
   return (
     <div
@@ -218,6 +218,7 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
         'relative w-64 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-shadow',
         'hover:shadow-md',
         RUN_BORDER[run.state],
+        unconnected && run.state === 'idle' && 'border-run-stale',
         selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
       )}
       aria-busy={run.state === 'running' || undefined}
@@ -256,7 +257,13 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
         </ul>
       )}
 
-      {(type === 'product-asset' || type === 'reference-image') && <AssetThumb params={data.params as AssetParams} />}
+      {unconnected && (
+        <p className="mx-3 mb-2 flex gap-1.5 rounded-lg bg-run-stale/15 p-2 text-xs text-foreground" role="status">
+          <TriangleAlert className="mt-px size-3.5 shrink-0 text-run-stale" aria-hidden />
+          <span>{ASSET_UNCONNECTED_MESSAGE} Kéo dây từ ô ra bên phải vào node cần dùng ảnh.</span>
+        </p>
+      )}
+      {isImage && <AssetThumb params={data.params as AssetParams} />}
       {type === 'ratio' && <RatioList ratios={(data.params as NodeParamsMap['ratio']).ratios} />}
 
       {run.state === 'error' && (

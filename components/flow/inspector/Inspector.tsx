@@ -22,6 +22,7 @@ import { RunResults } from './RunResults';
 import { ExportRatiosField } from './ExportRatiosField';
 import { TextLayerEditor } from './TextLayerEditor';
 import { BrandKitEditor } from './BrandKitEditor';
+import { aspectLabel, RatioShape } from '../RatioShape';
 import {
   CheckboxField, NumberField, SelectField, TextAreaField, ToggleGroupField,
 } from './fields';
@@ -165,10 +166,16 @@ export function RatioEditor({ node }: { node: FlowNode<'ratio'> }) {
 
   return (
     <>
-      <ul className="m-0 flex list-none flex-col gap-1 p-0">
+      <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
         {ratios.map((r) => (
-          <li key={r.id} className="flex items-center justify-between gap-2 text-sm">
-            <span>{r.name} <span className="text-xs text-muted-foreground">{r.width}×{r.height}</span></span>
+          <li key={r.id} className="flex items-center gap-2.5 rounded-lg border bg-background px-2 py-1.5 text-sm">
+            <RatioShape width={r.width} height={r.height} size={32} className="text-primary" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-medium" title={r.name}>{r.name}</span>
+              <span className="block text-xs text-muted-foreground tabular-nums">
+                {r.width}×{r.height} · {aspectLabel(r.width, r.height)}
+              </span>
+            </span>
             <Button type="button" variant="ghost" size="icon-sm" aria-label={`Bỏ ${r.name}`}
               disabled={ratios.length === 1}
               onClick={() => update<'ratio'>(node.id, { ratios: ratios.filter((x) => x.id !== r.id) })}>
@@ -188,7 +195,13 @@ export function RatioEditor({ node }: { node: FlowNode<'ratio'> }) {
               <SelectLabel>{g.label}</SelectLabel>
               {g.presets.map((p) => (
                 <SelectItem key={p.id} value={p.id} disabled={used.has(p.id)}>
-                  {p.name} ({p.width}×{p.height})
+                  <RatioShape width={p.width} height={p.height} size={20} className="text-muted-foreground" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{p.name}</span>
+                    <span className="block text-xs text-muted-foreground tabular-nums">
+                      {p.width}×{p.height} · {aspectLabel(p.width, p.height)}
+                    </span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectGroup>

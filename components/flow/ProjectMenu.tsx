@@ -90,7 +90,7 @@ export function ProjectMenu() {
           className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'min-w-0 gap-1.5 px-2')}
         >
           <FolderOpen className="text-muted-foreground" aria-hidden />
-          <span className="hidden max-w-36 truncate font-medium md:inline">{title}</span>
+          <span className="hidden max-w-24 truncate font-medium md:inline xl:max-w-36">{title}</span>
           <span
             className={cn('text-xs', status === 'Đã lưu' ? 'text-muted-foreground' : 'text-run-stale')}
             aria-hidden

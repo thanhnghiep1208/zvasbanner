@@ -33,6 +33,10 @@ const ALIGN_LABELS = { left: 'Căn trái', center: 'Căn giữa', right: 'Căn p
 
 function textLayer(p: NodeParamsMap['text-layer']): NodeDetails {
   const s = p.style;
+  // Tự động: font/cỡ/màu do app chọn lúc chạy → không liệt kê style chỉnh tay (gây hiểu nhầm).
+  if (p.autoStyle && p.renderSource !== 'ai') {
+    return { text: p.content, chips: [{ label: 'Tự động theo banner' }, { label: ALIGN_LABELS[s.align] }] };
+  }
   const chips: DetailChip[] = [
     { label: `${FLOW_FONTS[s.fontFamily]?.label ?? s.fontFamily} ${s.fontWeight}` },
     { label: `${s.fontSizePx}px (tối thiểu ${p.minFontSizePx})` },

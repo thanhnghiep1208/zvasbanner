@@ -9,6 +9,7 @@ import { buildComposition, type AlphaBox, type Composition, type TextLayerDraw }
 import type { LayoutPlan } from '@/lib/flow/layout/types';
 import { layoutText, type TextMeasurer } from '@/lib/flow/layout/measure';
 import { FLOW_FONTS, type FontId, type TextStyle } from '@/lib/flow/text/text-style';
+import { autoTextColors, relativeLuminance, type BackgroundSample } from '@/lib/flow/text/auto-style';
 
 /* ── Font ───────────────────────────────────────────────────── */
 
@@ -163,6 +164,45 @@ function drawText(ctx: CanvasRenderingContext2D, layer: TextLayerDraw) {
   ctx.restore();
 }
 
+/** Đo vùng nền đã vẽ dưới chữ (lấy mẫu thưa ~2.000 điểm): màu trung bình + độ rối. */
+function sampleRegion(ctx: CanvasRenderingContext2D, rect: TextLayerDraw['rect']): BackgroundSample {
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  const x = Math.max(0, Math.floor(rect.x));
+  const y = Math.max(0, Math.floor(rect.y));
+  const w = Math.max(1, Math.min(W - x, Math.ceil(rect.w)));
+  const h = Math.max(1, Math.min(H - y, Math.ceil(rect.h)));
+  const data = ctx.getImageData(x, y, w, h).data;
+  const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 2000)));
+  let r = 0, g = 0, b = 0, n = 0;
+  const lums: number[] = [];
+  for (let yy = 0; yy < h; yy += step) {
+    for (let xx = 0; xx < w; xx += step) {
+      const i = (yy * w + xx) * 4;
+      r += data[i]!; g += data[i + 1]!; b += data[i + 2]!; n++;
+      lums.push(relativeLuminance(data[i]!, data[i + 1]!, data[i + 2]!));
+    }
+  }
+  const mean = lums.reduce((s, v) => s + v, 0) / lums.length;
+  const spread = Math.sqrt(lums.reduce((s, v) => s + (v - mean) ** 2, 0) / lums.length);
+  return { r: r / n, g: g / n, b: b / n, spread };
+}
+
+/** Chữ tự động: chọn màu chữ/bóng/nút theo nền thật ngay dưới chữ. */
+function withAutoColors(ctx: CanvasRenderingContext2D, layer: TextLayerDraw): TextLayerDraw {
+  if (!layer.auto) return layer;
+  const c = autoTextColors(layer.auto.role, sampleRegion(ctx, layer.rect), layer.auto.palette, layer.fontSizePx);
+  return {
+    ...layer,
+    style: {
+      ...layer.style,
+      fill: { kind: 'solid', color: c.fill },
+      ...(c.shadow ? { shadow: c.shadow } : {}),
+      ...(c.plateColor && layer.style.plate ? { plate: { ...layer.style.plate, color: c.plateColor } } : {}),
+    },
+  };
+}
+
 export async function renderComposition(doc: Composition, images: Record<string, HTMLImageElement>): Promise<string> {
   const canvas = document.createElement('canvas');
   canvas.width = doc.width;
@@ -195,7 +235,7 @@ export async function renderComposition(doc: Composition, images: Record<string,
       ctx.drawImage(img, -w / 2, -h / 2, w, h);
       ctx.restore();
     } else {
-      drawText(ctx, layer);
+      drawText(ctx, withAutoColors(ctx, layer));
     }
   }
   return canvas.toDataURL('image/png');

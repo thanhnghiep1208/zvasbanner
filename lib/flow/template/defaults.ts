@@ -1,5 +1,6 @@
 /**
- * Template mặc định (T5.3). Mọi template đi qua Compose (SPEC 3 #4).
+ * Template mặc định (T5.3). Mọi template đi qua Compose (SPEC 3 #4), trừ "Theo banner mẫu" (Nghiệp duyệt 2026-10-16):
+ * làm lại giống banner mẫu cần AI vẽ cả banner (flat) – bố cục chữ/sản phẩm theo mẫu, không theo layout engine.
  *
  * Mỗi template dựng từ một CompiledJob rồi `decompileJob` → id node xác định (n-product-0, n-text-<layerId>,
  * n-brief, n-ratio, n-style, n-brand, n-generate, n-compose, n-export), nên `exposed` trỏ thẳng id đó.
@@ -7,7 +8,7 @@
  */
 import type { CompiledJob } from '../compiled-job';
 import { decompileJob } from '../decompiler';
-import type { FlowAsset, PixelAssetRole, RatioSpec, TextRole } from '../schema';
+import type { FlowAsset, PixelAssetRole, RatioSpec, ReferenceAssetRole, TextRole } from '../schema';
 import { DEFAULT_SHADOW, DEFAULT_STYLE } from '../schema';
 import { defaultTextStyle, TEXT_ROLE_DEFAULTS, type TextStyle } from '../text/text-style';
 import type { ExposedOption, ExposedParam, FlowTemplate } from './template';
@@ -16,6 +17,10 @@ import type { ExposedOption, ExposedParam, FlowTemplate } from './template';
 
 const emptyProduct = (): FlowAsset<PixelAssetRole> => ({
   assetId: '', url: '', fileName: '', role: 'image', hasAlpha: false, originalDims: { width: 0, height: 0 },
+});
+
+const emptyReference = (): FlowAsset<ReferenceAssetRole> => ({
+  assetId: '', url: '', fileName: '', role: 'style-reference', hasAlpha: false, originalDims: { width: 0, height: 0 },
 });
 
 const ratio = (id: string, name: string, width: number, height: number, platform: string): RatioSpec =>
@@ -40,6 +45,8 @@ function text(
     layerId, role, content, renderSource: 'layer', priority,
     minFontSizePx: TEXT_ROLE_DEFAULTS[role].minFontSizePx,
     style: { ...defaultTextStyle(role), ...style },
+    // Mặc định chữ tự động theo banner; style ở trên là điểm bắt đầu khi user chuyển sang chỉnh tay.
+    autoStyle: true,
   };
 }
 
@@ -224,8 +231,49 @@ const eventBrand: FlowTemplate = {
   ],
 };
 
+/**
+ * Theo banner mẫu (flat): user tải 1 banner mẫu → AI làm lại giống mẫu (bố cục, phong cách) theo kích thước đã chọn,
+ * thay đúng chữ của user; ảnh sản phẩm/logo thêm vào thì thay chỗ sản phẩm/logo của mẫu (prompt-builder REFERENCE_BANNER_RULES).
+ */
+const referenceBanner: FlowTemplate = {
+  id: 'reference-banner',
+  name: 'Theo banner mẫu',
+  description: 'Tải 1 banner mẫu: AI làm lại giống mẫu theo kích thước mới, thay bằng chữ và sản phẩm của bạn.',
+  graph: decompileJob(job({
+    renderMode: 'flat',
+    composed: undefined,
+    flat: { strictPreserveMode: true },
+    references: [emptyReference()],
+    products: [],
+    brief: {
+      prompt: 'Làm lại đúng bố cục và phong cách của banner mẫu.',
+      marketingBrief: { campaignIntents: [], focalSubjects: [] },
+    },
+    ratios: [R.zaloOa],
+    textLayers: [
+      text('headline', 'headline', 'Tiêu đề của bạn', 1),
+      text('sub', 'subheadline', '', 2),
+      text('cta', 'cta', 'Mua ngay', 3),
+    ],
+  })),
+  exposed: [
+    {
+      id: 'reference', nodeId: 'n-ref-0', path: [], label: 'Banner mẫu', control: 'asset', required: true, group: G.image,
+      hint: 'Ảnh mẫu ≤ 4MB. Thêm ảnh sản phẩm/logo nếu muốn thay vào chỗ sản phẩm/logo của mẫu.',
+    },
+    fText('headline', 'Tiêu đề', true),
+    fText('sub', 'Dòng phụ'),
+    fText('cta', 'Nút kêu gọi'),
+    {
+      id: 'brief', nodeId: 'n-brief', path: ['prompt'], label: 'Ghi chú thêm cho AI', control: 'textarea', group: G.content,
+      placeholder: 'VD: giữ nguyên tông đỏ, bỏ hoạ tiết pháo hoa', hint: 'Không bắt buộc. Chữ trên banner lấy từ các ô ở trên.',
+    },
+    fRatios('Mỗi kích thước tốn 2 lượt AI (tạo + chỉnh hài hoà).'),
+  ],
+};
+
 /** Thứ tự = thứ tự hiện trong UI chọn template; phần tử đầu là mặc định khi mở /flow (T5.4). */
-export const DEFAULT_TEMPLATES: readonly FlowTemplate[] = [productHero, saleMultiRatio, socialPost, eventBrand];
+export const DEFAULT_TEMPLATES: readonly FlowTemplate[] = [productHero, referenceBanner, saleMultiRatio, socialPost, eventBrand];
 
 export function getTemplate(id: string): FlowTemplate | undefined {
   return DEFAULT_TEMPLATES.find((t) => t.id === id);
