@@ -76,8 +76,10 @@ export function CanvasArea({ className }: { className?: string }) {
   const modelBadgeLabel =
     generationStats?.model === "gemini-3-pro-image-preview"
       ? "Nano Banana Pro"
-      : generationStats?.model === "gemini-3.1-flash-image-preview"
-        ? "Nano Banana 2"
+      : generationStats?.model === "gemini-nano-banana-2.1"
+        ? "Nano Banana 2.1"
+        : generationStats?.model === "gemini-3.1-flash-image-preview"
+          ? "Nano Banana 2"
         : null;
 
   const showSpecEmpty = !generatedImage && !previewUrl;

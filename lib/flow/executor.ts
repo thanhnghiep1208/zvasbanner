@@ -192,7 +192,7 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
     if (!first) {
       res = await deps.generate(request);
     } else {
-      // Kích thước phụ: thích nghi từ ảnh đầu, ép Nano Banana 2 + giữ nguyên chủ thể; lỗi/placeholder thì thử lại
+      // Kích thước phụ: thích nghi từ ảnh đầu, ép Nano Banana 2.1 + giữ nguyên chủ thể; lỗi/placeholder thì thử lại
       // 1 lần với prompt "layout translation" (giống form).
       res = await deps.generate(adapted!);
       if (!res.ok || res.source === 'placeholder') res = await deps.generate({ ...adapted!, userPrompt: retryPrompt });

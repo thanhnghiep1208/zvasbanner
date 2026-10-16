@@ -37,7 +37,7 @@ describe('exportedRatios', () => {
 });
 
 describe('flat nhiều kích thước – parity với "Biến thể kích thước" của form', () => {
-  it('kích thước đầu giữ model của job; mọi kích thước luôn giữ nguyên chủ thể; kích thước phụ ép Nano Banana 2 + thích nghi ảnh đầu', async () => {
+  it('kích thước đầu giữ model của job; mọi kích thước luôn giữ nguyên chủ thể; kích thước phụ ép Nano Banana 2.1 + thích nghi ảnh đầu', async () => {
     const { job, runtime } = flatJob();
     job.model = 'nano-banana-pro';
     job.flat = { strictPreserveMode: false };

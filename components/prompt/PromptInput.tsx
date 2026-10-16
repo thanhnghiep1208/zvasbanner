@@ -201,7 +201,7 @@ export function PromptInput({ className }: { className?: string }) {
               },
               {
                 value: "nano-banana-2",
-                title: "Tạo banner nhanh/số lượng lớn - Nano Banana 2",
+                title: "Tạo banner nhanh/số lượng lớn - Nano Banana 2.1",
                 description:
                   "Tốc độ cực nhanh, phù hợp cho việc chạy thử nghiệm (A/B testing) nhiều ý tưởng.",
               },

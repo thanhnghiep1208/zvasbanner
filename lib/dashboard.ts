@@ -113,7 +113,7 @@ export function dashboardRangeLabel(range: DashboardRange): string {
 /** Human label for stored `image_model` router slug (dashboard + tables). */
 export function labelImageModelSlug(slug: string): string {
   if (slug === "nano-banana-pro") return "Nano Banana Pro";
-  if (slug === "nano-banana-2") return "Nano Banana 2";
+  if (slug === "nano-banana-2") return "Nano Banana 2.1";
   if (slug === "unknown") return "Chưa ghi nhận model";
   return slug;
 }
