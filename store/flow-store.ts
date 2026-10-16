@@ -73,6 +73,8 @@ type FlowState = {
   /** Gộp nông `patch` vào params (field lồng nhau: truyền cả giá trị mới). */
   updateNodeParams: <T extends NodeType>(nodeId: string, patch: Partial<NodeParamsMap[T]>) => void;
   setAssetData: (assetId: string, dataUrl: string) => void;
+  /** Thay graph bằng biến đổi thuần (vd. image-nodes) – giữ exposed/template/doc, bỏ ui của node đã mất. */
+  editGraph: (fn: (graph: FlowGraph) => FlowGraph) => void;
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   /** Thêm edge nếu `canConnect()` cho phép; trả kết quả để UI báo lỗi. */
@@ -167,6 +169,19 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
     })),
 
   setAssetData: (assetId, dataUrl) => set((s) => ({ assetData: { ...s.assetData, [assetId]: dataUrl } })),
+
+  editGraph: (fn) =>
+    set((s) => {
+      const graph = fn(s.graph);
+      if (graph === s.graph) return {};
+      const ids = new Set(graph.nodes.map((n) => n.id));
+      const edgeIds = new Set(graph.edges.map((e) => e.id));
+      return {
+        graph,
+        nodeUi: Object.fromEntries(Object.entries(s.nodeUi).filter(([id]) => ids.has(id))),
+        edgeUi: Object.fromEntries(Object.entries(s.edgeUi).filter(([id]) => edgeIds.has(id))),
+      };
+    }),
 
   onNodesChange: (changes) =>
     set((s) => {

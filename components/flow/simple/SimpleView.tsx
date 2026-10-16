@@ -10,6 +10,8 @@ import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import { useFlowStore } from '@/store/flow-store';
 import { RunResults } from '../inspector/RunResults';
 import { ExposedField } from './ExposedField';
+import { ImageListField } from './ImageListField';
+import { isImageNode } from '@/lib/flow/image-nodes';
 
 const DEFAULT_GROUP = 'Thiết lập';
 
@@ -21,8 +23,13 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   const graph = useFlowStore((s) => s.graph);
   const exposed = useFlowStore((s) => s.exposed);
   const runInfo = useFlowStore((s) => s.runInfo);
-  const fields = useMemo(() => resolveExposed(graph, exposed), [graph, exposed]);
-  const hidden = exposed.length - fields.length;
+  // Field ảnh: chỉ field ảnh đầu tiên được vẽ, thành danh sách mọi ảnh trong graph (ImageListField).
+  const fields = useMemo(() => {
+    const all = resolveExposed(graph, exposed);
+    const firstAsset = all.find((f) => f.control === 'asset');
+    return all.filter((f) => f.control !== 'asset' || f === firstAsset);
+  }, [graph, exposed]);
+  const hidden = exposed.length - resolveExposed(graph, exposed).length;
 
   const groups = useMemo(() => {
     const map = new Map<string, ExposedParam[]>();
@@ -32,7 +39,11 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
 
   // Lỗi/cảnh báo theo node → hiện dưới field của node đó; lỗi node không lộ ra → khối chung.
   const issues = useMemo(() => validateGraph(graph, { measurer: canvasMeasurer }), [graph]);
-  const shownNodes = new Set(fields.map((f) => f.nodeId));
+  const hasImageList = fields.some((f) => f.control === 'asset');
+  const shownNodes = new Set([
+    ...fields.map((f) => f.nodeId),
+    ...(hasImageList ? graph.nodes.filter(isImageNode).map((n) => n.id) : []),
+  ]);
   const otherIssues = issues.filter((i) => i.severity === 'error' && (!i.nodeId || !shownNodes.has(i.nodeId)));
   const fieldMessages = (nodeId: string) => [
     ...issues.filter((i) => i.nodeId === nodeId).map((i) => ({ severity: i.severity, message: i.message })),
@@ -65,8 +76,10 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
               <h3 id={`grp-${group}`} className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{group}</h3>
               {items.map((f) => (
                 <div key={f.id} className="flex flex-col gap-1.5">
-                  <ExposedField e={f} />
-                  {firstFieldOfNode.get(f.nodeId) === f.id && fieldMessages(f.nodeId).map((m, k) => (
+                  {f.control === 'asset'
+                    ? <ImageListField requiredNodeId={f.nodeId} label={f.required ? `${f.label} *` : f.label} hint={f.hint} messagesFor={fieldMessages} />
+                    : <ExposedField e={f} />}
+                  {f.control !== 'asset' && firstFieldOfNode.get(f.nodeId) === f.id && fieldMessages(f.nodeId).map((m, k) => (
                     <p key={k} className={m.severity === 'error' ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
                       {m.message}
                     </p>
