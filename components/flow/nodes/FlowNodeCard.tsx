@@ -1,6 +1,5 @@
 'use client';
 
-import { RatioShape } from '../RatioShape';
 import { createContext, memo, useContext, useMemo } from 'react';
 import { Handle, Position, useConnection, type NodeProps } from '@xyflow/react';
 import {
@@ -16,6 +15,7 @@ import {
   Proportions,
   RotateCcw,
   Sparkles,
+  TriangleAlert,
   Type,
   WandSparkles,
   type LucideIcon,
@@ -28,9 +28,11 @@ import type { FlowNode, NodeParamsMap, NodeType, PortType } from '@/lib/flow/sch
 import type { FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { checkConnection } from '@/lib/flow-ui/connection-feedback';
+import { ASSET_UNCONNECTED_MESSAGE } from '@/lib/flow/validate';
 import { useFlowStore } from '@/store/flow-store';
 import { KIND_CHIP, PORT_HANDLE, RUN_BORDER, RUN_DOT, RUN_PILL } from '../flow-styles';
 import { nodeDetails, type NodeDetails } from './node-details';
+import { RatioShape } from '../RatioShape';
 
 type AssetParams = { assetId: string; url: string; fileName: string };
 
@@ -206,6 +208,9 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
   const dragging = useConnection((c) =>
     c.inProgress && c.fromHandle?.id ? `${c.fromNode.id}|${c.fromHandle.id}|${c.fromHandle.type}` : null);
   const candidates = useMemo(() => portCandidates(dragging, id, type), [dragging, id, type]);
+  const isImage = type === 'product-asset' || type === 'reference-image';
+  // Ảnh chưa có dây ra → viền vàng + nhắc ngay trên node (cùng cảnh báo asset-unconnected của validate).
+  const unconnected = useFlowStore((s) => isImage && !s.graph.edges.some((e) => e.source === id));
 
   return (
     <div
@@ -213,6 +218,7 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
         'relative w-64 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-shadow',
         'hover:shadow-md',
         RUN_BORDER[run.state],
+        unconnected && run.state === 'idle' && 'border-run-stale',
         selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
       )}
       aria-busy={run.state === 'running' || undefined}
@@ -251,7 +257,13 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
         </ul>
       )}
 
-      {(type === 'product-asset' || type === 'reference-image') && <AssetThumb params={data.params as AssetParams} />}
+      {unconnected && (
+        <p className="mx-3 mb-2 flex gap-1.5 rounded-lg bg-run-stale/15 p-2 text-xs text-foreground" role="status">
+          <TriangleAlert className="mt-px size-3.5 shrink-0 text-run-stale" aria-hidden />
+          <span>{ASSET_UNCONNECTED_MESSAGE} Kéo dây từ ô ra bên phải vào node cần dùng ảnh.</span>
+        </p>
+      )}
+      {isImage && <AssetThumb params={data.params as AssetParams} />}
       {type === 'ratio' && <RatioList ratios={(data.params as NodeParamsMap['ratio']).ratios} />}
 
       {run.state === 'error' && (

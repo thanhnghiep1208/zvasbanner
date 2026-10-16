@@ -13,6 +13,9 @@ export interface ValidationIssue {
   edgeId?: string;
 }
 
+/** Ảnh không nối vào đâu: compiler bỏ qua → không có mặt trên banner. */
+export const ASSET_UNCONNECTED_MESSAGE = 'Ảnh chưa nối vào node nào nên sẽ không được dùng khi chạy.';
+
 export interface ValidateOptions {
   /** Measurer cho kiểm tra layout; mặc định ước lượng (T4.4 truyền Canvas 2D). */
   measurer?: TextMeasurer;
@@ -118,6 +121,13 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
       issues.push({ severity: 'warning', code: 'product-no-alpha', nodeId: n.id,
         message: 'Ảnh sản phẩm chưa tách nền: auto shadow tắt, viền nền gốc sẽ hiện trên banner.' });
     }
+  }
+
+  // Ảnh không có dây ra: user tưởng đã thêm ảnh nhưng banner không có (thả ảnh lên canvas, xoá dây…).
+  for (const n of graph.nodes) {
+    if (n.type !== 'product-asset' && n.type !== 'reference-image') continue;
+    if (graph.edges.some((e) => e.source === n.id)) continue;
+    issues.push({ severity: 'warning', code: 'asset-unconnected', nodeId: n.id, message: ASSET_UNCONNECTED_MESSAGE });
   }
 
   // Auto Layout: chữ phải vừa ở mọi kích thước (SPEC 5.2) – lỗi hiện ngay trên node, không đợi chạy.
