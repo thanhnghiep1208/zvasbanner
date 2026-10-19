@@ -8,6 +8,7 @@
 import { campaignPromptLines } from '../brief';
 import { harmonyPromptLines } from '../palette';
 import { backgroundStylePhrase } from './style';
+import { sceneWants, type SceneWants } from './scene-wants';
 import type { GuideRect } from '../layout/types';
 import { DEFAULT_STYLE } from '../schema';
 import type { BackgroundRequest } from './request';
@@ -63,16 +64,23 @@ const alongWords = (n: number, dir: 'across' | 'down') =>
   (fractionWords(n) === 'half' ? `halfway ${dir}` : `${fractionWords(n)} of the way ${dir}`);
 
 /** Câu đặt sản phẩm + bục cho naturalPrompt; `r` là vùng sản phẩm thật (đã fit tỉ lệ ảnh) theo tỉ lệ khung. */
-export function productPlacementLines(r: { x: number; y: number; w: number; h: number }): string[] {
+export function productPlacementLines(r: { x: number; y: number; w: number; h: number }, pedestal = true): string[] {
   const bottom = Math.min(r.y + r.h, 0.95);
   const across = alongWords(r.x + r.w / 2, 'across');
   const base = alongWords(bottom, 'down');
   // Đường sàn–tường cao hơn đáy sản phẩm ~0.3 chiều cao sản phẩm: đáy chai nằm hẳn trên sàn, không ở mép tường.
   const horizon = alongWords(Math.max(0.45, bottom - 0.3 * r.h), 'down');
   const width = r.w > 0.45 ? 'about half the picture wide or more' : `about ${fractionWords(r.w)} of the picture wide`;
-  return [
+  const lead = [
     `  The product will stand centred ${across} the picture from the left edge (${width}), with its base ${base} from the top.`,
     `  The floor meets the back wall about ${horizon}, so the product's base rests on the floor well in front of that line.`,
+  ];
+  // Brief không nhắc bục: cấm hẳn (gợi ý "nếu có bục…" làm model gần như luôn vẽ bục).
+  if (!pedestal) {
+    return [...lead, '  No pedestal, podium, plinth, stand or display box: the product stands directly on the floor or surface.'];
+  }
+  return [
+    ...lead,
     '  If you show a pedestal, podium or soft spotlight for it, put it directly under the product at exactly that spot:',
     `  centred ${across} from the left, its top face at the product's base (${base}), low in the frame,`,
     '  only slightly wider than the product; its lower part may run off the bottom edge.',
@@ -84,6 +92,17 @@ export function productPlacementLines(r: { x: number; y: number; w: number; h: n
  * Ảnh "Banner tham chiếu style" ở chế độ ghép: nền phải giống ảnh mẫu nhất có thể (loại nền, màu, ánh sáng, hoạ tiết
  * và vị trí của chúng). Chữ, sản phẩm, logo do phần mềm ghép sau nên không lấy từ ảnh mẫu.
  */
+const NO_FOLIAGE = '- No plants, leaves, palm fronds, branches or flowers anywhere (the brief does not ask for them).';
+
+/**
+ * Bục / hoa lá chỉ khi mô tả nền nhắc tới (scene-wants.ts). Có banner mẫu (style-reference) thì để ảnh mẫu quyết định –
+ * không cấm, vì mẫu có thể có bục/hoa lá cần dựng lại.
+ */
+function briefWants(req: { prompt: string; references?: { role: string }[] }): SceneWants {
+  if ((req.references ?? []).some((r) => r.role === 'style-reference' || r.role === 'background')) return { pedestal: true, foliage: true };
+  return sceneWants(req.prompt);
+}
+
 const HARMONY_NOTE = 'These colour rules override any colour in the brief or style above where they conflict.';
 
 /** Đồng bộ nhiều kích thước: ảnh SCENE ANCHOR = nền kích thước đầu của cùng lần chạy. */
@@ -110,6 +129,7 @@ function naturalPrompt(
   const texts = zones.filter((g) => g.kind === 'text');
   const products = zones.filter((g) => g.kind === 'product');
   const refs = req.references ?? [];
+  const wants = briefWants(req);
   const lines = [
     `A finished background photograph/illustration for a ${platform} advertising banner (${name}).`,
     'It is NOT a template or mockup: no frames, panels, boxes, cards, placeholder text, labels, captions, numbers, watermarks or UI.',
@@ -119,9 +139,10 @@ function naturalPrompt(
     ...(texts.length ? [`- Keep ${where(unionRect(texts))} calm and plain (smooth wall, open sky or soft light) so text can sit on it later.`] : []),
     ...(products.length ? [
       `- Keep ${where(unionRect(products))} open and empty, where a product will stand: an uncluttered floor or tabletop with a simple backdrop behind it.`,
-      ...productPlacementLines(unionRect(products)),
+      ...productPlacementLines(unionRect(products), wants.pedestal),
     ] : []),
-    '- Put decorative elements (plants, furniture, shapes, light effects) toward the outer edges, away from those calm areas.',
+    '- Put any decorative elements that suit the brief and style toward the outer edges, away from those calm areas.',
+    ...(wants.foliage ? [] : [NO_FOLIAGE]),
     '- The scene is one continuous space: no visible boundaries or blocks marking the calm areas.',
     '',
     `Lighting: one key light from the ${light}; highlights and shadows consistent with it.`,
@@ -167,6 +188,7 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
   const refs = req.references ?? [];
 
   if (req.guideStyle === 'natural') return naturalPrompt(req, zones, aiZone, light, style);
+  const wants = briefWants(req);
 
   const lines = [
     '=== TASK ===',
@@ -184,10 +206,13 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
       ? [
         'Product zone rules (most important): the real product photo will be placed exactly there.',
         '- Inside the product zone show only the continuing backdrop and an empty surface: NO props, jars, plants, towels, utensils, furniture details or objects.',
-        '- If you add a pedestal, plinth or soft spotlight for the product, center it horizontally in the product zone and place it at the bottom of that zone.',
+        wants.pedestal
+          ? '- If you add a pedestal, plinth or soft spotlight for the product, center it horizontally in the product zone and place it at the bottom of that zone.'
+          : '- No pedestal, podium, plinth, stand or display box: the product stands directly on the surface.',
       ]
       : []),
-    'Put the visual interest (props, scenery, shapes, light effects, texture) outside all reserved zones.',
+    'Put the visual interest (scenery, shapes, light effects, texture that suit the brief and style) outside all reserved zones.',
+    ...(wants.foliage ? [] : [NO_FOLIAGE]),
     '',
     '=== LIGHTING ===',
     `Single key light from the ${light} (${Math.round(req.lightDirectionDeg)}°). All highlights and shadows in the scene must agree with it`,
