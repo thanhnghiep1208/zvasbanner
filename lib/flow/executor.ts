@@ -77,7 +77,15 @@ export const flatStepKey = (request: GenerationRequest) => hashParts('flat', str
 export const flatAdaptStepKey = (adapted: GenerationRequest) => hashParts('flat-adapt', stripAssets(adapted));
 /** Composed: request sinh nền (không gồm guide image – vẽ từ `guide`) + cách truyền vùng trống. */
 export const backgroundStepKey = (draft: BackgroundRequestDraft, guideStyle: GuideStyle) =>
-  hashParts('bg', guideStyle, { ...draft, references: draft.references.map((r) => ({ ...r, dataUrl: hashString(r.dataUrl) })) });
+  hashParts('bg', guideStyle, {
+    ...draft,
+    references: draft.references.map((r) => ({ ...r, dataUrl: hashString(r.dataUrl) })),
+    ...(draft.sceneAnchor ? { sceneAnchor: hashString(draft.sceneAnchor) } : {}),
+  });
+
+/** Kích thước sau kích thước đầu nhận nền đầu làm SCENE ANCHOR (đồng bộ cảnh/màu giữa các kích thước). */
+const withAnchor = (request: BackgroundRequestDraft, i: number, first: string | undefined): BackgroundRequestDraft =>
+  i > 0 && first ? { ...request, sceneAnchor: first } : request;
 
 /**
  * Flat: ảnh sản phẩm/logo/trang trí đi qua AI nên luôn bật "giữ nguyên chủ thể" (không đổi tỉ lệ, màu, hình dạng),
@@ -262,8 +270,9 @@ async function runComposed(
   const backgrounds: string[] = [];
   const force = deps.forceNodes?.has(genNode.id) ?? false;
   let reused = 0;
-  for (const [i, { ratioId, request }] of drafts.drafts.entries()) {
+  for (const [i, { ratioId, request: draft }] of drafts.drafts.entries()) {
     const prefix = drafts.drafts.length > 1 ? `Kích thước ${i + 1}/${drafts.drafts.length}: ` : '';
+    const request = withAnchor(draft, i, backgrounds[0]);
     const stepKey = backgroundStepKey(request, guideStyle);
     const hit = force ? undefined : deps.cache?.get(stepKey);
     let res: BackgroundResult;
@@ -338,8 +347,15 @@ export function pendingAiCalls(
     const layout = planLayoutForJob(job, { measurer: opts.measurer });
     const drafts = layout.ok ? toBackgroundRequests({ ...job, ratios: exported }, layout.plan, runtime) : null;
     if (!drafts?.ok) return { calls: exported.length * per, reused: 0 };
-    const skip = forced('generate-background');
-    const hits = skip ? 0 : drafts.drafts.filter((d) => cache?.get(backgroundStepKey(d.request, opts.guideStyle ?? 'hatched'))).length;
+    if (forced('generate-background')) return { calls: drafts.drafts.length * per, reused: 0 };
+    // Kích thước sau phụ thuộc nền đầu (SCENE ANCHOR): chỉ tính được key khi nền đầu có trong cache.
+    let hits = 0;
+    let first: string | undefined;
+    for (const [i, d] of drafts.drafts.entries()) {
+      const img = i > 0 && !first ? undefined : cache?.get(backgroundStepKey(withAnchor(d.request, i, first), opts.guideStyle ?? 'hatched'));
+      if (i === 0) first = img;
+      if (img) hits++;
+    }
     return { calls: (drafts.drafts.length - hits) * per, reused: hits };
   }
   const per = NODE_DEFINITIONS['generate-flat'].aiCallsPerRatio;

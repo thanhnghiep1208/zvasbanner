@@ -7,6 +7,7 @@
  */
 import type { BrandKit, CanvasConfig, MarketingBrief } from '@/lib/types';
 import { hasCampaign, parseCampaign, type CampaignBrief } from '../brief';
+import { elementColors } from '../palette';
 import type { CompiledJob } from '../compiled-job';
 import type { LayoutPlan, GuideRect } from '../layout/types';
 import type { LegacyRuntime } from '../legacy/from-legacy-config';
@@ -27,6 +28,13 @@ export interface BackgroundRequest {
   marketingBrief: MarketingBrief;
   /** Brief marketing – định hướng không khí, không vẽ thành chữ (brief.ts). */
   campaign?: CampaignBrief;
+  /** Màu chủ đạo của sản phẩm/logo đặt lên nền (chỉ mã màu, không pixel) – palette.ts. */
+  elementColors?: string[];
+  /**
+   * Nền đã tạo cho kích thước đầu (data URL): các kích thước sau giữ cùng cảnh, màu, ánh sáng (đồng bộ nhiều
+   * kích thước). Executor gắn lúc chạy, không có trong draft của kích thước đầu.
+   */
+  sceneAnchor?: string;
   style?: FlowStyle;
   brandKit?: BrandKit;
   /** Hướng sáng (độ, 0 = trên, theo chiều kim đồng hồ; 315 = trên-trái). Compose dùng lại cho bóng. */
@@ -64,6 +72,10 @@ export function toBackgroundRequests(job: CompiledJob, plan: LayoutPlan, runtime
     .filter((r) => runtime.dataUrls[r.assetId])
     .map((r) => ({ role: r.role, fileName: r.fileName, dataUrl: runtime.dataUrls[r.assetId]! }));
   const ai = job.textLayers.find((l) => l.role === 'headline' && l.renderSource === 'ai');
+  // Sản phẩm trước, rồi logo, trang trí: màu sản phẩm quyết định nền cần tương phản với gì.
+  const ROLE_ORDER = ['image', 'logo', 'decoration'];
+  const colors = elementColors([...job.products].sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role))
+    .map((p) => p.dominantColors));
 
   const drafts = job.ratios.map(({ id, ...canvasConfig }) => ({
     ratioId: id,
@@ -73,6 +85,7 @@ export function toBackgroundRequests(job: CompiledJob, plan: LayoutPlan, runtime
       prompt: job.brief.prompt,
       marketingBrief: job.brief.marketingBrief,
       ...(hasCampaign(job.brief.campaign) ? { campaign: job.brief.campaign } : {}),
+      ...(colors.length ? { elementColors: colors } : {}),
       ...(job.style ? { style: job.style } : {}),
       ...(job.brandKit ? { brandKit: job.brandKit } : {}),
       lightDirectionDeg: job.composed!.lightDirectionDeg,
@@ -100,7 +113,7 @@ const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
  */
 export function parseBackgroundRequestShape(v: unknown): BackgroundRequest | null {
   if (!isRecord(v)) return null;
-  const { canvasConfig, model, prompt, marketingBrief, campaign, lightDirectionDeg, strictNoText, guide, guideImage, guideStyle, references, aiHeadline } = v;
+  const { canvasConfig, model, prompt, marketingBrief, campaign, elementColors: ec, sceneAnchor, lightDirectionDeg, strictNoText, guide, guideImage, guideStyle, references, aiHeadline } = v;
   if (!isRecord(canvasConfig) || !isNum(canvasConfig.width) || !isNum(canvasConfig.height)
     || !isStr(canvasConfig.platform) || !isStr(canvasConfig.name)) return null;
   if (canvasConfig.width <= 0 || canvasConfig.height <= 0) return null;
@@ -112,6 +125,8 @@ export function parseBackgroundRequestShape(v: unknown): BackgroundRequest | nul
   const okList = (x: unknown, allowed: string[]) => Array.isArray(x) && x.every((i) => allowed.includes(i as string));
   if (!okList(marketingBrief.campaignIntents, INTENTS) || !okList(marketingBrief.focalSubjects, FOCALS)) return null;
   if (campaign !== undefined && !parseCampaign(campaign)) return null;
+  if (ec !== undefined && (!Array.isArray(ec) || ec.length > 8 || !ec.every((c) => isStr(c) && /^#[0-9A-Fa-f]{6}$/.test(c)))) return null;
+  if (sceneAnchor !== undefined && (!isStr(sceneAnchor) || !IMAGE_DATA_URL.test(sceneAnchor))) return null;
   if (!isNum(lightDirectionDeg) || typeof strictNoText !== 'boolean') return null;
   if (guideStyle !== undefined && guideStyle !== 'hatched' && guideStyle !== 'natural') return null;
   if (guideStyle === 'natural' ? guideImage !== undefined : !isStr(guideImage) || !IMAGE_DATA_URL.test(guideImage)) return null;

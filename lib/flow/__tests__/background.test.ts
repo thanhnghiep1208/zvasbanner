@@ -35,10 +35,11 @@ describe('buildBackgroundPrompt (SPEC 5.3)', () => {
     expect(p).toContain('Do NOT draw any product');
   });
 
-  it('không đưa focal subject (tránh model tự vẽ sản phẩm), giữ campaign intent', () => {
+  it('câu phong cách riêng cho nền: giữ mục tiêu chiến dịch, không có focal subject / kiểu chữ / khung khuyến mãi', () => {
     const p = buildBackgroundPrompt(draft());
     expect(p).not.toContain('Product must be the dominant subject');
-    expect(p).toContain('Campaign intent');
+    expect(p).toContain('Campaign feel');
+    for (const bad of ['Typography', 'typography', 'discount callout', 'serif fonts']) expect(p).not.toContain(bad);
   });
 
   it('headline AI: cho phép đúng nội dung trong đúng vùng, cấm chữ chỗ khác', () => {

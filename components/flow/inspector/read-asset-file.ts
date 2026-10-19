@@ -3,6 +3,7 @@ import {
 } from '@/lib/asset-upload';
 import { isReferenceRole, REFERENCE_MAX_BYTES, referenceTooBigMessage } from '@/lib/flow/asset-limits';
 import type { FlowAsset } from '@/lib/flow/schema';
+import { readDominantColors } from '@/lib/flow-ui/asset-colors';
 import type { AssetRole } from '@/lib/types';
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -29,11 +30,15 @@ export async function readAssetFile(file: File, role?: AssetRole): Promise<Asset
   if (role && isReferenceRole(role) && file.size > REFERENCE_MAX_BYTES) return { ok: false, message: referenceTooBigMessage(file.name) };
   const url = URL.createObjectURL(file);
   try {
-    const [originalDims, dataUrl] = await Promise.all([loadImageDimensions(url), fileToDataUrl(file)]);
+    const [originalDims, dataUrl, dominantColors] = await Promise.all([loadImageDimensions(url), fileToDataUrl(file), readDominantColors(url)]);
     return {
       ok: true,
       dataUrl,
-      patch: { assetId: crypto.randomUUID(), url, fileName: file.name, hasAlpha: guessHasAlpha(file), originalDims },
+      patch: {
+        assetId: crypto.randomUUID(), url, fileName: file.name, hasAlpha: guessHasAlpha(file), originalDims,
+        // Bảng màu chung (palette.ts): nền tránh trùng màu sản phẩm, chữ/CTA lặp lại màu sản phẩm.
+        ...(dominantColors.length ? { dominantColors } : {}),
+      },
     };
   } catch {
     URL.revokeObjectURL(url);

@@ -5,8 +5,9 @@
  * hướng sáng, vùng phải để trống theo layout guide, cấm chữ (trừ headline AI trong đúng slot của nó).
  * Không mô tả chủ thể chính (focal subject): nền không được tự vẽ sản phẩm – sản phẩm thật ghép ở Compose.
  */
-import { buildStylePhrase } from '@/lib/prompt-builder';
 import { campaignPromptLines } from '../brief';
+import { harmonyPromptLines } from '../palette';
+import { backgroundStylePhrase } from './style';
 import type { GuideRect } from '../layout/types';
 import { DEFAULT_STYLE } from '../schema';
 import type { BackgroundRequest } from './request';
@@ -46,6 +47,16 @@ function where(r: { x: number; y: number; w: number; h: number }): string {
  * Ảnh "Banner tham chiếu style" ở chế độ ghép: nền phải giống ảnh mẫu nhất có thể (loại nền, màu, ánh sáng, hoạ tiết
  * và vị trí của chúng). Chữ, sản phẩm, logo do phần mềm ghép sau nên không lấy từ ảnh mẫu.
  */
+const HARMONY_NOTE = 'These colour rules override any colour in the brief or style above where they conflict.';
+
+/** Đồng bộ nhiều kích thước: ảnh SCENE ANCHOR = nền kích thước đầu của cùng lần chạy. */
+export const SCENE_ANCHOR_RULES = [
+  'The attached SCENE ANCHOR is this same campaign\'s background at another banner size. Keep the same scene, the same',
+  'background colours and colour balance, lighting, materials and kind of props so all sizes look like one set;',
+  're-compose them for this canvas size and the calm areas above.',
+  'Do not copy it pixel for pixel and do not stretch it.',
+];
+
 export const REFERENCE_BACKGROUND_RULES = [
   'Recreate the BACKGROUND of the attached REFERENCE BANNER as closely as possible: same kind of backdrop (studio, scene or',
   'gradient), same palette and gradients, same lighting mood, same texture/grain, and the same decorative graphic elements',
@@ -81,6 +92,7 @@ function naturalPrompt(
     `Style: ${style}`,
   ];
   if (req.brandKit?.colors.length) lines.push(`Build the palette around these brand colors: ${req.brandKit.colors.join(', ')}.`);
+  if (req.sceneAnchor) lines.push('', ...SCENE_ANCHOR_RULES);
   if (refs.some((r) => r.role === 'style-reference')) {
     lines.push(...REFERENCE_BACKGROUND_RULES);
   }
@@ -94,6 +106,9 @@ function naturalPrompt(
   const campaign = campaignPromptLines(req.campaign);
   if (campaign.length) lines.push('', ...campaign);
   lines.push('', `Scene brief: ${req.prompt.trim() || '(none)'}`);
+  // Đặt SAU brief + style (model ưu tiên chỉ dẫn cuối): brief template hay ghi màu trùng sản phẩm ("nền đỏ cam").
+  const harmony = harmonyPromptLines(req.elementColors);
+  if (harmony.length) lines.push('', 'Colour harmony:', ...[...harmony, HARMONY_NOTE].map((h) => `- ${h}`));
   return lines.join('\n');
 }
 
@@ -107,11 +122,8 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
 }): string {
   const { width, height, platform, name } = req.canvasConfig;
   const light = lightDirectionLabel(req.lightDirectionDeg);
-  const style = buildStylePhrase(
-    { ...(req.style ?? DEFAULT_STYLE), strictPreserveMode: false },
-    // Chỉ giữ mục tiêu chiến dịch; bỏ focal subject để model không vẽ sản phẩm/người vào nền.
-    { campaignIntents: req.marketingBrief.campaignIntents ?? [], focalSubjects: [] },
-  );
+  // Câu phong cách riêng cho nền (style.ts): không có hướng dẫn kiểu chữ / khung khuyến mãi / chủ thể.
+  const style = backgroundStylePhrase(req.style ?? DEFAULT_STYLE, req.marketingBrief.campaignIntents ?? []);
   const aiZone = req.aiHeadline && req.guide.find((g) => g.elementId === req.aiHeadline!.elementId);
   const zones = req.guide.filter((g) => g !== aiZone);
   const brand = req.brandKit;
@@ -149,6 +161,7 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
   ];
   // Font/vị trí logo của brand không áp cho nền (chữ và logo ghép sau) – chỉ dùng màu.
   if (brand?.colors.length) lines.push(`Brand colors to build the palette around: ${brand.colors.join(', ')}.`);
+  if (req.sceneAnchor) lines.push('', '=== SAME CAMPAIGN ===', ...SCENE_ANCHOR_RULES);
   if (refs.some((r) => r.role === 'style-reference')) {
     lines.push(...REFERENCE_BACKGROUND_RULES);
   }
@@ -172,5 +185,7 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
   const campaign = campaignPromptLines(req.campaign);
   if (campaign.length) lines.push('', '=== CAMPAIGN ===', ...campaign);
   lines.push('', '=== BRIEF ===', req.prompt.trim() || '(no extra brief)');
+  const harmony = harmonyPromptLines(req.elementColors);
+  if (harmony.length) lines.push('', '=== COLOUR HARMONY ===', ...harmony, HARMONY_NOTE);
   return lines.join('\n');
 }
