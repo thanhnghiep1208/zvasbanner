@@ -128,3 +128,8 @@ Trạng thái: **đã chốt A** (2026-10-16) – Nghiệp chọn "Làm nhóm 1"
 Bối cảnh: Nghiệp yêu cầu thay Nano Banana 2 bằng 2.1 (mặc định) và khi có ảnh tham chiếu thì làm giống mẫu nhất. Cần sửa `lib/gemini-server.ts`, `lib/prompt-builder.ts`, `lib/validate-generation.ts`, `store/editor.ts`, `components/prompt/PromptInput.tsx` – ảnh hưởng cả form cũ.
 Trạng thái: **đã làm theo yêu cầu trực tiếp** (2026-10-16). Slug giữ `nano-banana-2` (payload, project, analytics không đổi).
 
+
+## Q16 – Route mới tải website user nhập (Brand kit "Lấy từ website")
+Bối cảnh: Nghiệp yêu cầu Brand kit tự lấy màu, font, logo từ link website. Cần route server mới `POST /api/flow/brand-from-url` tải HTML/CSS/JS + ảnh logo của URL do user nhập (nguy cơ SSRF), không dùng AI.
+Cách làm: chỉ http(s) cổng 80/443; kiểm IP lúc kết nối (`lookup` riêng – chặn loopback, mạng trong, link-local/metadata, CGNAT, IPv6 nội bộ, kể cả qua redirect/DNS rebinding); timeout 8s/request; giới hạn HTML 1.5MB, CSS 1.5MB ×6, JS 4MB ×2, logo 1.5MB ×3; rate limit riêng 30 lần/giờ/user (không ăn lượt tạo ảnh); sau flag Flow canvas.
+Trạng thái: **đã làm theo yêu cầu trực tiếp** (2026-10-19). Chưa xử lý: trang chỉ dựng bằng JS mà bundle không chứa URL logo/màu (cần trình duyệt headless hoặc AI đọc ảnh chụp – để sau).

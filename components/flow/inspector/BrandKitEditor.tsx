@@ -6,6 +6,7 @@ import { asLogoPosition, LOGO_POSITIONS, LOGO_POSITION_LABELS } from '@/lib/flow
 import type { NodeParamsMap } from '@/lib/flow/schema';
 import { FLOW_FONTS, type FontId } from '@/lib/flow/text/text-style';
 import { useFlowStore } from '@/store/flow-store';
+import { BrandFromWebsite } from './BrandFromWebsite';
 import { ColorField, SelectField } from './fields';
 
 type BrandParams = NodeParamsMap['brand-kit'];
@@ -38,6 +39,8 @@ export function BrandKitEditor({ nodeId, p }: { nodeId: string; p: BrandParams }
 
   return (
     <>
+      <BrandFromWebsite nodeId={nodeId} p={p} />
+
       <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
         <legend className="mb-1.5 p-0 text-xs font-medium">Màu thương hiệu</legend>
         {p.colors.length === 0 && <p className="text-xs text-muted-foreground">Chưa có màu.</p>}

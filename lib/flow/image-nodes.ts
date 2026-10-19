@@ -114,3 +114,19 @@ export function removeImageNode(graph: FlowGraph, nodeId: string): FlowGraph {
     edges: graph.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
   };
 }
+
+/**
+ * Đặt logo lấy từ website (Brand kit): đã có node Logo còn trống → điền vào đó (giữ dây); không thì thêm node ảnh
+ * loại Logo, tự nối như ảnh giữ pixel. Logo đã có ảnh thì không đè – thêm node mới để user chọn giữ cái nào.
+ */
+export function placeLogo(graph: FlowGraph, asset: Omit<FlowAsset, 'role'>): { graph: FlowGraph; id: string } {
+  const empty = graph.nodes.find((n): n is FlowNode<'product-asset'> =>
+    n.type === 'product-asset' && (n as FlowNode<'product-asset'>).params.role === 'logo' && !(n as FlowNode<'product-asset'>).params.assetId);
+  if (empty) {
+    return {
+      id: empty.id,
+      graph: { ...graph, nodes: graph.nodes.map((n) => (n.id === empty.id ? { ...n, params: { ...asset, role: 'logo' } } as FlowNode : n)) },
+    };
+  }
+  return addImageNode(graph, { ...asset, role: 'logo' });
+}
