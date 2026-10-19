@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowDown, ArrowLeft, ArrowRight, ChevronDown, CircleAlert, TriangleAlert } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ChevronDown, CircleAlert, ImagePlus, LayoutTemplate, Play, TriangleAlert, type LucideIcon } from 'lucide-react';
 import { NODE_DEFINITIONS, PORT_TYPE_LABELS } from '@/lib/flow/node-definitions';
 import type { NodeType, PortType } from '@/lib/flow/schema';
 import { cn } from '@/lib/utils';
@@ -167,6 +167,54 @@ function NodeCard({ type }: { type: NodeType }) {
   );
 }
 
+/** 3 bước cho người mới: không cần biết node, chỉ dùng chế độ Đơn giản. */
+const QUICK_STEPS: { icon: LucideIcon; title: string; body: ReactNode }[] = [
+  {
+    icon: LayoutTemplate,
+    title: 'Chọn template',
+    body: <>Bấm tên template ở góc trên trái canvas, chọn mẫu gần với banner bạn cần.</>,
+  },
+  {
+    icon: ImagePlus,
+    title: 'Điền ảnh và chữ',
+    body: <>Ở chế độ <b className="font-medium text-foreground">Đơn giản</b>: tải ảnh sản phẩm, sửa tiêu đề. Tab <b className="font-medium text-foreground">Xem trước bố cục</b> hiện ngay, không tốn lượt AI.</>,
+  },
+  {
+    icon: Play,
+    title: 'Bấm Chạy',
+    body: <>Bấm <b className="font-medium text-foreground">Chạy tất cả</b> ở góc trên phải. Xong thì bấm <b className="font-medium text-foreground">Tải tất cả</b> ở tab Kết quả.</>,
+  },
+];
+
+function QuickStart() {
+  return (
+    <section aria-labelledby="quick">
+      <h1 id="quick" className="text-2xl font-semibold tracking-tight">Bắt đầu nhanh</h1>
+      <p className="mt-1.5 text-muted-foreground">Không cần biết node: 3 bước là có banner.</p>
+      <ol className="mt-5 grid gap-3 sm:grid-cols-3">
+        {QUICK_STEPS.map(({ icon: Icon, title, body }, i) => (
+          <li key={title} className="relative rounded-2xl border bg-card p-4">
+            <div className="flex items-center gap-2.5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                <Icon className="size-5" aria-hidden />
+              </span>
+              <p className="font-semibold"><span className="text-muted-foreground tabular-nums">{i + 1}.</span> {title}</p>
+            </div>
+            <p className="mt-2.5 text-sm text-muted-foreground">{body}</p>
+          </li>
+        ))}
+      </ol>
+      <Link
+        href={`/flow?template=${COMPOSED.templateId}`}
+        className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      >
+        Thử ngay với mẫu “{COMPOSED.templateName}”
+        <ArrowRight className="size-4" aria-hidden />
+      </Link>
+    </section>
+  );
+}
+
 export function FlowGuide() {
   return (
     <div className="min-h-dvh bg-background text-foreground">
@@ -182,11 +230,13 @@ export function FlowGuide() {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-12 px-4 py-8 sm:py-10">
-        {/* 1. Flow chuẩn */}
-        <section aria-labelledby="flow">
-          <h1 id="flow" className="text-2xl font-semibold tracking-tight">Dựng 1 banner trên canvas</h1>
-          <p className="mt-1.5 text-muted-foreground">
-            Nối node từ trái sang phải theo 4 bước. Dễ nhất: mở mẫu có sẵn rồi sửa.
+        <QuickStart />
+
+        {/* Flow chuẩn trên canvas */}
+        <section aria-labelledby="flow" className="border-t pt-10">
+          <h2 id="flow" className="text-lg font-semibold">Muốn chỉnh sâu: flow trên canvas</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Bấm <b className="font-medium text-foreground">Canvas</b> trên header để thấy toàn bộ node. Một flow nối từ trái sang phải theo 4 bước.
           </p>
 
           <div className="mt-6 rounded-2xl border bg-card p-4 sm:p-5">
