@@ -26,6 +26,8 @@ const GAP = 0.04;
 /** Các bước co vùng sản phẩm. */
 const PRODUCT_STEPS = [1, 0.9, 0.8, 0.7, MIN_PRODUCT_SCALE];
 /** Mỗi bước co chữ giảm 6% cỡ hiện tại (tối thiểu 1px). */
+/** Phóng cụm chữ tự động tối đa 1.5× cỡ theo phong cách để lấp khung chữ. */
+const GROW_MAX = 1.5;
 const FONT_STEP = 0.94;
 
 type TextLayer = NodeParamsMap['text-layer'];
@@ -154,10 +156,45 @@ function fitVariant(
     return { bySlot, failing };
   };
 
+  /**
+   * Chữ "tự động theo banner" chỉ co chứ không phóng → banner dẹt (3:1) chữ nhỏ so với khung. Vừa rồi thì phóng
+   * cả cụm chữ tự động cùng 1 hệ số (giữ tỉ lệ tiêu đề / mô tả / CTA) tới tối đa GROW_MAX, miễn vẫn vừa mọi slot.
+   * Chữ chỉnh tay giữ đúng cỡ user đặt.
+   */
+  const grown = (s: number, ok: Map<SlotKind, Placed[]>) => {
+    const auto = texts.filter((l) => l.autoStyle && l.renderSource !== 'ai');
+    if (!auto.length) return ok;
+    const base = new Map(auto.map((l) => [l.layerId, size.get(l.layerId)!]));
+    // Giữ nguyên cách ngắt dòng ở cỡ gốc: phóng to không được đẩy chữ sang dòng khác ("GIẢM ĐẾN / 50%" thành
+    // "GIẢM / ĐẾN 50%" – 1 chữ đứng lẻ).
+    const shape = (m: Map<SlotKind, Placed[]>) => new Map([...m.values()].flat()
+      .map((p) => [p.layer.layerId, p.box.lines.map((l) => l.split(/\s+/).length).join(',')]));
+    const baseShape = shape(ok);
+    const fits = (r: ReturnType<typeof attempt>) =>
+      !r.failing.length && [...shape(r.bySlot)].every(([id, sh]) => baseShape.get(id) === sh);
+    const tryG = (g: number) => {
+      for (const l of auto) size.set(l.layerId, base.get(l.layerId)! * g);
+      return attempt(s);
+    };
+    let lo = 1, hi = GROW_MAX, best = ok;
+    if (fits(tryG(hi))) lo = hi;
+    else {
+      for (let i = 0; i < 7; i++) {
+        const mid = (lo + hi) / 2;
+        if (fits(tryG(mid))) lo = mid;
+        else hi = mid;
+      }
+    }
+    const final = tryG(lo);
+    if (fits(final)) best = final.bySlot;
+    else for (const l of auto) size.set(l.layerId, base.get(l.layerId)!);
+    return best;
+  };
+
   // 1. Co sản phẩm.
   for (const s of PRODUCT_STEPS) {
     const r = attempt(s);
-    if (!r.failing.length) return { ok: true, productScale: s, bySlot: r.bySlot };
+    if (!r.failing.length) return { ok: true, productScale: s, bySlot: grown(s, r.bySlot) };
   }
 
   // 2. Ở scale nhỏ nhất, co chữ: trong các slot còn tràn, co layer priority thấp nhất còn co được.
