@@ -82,6 +82,16 @@ describe('variants', () => {
       });
     }
   }
+
+  // Nền AI vẽ mặt bục ~4/5 khung: đáy sản phẩm thấp hơn → sản phẩm như đứng trước bục (SPEC 2026-10-19).
+  for (const v of [...LAYOUT_VARIANTS.landscape, ...LAYOUT_VARIANTS['ultra-wide']]) {
+    it(`${v.id}: đáy slot sản phẩm ~0.82, không sát mép dưới`, () => {
+      for (const s of SCALES) {
+        const p = v.slots(s).product;
+        expect(p.y + p.h).toBeCloseTo(0.82, 2);
+      }
+    });
+  }
 });
 
 describe('layoutText', () => {

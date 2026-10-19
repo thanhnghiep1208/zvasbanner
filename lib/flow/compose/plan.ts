@@ -6,6 +6,7 @@
  *   nền → bóng sản phẩm → sản phẩm/trang trí → logo → chữ.
  * Headline `renderSource: 'ai'` không vẽ lại (Gemini đã vẽ trong nền, T4.2).
  */
+import { elementColors, textPalette } from '../palette';
 import type { CompiledJob } from '../compiled-job';
 import type { LayoutPlan } from '../layout/types';
 import type { FlowAsset, PixelAssetRole, RatioSpec, ShadowConfig, TextRole, Transform } from '../schema';
@@ -196,6 +197,8 @@ export function buildComposition(
   }
 
   const texts: TextLayerDraw[] = [];
+  // Chữ/nút tự động lặp lại màu Brand kit; không có Brand kit thì màu chính của sản phẩm (bảng màu chung, palette.ts).
+  const textColors = textPalette(job.brandKit?.colors ?? [], elementColors(job.products.filter((p) => p.role === 'image').map((p) => p.dominantColors)));
   for (const layer of job.textLayers) {
     if (layer.role === 'headline' && layer.renderSource === 'ai') continue;
     const t = transforms[layer.layerId];
@@ -210,7 +213,7 @@ export function buildComposition(
       content: layer.content,
       fontSizePx: placed?.fontSizePx ?? layer.style.fontSizePx * scale,
       style: scaleStyle(layer.style, scale),
-      ...(layer.autoStyle ? { auto: { role: layer.role, palette: job.brandKit?.colors ?? [] } } : {}),
+      ...(layer.autoStyle ? { auto: { role: layer.role, palette: textColors } } : {}),
     });
   }
 

@@ -136,12 +136,31 @@ export interface AutoColors {
  * - CTA: nút màu thương hiệu (hoặc trắng/đen) nổi trên nền, chữ trên nút trắng/đen theo màu nút.
  * - Nền rối hoặc tương phản sát ngưỡng → thêm bóng mềm màu ngược với chữ.
  */
+/**
+ * Giữ họ màu khi thiếu tương phản (bảng màu chung): pha dần màu `hex` về đen hoặc trắng (phía cho tương phản cao hơn)
+ * tới khi đạt `min` với nền. Không đạt sau 9 bước → undefined (dùng trắng/đen như cũ).
+ */
+export function shadeForContrast(hex: HexColor, bg: [number, number, number], min: number): HexColor | undefined {
+  const c = hexToRgb(hex);
+  const toward: [number, number, number] = contrastRatio([0, 0, 0], bg) > contrastRatio([255, 255, 255], bg) ? [0, 0, 0] : [255, 255, 255];
+  for (let k = 0; k <= 9; k++) {
+    const t = k / 10;
+    const mixed = c.map((v, i) => Math.round(v + (toward[i]! - v) * t)) as [number, number, number];
+    if (contrastRatio(mixed, bg) >= min) return `#${mixed.map((v) => v.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+  }
+  return undefined;
+}
+
 export function autoTextColors(role: TextRole, bg: BackgroundSample, palette: HexColor[], fontSizePx: number): AutoColors {
   const bgRgb: [number, number, number] = [bg.r, bg.g, bg.b];
   const brand = palette.filter(isHexColor).map((c) => c.slice(0, 7).toUpperCase());
 
   if (role === 'cta') {
-    const plate = brand.find((c) => contrastRatio(hexToRgb(c), bgRgb) >= 3) ?? best([WHITE, INK], bgRgb).color;
+    // Nút CTA: màu bảng màu đủ tương phản; không có thì làm đậm/nhạt màu đầu bảng màu (giữ họ màu giữa các kích
+    // thước); không có bảng màu mới dùng trắng/đen.
+    const plate = brand.find((c) => contrastRatio(hexToRgb(c), bgRgb) >= 3)
+      ?? (brand[0] && shadeForContrast(brand[0], bgRgb, 3))
+      ?? best([WHITE, INK], bgRgb).color;
     return { fill: best([WHITE, INK], hexToRgb(plate)).color, plateColor: plate };
   }
 

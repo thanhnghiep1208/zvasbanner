@@ -76,7 +76,12 @@ export type ReferenceAssetRole = Extract<AssetRole, 'style-reference' | 'backgro
  * `id` đổi tên thành `assetId` để không lẫn với id node.
  */
 export type FlowAsset<R extends AssetRole = AssetRole> =
-  Omit<UploadedAsset, 'id' | 'dataUrl' | 'role'> & { assetId: string; role: R };
+  Omit<UploadedAsset, 'id' | 'dataUrl' | 'role'> & {
+    assetId: string;
+    role: R;
+    /** Màu chủ đạo (hex) đo lúc tải ảnh – bảng màu chung cho nền/chữ (palette.ts). Ảnh cũ không có. */
+    dominantColors?: string[];
+  };
 
 /** StyleControls bỏ `strictPreserveMode` – đó là hành vi executor, nằm ở generate-flat. */
 export type FlowStyle = Omit<StyleControls, 'strictPreserveMode'>;

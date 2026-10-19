@@ -5,8 +5,9 @@
  * hướng sáng, vùng phải để trống theo layout guide, cấm chữ (trừ headline AI trong đúng slot của nó).
  * Không mô tả chủ thể chính (focal subject): nền không được tự vẽ sản phẩm – sản phẩm thật ghép ở Compose.
  */
-import { buildStylePhrase } from '@/lib/prompt-builder';
 import { campaignPromptLines } from '../brief';
+import { harmonyPromptLines } from '../palette';
+import { backgroundStylePhrase } from './style';
 import type { GuideRect } from '../layout/types';
 import { DEFAULT_STYLE } from '../schema';
 import type { BackgroundRequest } from './request';
@@ -42,10 +43,57 @@ function where(r: { x: number; y: number; w: number; h: number }): string {
   return `the ${v === 'middle' && hz === 'center' ? 'central' : `${v} ${hz}`} part of the picture (${size})`;
 }
 
+/*
+ * Vị trí sản phẩm chính xác hơn `where()`: ở 3:1 chai chỉ rộng ~1/10 khung, "middle right … a narrow strip" làm
+ * model đặt bục ở khoảng 2/3 ngang thay vì 4/5; ở 5:3 bục vẽ cao hơn đáy chai nên chai như đứng trước bục.
+ * Dùng phân số bằng chữ (không %, không chữ số – T4.2b) cho tâm ngang, bề rộng và đáy sản phẩm.
+ */
+const FRACTIONS: [number, string][] = [
+  [0.1, 'one tenth'], [0.2, 'one fifth'], [0.25, 'one quarter'], [1 / 3, 'one third'], [0.4, 'two fifths'],
+  [0.5, 'half'], [0.6, 'three fifths'], [2 / 3, 'two thirds'], [0.75, 'three quarters'], [0.8, 'four fifths'],
+  [0.9, 'nine tenths'],
+];
+
+/** Phân số gần nhất bằng chữ: 0.81 → "four fifths". */
+export function fractionWords(n: number): string {
+  return FRACTIONS.reduce((best, f) => (Math.abs(f[0] - n) < Math.abs(best[0] - n) ? f : best))[1];
+}
+
+const alongWords = (n: number, dir: 'across' | 'down') =>
+  (fractionWords(n) === 'half' ? `halfway ${dir}` : `${fractionWords(n)} of the way ${dir}`);
+
+/** Câu đặt sản phẩm + bục cho naturalPrompt; `r` là vùng sản phẩm thật (đã fit tỉ lệ ảnh) theo tỉ lệ khung. */
+export function productPlacementLines(r: { x: number; y: number; w: number; h: number }): string[] {
+  const bottom = Math.min(r.y + r.h, 0.95);
+  const across = alongWords(r.x + r.w / 2, 'across');
+  const base = alongWords(bottom, 'down');
+  // Đường sàn–tường cao hơn đáy sản phẩm ~0.3 chiều cao sản phẩm: đáy chai nằm hẳn trên sàn, không ở mép tường.
+  const horizon = alongWords(Math.max(0.45, bottom - 0.3 * r.h), 'down');
+  const width = r.w > 0.45 ? 'about half the picture wide or more' : `about ${fractionWords(r.w)} of the picture wide`;
+  return [
+    `  The product will stand centred ${across} the picture from the left edge (${width}), with its base ${base} from the top.`,
+    `  The floor meets the back wall about ${horizon}, so the product's base rests on the floor well in front of that line.`,
+    '  If you show a pedestal, podium or soft spotlight for it, put it directly under the product at exactly that spot:',
+    `  centred ${across} from the left, its top face at the product's base (${base}), low in the frame,`,
+    '  only slightly wider than the product; its lower part may run off the bottom edge.',
+    '  Do not move it toward the centre of the picture and do not raise it above the product\'s base.',
+  ];
+}
+
 /**
  * Ảnh "Banner tham chiếu style" ở chế độ ghép: nền phải giống ảnh mẫu nhất có thể (loại nền, màu, ánh sáng, hoạ tiết
  * và vị trí của chúng). Chữ, sản phẩm, logo do phần mềm ghép sau nên không lấy từ ảnh mẫu.
  */
+const HARMONY_NOTE = 'These colour rules override any colour in the brief or style above where they conflict.';
+
+/** Đồng bộ nhiều kích thước: ảnh SCENE ANCHOR = nền kích thước đầu của cùng lần chạy. */
+export const SCENE_ANCHOR_RULES = [
+  'The attached SCENE ANCHOR is this same campaign\'s background at another banner size. Keep the same scene, the same',
+  'background colours and colour balance, lighting, materials and kind of props so all sizes look like one set;',
+  're-compose them for this canvas size and the calm areas above.',
+  'Do not copy it pixel for pixel and do not stretch it.',
+];
+
 export const REFERENCE_BACKGROUND_RULES = [
   'Recreate the BACKGROUND of the attached REFERENCE BANNER as closely as possible: same kind of backdrop (studio, scene or',
   'gradient), same palette and gradients, same lighting mood, same texture/grain, and the same decorative graphic elements',
@@ -71,7 +119,7 @@ function naturalPrompt(
     ...(texts.length ? [`- Keep ${where(unionRect(texts))} calm and plain (smooth wall, open sky or soft light) so text can sit on it later.`] : []),
     ...(products.length ? [
       `- Keep ${where(unionRect(products))} open and empty, where a product will stand: an uncluttered floor or tabletop with a simple backdrop behind it.`,
-      '  If you show a pedestal or soft spotlight for it, place it in the middle of that open space.',
+      ...productPlacementLines(unionRect(products)),
     ] : []),
     '- Put decorative elements (plants, furniture, shapes, light effects) toward the outer edges, away from those calm areas.',
     '- The scene is one continuous space: no visible boundaries or blocks marking the calm areas.',
@@ -81,6 +129,7 @@ function naturalPrompt(
     `Style: ${style}`,
   ];
   if (req.brandKit?.colors.length) lines.push(`Build the palette around these brand colors: ${req.brandKit.colors.join(', ')}.`);
+  if (req.sceneAnchor) lines.push('', ...SCENE_ANCHOR_RULES);
   if (refs.some((r) => r.role === 'style-reference')) {
     lines.push(...REFERENCE_BACKGROUND_RULES);
   }
@@ -94,6 +143,9 @@ function naturalPrompt(
   const campaign = campaignPromptLines(req.campaign);
   if (campaign.length) lines.push('', ...campaign);
   lines.push('', `Scene brief: ${req.prompt.trim() || '(none)'}`);
+  // Đặt SAU brief + style (model ưu tiên chỉ dẫn cuối): brief template hay ghi màu trùng sản phẩm ("nền đỏ cam").
+  const harmony = harmonyPromptLines(req.elementColors);
+  if (harmony.length) lines.push('', 'Colour harmony:', ...[...harmony, HARMONY_NOTE].map((h) => `- ${h}`));
   return lines.join('\n');
 }
 
@@ -107,11 +159,8 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
 }): string {
   const { width, height, platform, name } = req.canvasConfig;
   const light = lightDirectionLabel(req.lightDirectionDeg);
-  const style = buildStylePhrase(
-    { ...(req.style ?? DEFAULT_STYLE), strictPreserveMode: false },
-    // Chỉ giữ mục tiêu chiến dịch; bỏ focal subject để model không vẽ sản phẩm/người vào nền.
-    { campaignIntents: req.marketingBrief.campaignIntents ?? [], focalSubjects: [] },
-  );
+  // Câu phong cách riêng cho nền (style.ts): không có hướng dẫn kiểu chữ / khung khuyến mãi / chủ thể.
+  const style = backgroundStylePhrase(req.style ?? DEFAULT_STYLE, req.marketingBrief.campaignIntents ?? []);
   const aiZone = req.aiHeadline && req.guide.find((g) => g.elementId === req.aiHeadline!.elementId);
   const zones = req.guide.filter((g) => g !== aiZone);
   const brand = req.brandKit;
@@ -149,6 +198,7 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
   ];
   // Font/vị trí logo của brand không áp cho nền (chữ và logo ghép sau) – chỉ dùng màu.
   if (brand?.colors.length) lines.push(`Brand colors to build the palette around: ${brand.colors.join(', ')}.`);
+  if (req.sceneAnchor) lines.push('', '=== SAME CAMPAIGN ===', ...SCENE_ANCHOR_RULES);
   if (refs.some((r) => r.role === 'style-reference')) {
     lines.push(...REFERENCE_BACKGROUND_RULES);
   }
@@ -172,5 +222,7 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
   const campaign = campaignPromptLines(req.campaign);
   if (campaign.length) lines.push('', '=== CAMPAIGN ===', ...campaign);
   lines.push('', '=== BRIEF ===', req.prompt.trim() || '(no extra brief)');
+  const harmony = harmonyPromptLines(req.elementColors);
+  if (harmony.length) lines.push('', '=== COLOUR HARMONY ===', ...harmony, HARMONY_NOTE);
   return lines.join('\n');
 }

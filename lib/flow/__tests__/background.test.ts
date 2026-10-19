@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildBackgroundPrompt, lightDirectionLabel } from '../background/prompt';
+import { buildBackgroundPrompt, fractionWords, lightDirectionLabel, productPlacementLines } from '../background/prompt';
 import { parseBackgroundRequestShape, toBackgroundRequests, type BackgroundRequest } from '../background/request';
 import { planLayoutForJob } from '../layout/engine';
 import { composedFull, composedMinimal } from './fixtures';
@@ -35,10 +35,11 @@ describe('buildBackgroundPrompt (SPEC 5.3)', () => {
     expect(p).toContain('Do NOT draw any product');
   });
 
-  it('không đưa focal subject (tránh model tự vẽ sản phẩm), giữ campaign intent', () => {
+  it('câu phong cách riêng cho nền: giữ mục tiêu chiến dịch, không có focal subject / kiểu chữ / khung khuyến mãi', () => {
     const p = buildBackgroundPrompt(draft());
     expect(p).not.toContain('Product must be the dominant subject');
-    expect(p).toContain('Campaign intent');
+    expect(p).toContain('Campaign feel');
+    for (const bad of ['Typography', 'typography', 'discount callout', 'serif fonts']) expect(p).not.toContain(bad);
   });
 
   it('headline AI: cho phép đúng nội dung trong đúng vùng, cấm chữ chỗ khác', () => {
@@ -109,6 +110,32 @@ describe("guideStyle 'natural' (T4.2b, Q11)", () => {
     expect(p).toMatch(/Keep the (middle|upper) left part of the picture .* calm and plain/);
     expect(p).toMatch(/Keep the middle right part of the picture .* open and empty/);
   });
+
+  it('vị trí sản phẩm + bục bằng phân số chữ: 3:1 chai hẹp bên phải, 5:3 đáy chai thấp', () => {
+    // MP3 Home 3:1: chai ~1/10 bề ngang, tâm ~0.81 – trước đây chỉ là "a narrow strip", model đặt bục ở ~2/3.
+    const wide = productPlacementLines({ x: 0.765, y: 0.08, w: 0.09, h: 0.84 }).join('\n');
+    expect(wide).toContain('centred four fifths of the way across the picture from the left edge (about one tenth of the picture wide)');
+    expect(wide).toContain('base nine tenths of the way down');
+    expect(wide).toMatch(/directly under the product/);
+    expect(wide).toMatch(/top face at the product's base/);
+    expect(wide).toContain('The floor meets the back wall about two thirds of the way down');
+    expect(wide).not.toMatch(/\d|%/);
+    // 5:3: sản phẩm giữa-phải, đáy ~0.9.
+    const land = productPlacementLines({ x: 0.62, y: 0.18, w: 0.17, h: 0.72 }).join('\n');
+    expect(land).toContain('centred two thirds of the way across');
+    expect(land).toContain('base nine tenths of the way down');
+    expect(productPlacementLines({ x: 0.3, y: 0.2, w: 0.4, h: 0.6 }).join('\n')).toContain('centred halfway across');
+  });
+
+  it('naturalPrompt dùng câu đặt bục mới, không còn "in the middle of that open space"', () => {
+    const p = buildBackgroundPrompt(natural());
+    expect(p).toMatch(/The product will stand centred .* across the picture/);
+    expect(p).not.toContain('in the middle of that open space');
+  });
+
+  it.each([[0.81, 'four fifths'], [0.5, 'half'], [0.64, 'two thirds'], [0.02, 'one tenth'], [0.29, 'one quarter']])(
+    'fractionWords(%f) → %s', (n, w) => expect(fractionWords(n)).toBe(w),
+  );
 
   it('headline AI: nội dung đúng, chỉ ở vị trí của nó', () => {
     const p = buildBackgroundPrompt({ ...draft(composedFull), guideStyle: 'natural' });

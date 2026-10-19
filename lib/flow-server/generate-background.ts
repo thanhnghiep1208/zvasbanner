@@ -42,6 +42,10 @@ export async function generateBackground(
       inline(req.guideImage),
     ]
     : [];
+  if (req.sceneAnchor) {
+    parts.push({ text: 'SCENE ANCHOR (same campaign, another size): keep its scene, palette and lighting; re-compose for this canvas.' });
+    parts.push(inline(req.sceneAnchor));
+  }
   for (const r of req.references) {
     parts.push({
       text: r.role === 'style-reference'
