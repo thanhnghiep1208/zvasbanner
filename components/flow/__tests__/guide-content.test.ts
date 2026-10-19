@@ -17,6 +17,12 @@ describe('guide-content – khớp registry node', () => {
         }
       });
 
+      it('sơ đồ các bước có đúng mọi node được dùng, mỗi node 1 lần', () => {
+        const staged = r.stages.flatMap((s) => s.nodes);
+        expect(new Set(staged).size).toBe(staged.length);
+        expect([...staged].sort()).toEqual(TYPES.filter((t) => NEED[t][r.id] !== 'none').sort());
+      });
+
       it('node "Bắt buộc" có đủ dây cho mọi port bắt buộc, node "Không dùng" không có dây', () => {
         for (const t of TYPES) {
           const need = NEED[t][r.id];
