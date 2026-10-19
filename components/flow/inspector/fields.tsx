@@ -1,6 +1,7 @@
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
@@ -199,6 +200,37 @@ export function ColorField({ label, value, onChange, swatches = [] }: {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Mục gập trong Inspector (mặc định "Nâng cao"): field ít dùng nằm dưới field chính. `summary` hiện khi gập
+ * (vd. "Viền · Bóng chữ") để biết bên trong đang bật gì mà không cần mở.
+ */
+export function CollapsibleSection({ title = 'Nâng cao', summary, defaultOpen = false, children }: {
+  title?: string; summary?: string; defaultOpen?: boolean; children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const id = useId();
+  return (
+    <section className="rounded-lg border">
+      <h3 className="m-0">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={() => setOpen(!open)}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <span className="shrink-0">{title}</span>
+          {!open && summary && <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{summary}</span>}
+          <ChevronDown className={cn('ml-auto size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none', open && 'rotate-180')} aria-hidden />
+        </button>
+      </h3>
+      <div id={id} hidden={!open} className="flex flex-col gap-4 border-t p-3">
+        {children}
+      </div>
+    </section>
   );
 }
 
