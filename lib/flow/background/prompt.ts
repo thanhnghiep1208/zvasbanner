@@ -43,6 +43,43 @@ function where(r: { x: number; y: number; w: number; h: number }): string {
   return `the ${v === 'middle' && hz === 'center' ? 'central' : `${v} ${hz}`} part of the picture (${size})`;
 }
 
+/*
+ * Vị trí sản phẩm chính xác hơn `where()`: ở 3:1 chai chỉ rộng ~1/10 khung, "middle right … a narrow strip" làm
+ * model đặt bục ở khoảng 2/3 ngang thay vì 4/5; ở 5:3 bục vẽ cao hơn đáy chai nên chai như đứng trước bục.
+ * Dùng phân số bằng chữ (không %, không chữ số – T4.2b) cho tâm ngang, bề rộng và đáy sản phẩm.
+ */
+const FRACTIONS: [number, string][] = [
+  [0.1, 'one tenth'], [0.2, 'one fifth'], [0.25, 'one quarter'], [1 / 3, 'one third'], [0.4, 'two fifths'],
+  [0.5, 'half'], [0.6, 'three fifths'], [2 / 3, 'two thirds'], [0.75, 'three quarters'], [0.8, 'four fifths'],
+  [0.9, 'nine tenths'],
+];
+
+/** Phân số gần nhất bằng chữ: 0.81 → "four fifths". */
+export function fractionWords(n: number): string {
+  return FRACTIONS.reduce((best, f) => (Math.abs(f[0] - n) < Math.abs(best[0] - n) ? f : best))[1];
+}
+
+const alongWords = (n: number, dir: 'across' | 'down') =>
+  (fractionWords(n) === 'half' ? `halfway ${dir}` : `${fractionWords(n)} of the way ${dir}`);
+
+/** Câu đặt sản phẩm + bục cho naturalPrompt; `r` là vùng sản phẩm thật (đã fit tỉ lệ ảnh) theo tỉ lệ khung. */
+export function productPlacementLines(r: { x: number; y: number; w: number; h: number }): string[] {
+  const bottom = Math.min(r.y + r.h, 0.95);
+  const across = alongWords(r.x + r.w / 2, 'across');
+  const base = alongWords(bottom, 'down');
+  // Đường sàn–tường cao hơn đáy sản phẩm ~0.3 chiều cao sản phẩm: đáy chai nằm hẳn trên sàn, không ở mép tường.
+  const horizon = alongWords(Math.max(0.45, bottom - 0.3 * r.h), 'down');
+  const width = r.w > 0.45 ? 'about half the picture wide or more' : `about ${fractionWords(r.w)} of the picture wide`;
+  return [
+    `  The product will stand centred ${across} the picture from the left edge (${width}), with its base ${base} from the top.`,
+    `  The floor meets the back wall about ${horizon}, so the product's base rests on the floor well in front of that line.`,
+    '  If you show a pedestal, podium or soft spotlight for it, put it directly under the product at exactly that spot:',
+    `  centred ${across} from the left, its top face at the product's base (${base}), low in the frame,`,
+    '  only slightly wider than the product; its lower part may run off the bottom edge.',
+    '  Do not move it toward the centre of the picture and do not raise it above the product\'s base.',
+  ];
+}
+
 /**
  * Ảnh "Banner tham chiếu style" ở chế độ ghép: nền phải giống ảnh mẫu nhất có thể (loại nền, màu, ánh sáng, hoạ tiết
  * và vị trí của chúng). Chữ, sản phẩm, logo do phần mềm ghép sau nên không lấy từ ảnh mẫu.
@@ -82,7 +119,7 @@ function naturalPrompt(
     ...(texts.length ? [`- Keep ${where(unionRect(texts))} calm and plain (smooth wall, open sky or soft light) so text can sit on it later.`] : []),
     ...(products.length ? [
       `- Keep ${where(unionRect(products))} open and empty, where a product will stand: an uncluttered floor or tabletop with a simple backdrop behind it.`,
-      '  If you show a pedestal or soft spotlight for it, place it in the middle of that open space.',
+      ...productPlacementLines(unionRect(products)),
     ] : []),
     '- Put decorative elements (plants, furniture, shapes, light effects) toward the outer edges, away from those calm areas.',
     '- The scene is one continuous space: no visible boundaries or blocks marking the calm areas.',
