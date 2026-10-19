@@ -22,6 +22,7 @@ import { RunResults } from './RunResults';
 import { ExportRatiosField } from './ExportRatiosField';
 import { TextLayerEditor } from './TextLayerEditor';
 import { BrandKitEditor } from './BrandKitEditor';
+import { BriefGuide } from './BriefGuide';
 import { aspectLabel, RatioShape } from '../RatioShape';
 import {
   CheckboxField, NumberField, SelectField, TextAreaField, ToggleGroupField,
@@ -48,8 +49,17 @@ function NodeEditor({ node }: { node: FlowNode }) {
       const p = node.params as NodeParamsMap['brief'];
       return (
         <>
-          <TextAreaField label="Prompt" value={p.prompt} placeholder="Mô tả banner cần tạo"
+          <TextAreaField label="Mô tả bối cảnh nền" value={p.prompt}
+            placeholder="VD: mặt bàn gỗ sồi, cây xanh mờ phía sau, nắng sớm, tông kem"
             onChange={(prompt) => set<'brief'>({ prompt })} />
+          <BriefGuide
+            empty={!p.prompt.trim()}
+            onUse={(ex) => set<'brief'>({
+              prompt: ex.prompt,
+              marketingBrief: p.marketingBrief.campaignIntents.length
+                ? p.marketingBrief
+                : { ...p.marketingBrief, campaignIntents: [ex.intent] },
+            })} />
           <ToggleGroupField label="Mục tiêu chiến dịch" values={p.marketingBrief.campaignIntents} options={INTENT_OPTIONS}
             onChange={(campaignIntents) => set<'brief'>({ marketingBrief: { ...p.marketingBrief, campaignIntents } })} />
           <ToggleGroupField label="Chủ thể chính" values={p.marketingBrief.focalSubjects} options={FOCAL_OPTIONS}
