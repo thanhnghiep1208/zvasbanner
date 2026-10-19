@@ -43,7 +43,7 @@ export const TIPS: Record<NodeType, { connect: string; tips: string[] }> = {
   },
   'brief': {
     connect: 'Tạo nền',
-    tips: ['Tả bối cảnh nền, VD: "mặt bàn gỗ, nắng sớm".', 'Chữ trên banner để ở node Text, không ghi vào đây.'],
+    tips: ['Điền mục đích, đối tượng, thông điệp, ưu đãi, tone – AI chọn không khí nền theo đó.', '"Gợi ý chữ từ brief" viết sẵn tiêu đề, mô tả, CTA.'],
   },
   'text-layer': {
     connect: 'Auto layout + Ghép layer',
@@ -133,7 +133,7 @@ export const RECIPES: Recipe[] = [
     templateId: 'product-hero',
     templateName: 'Sản phẩm nổi bật',
     stages: [
-      { title: 'Chuẩn bị', hint: 'Kích thước, mô tả, ảnh, chữ', nodes: INPUT_NODES },
+      { title: 'Chuẩn bị', hint: 'Kích thước, brief, ảnh, chữ', nodes: INPUT_NODES },
       { title: 'Xếp bố cục', hint: 'Tự động, không tốn AI', nodes: ['auto-layout'] },
       { title: 'Tạo nền', hint: 'AI vẽ nền', nodes: ['generate-background'] },
       { title: 'Ghép & xuất', hint: 'Ghép trên máy, tải ảnh', nodes: ['compose', 'export'] },

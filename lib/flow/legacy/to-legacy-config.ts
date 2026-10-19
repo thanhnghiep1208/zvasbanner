@@ -16,6 +16,7 @@
  * Bỏ qua (chỉ dùng trong canvas): textLayers[].renderSource/priority/minFontSizePx/style,
  * composed.*, export.*.
  */
+import { campaignLegacyLines } from '../brief';
 import type { GenerationRequest, UploadedAsset } from '@/lib/types';
 import type { CompiledJob } from '../compiled-job';
 import { NODE_DEFINITIONS } from '../node-definitions';
@@ -69,7 +70,9 @@ export function toLegacyConfig(
     warnings.push({ code: 'unmapped-text', refs: unmapped,
       message: 'Form cũ chỉ có 1 headline, 1 subheadline, 1 CTA. Các text layer còn lại không được gửi.' });
   }
-  const userPrompt = composeLegacyPrompt({ userPrompt: job.brief.prompt, ...text });
+  // Brief marketing (brief.ts): form cũ chỉ có prompt tự do → ghép thành các dòng tiếng Việt trước mô tả nền.
+  const briefText = [...campaignLegacyLines(job.brief.campaign), job.brief.prompt.trim()].filter(Boolean).join('\n');
+  const userPrompt = composeLegacyPrompt({ userPrompt: briefText, ...text });
 
   const strictPreserveMode =
     job.flat?.strictPreserveMode ?? NODE_DEFINITIONS['generate-flat'].defaultParams.strictPreserveMode;

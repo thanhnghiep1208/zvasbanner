@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compileGraph } from '../compiler';
-import { addImageNode, filledImageNodes, removeAllImages, removeImageNode, setImageRole } from '../image-nodes';
+import { addImageNode, filledImageNodes, placeLogo, removeAllImages, removeImageNode, setImageRole } from '../image-nodes';
 import type { FlowAsset, FlowGraph, NodeParamsMap } from '../schema';
 import { getTemplate, instantiateTemplate, setExposedValue } from '../template';
 import { ASSET_UNCONNECTED_MESSAGE, validateGraph } from '../validate';
@@ -41,6 +41,18 @@ describe('image-nodes (Simple view nhiều ảnh)', () => {
     expect(a.id).not.toBe(b.id);
     const pos = (id: string) => b.graph.nodes.find((n) => n.id === id)!.position;
     expect(pos(b.id).y).toBeGreaterThan(pos(a.id).y);
+  });
+
+  it('ảnh mới không đè node khác trong cột (template có Text ngay dưới ảnh)', () => {
+    for (const id of ['event-brand', 'product-hero', 'sale-multi-ratio']) {
+      const t = instantiateTemplate(getTemplate(id)!);
+      const { graph, id: nid } = addImageNode(t.graph, asset('logo'));
+      const p = graph.nodes.find((n) => n.id === nid)!.position;
+      for (const n of graph.nodes) {
+        if (n.id === nid || Math.abs(n.position.x - p.x) >= 200) continue;
+        expect(p.y - n.position.y, `${id}: ${n.id}`).toBeGreaterThanOrEqual(280);
+      }
+    }
   });
 
   it('đổi loại trong cùng nhóm chỉ đổi role, không đổi dây', () => {
@@ -93,5 +105,30 @@ describe('cảnh báo ảnh chưa nối (asset-unconnected)', () => {
     expect(validateGraph(base).some((i) => i.code === 'asset-unconnected')).toBe(false);
     // Ảnh thêm từ Simple view được nối sẵn → không cảnh báo.
     expect(validateGraph(addImageNode(base, asset('logo')).graph).some((i) => i.code === 'asset-unconnected')).toBe(false);
+  });
+});
+
+describe('placeLogo (logo lấy từ website)', () => {
+  const { assetId, url, fileName, hasAlpha, originalDims } = asset('logo', 'web-logo');
+  const logo = { assetId, url, fileName, hasAlpha, originalDims };
+  it('chưa có node Logo → thêm node Logo, nối như ảnh giữ pixel, không lỗi', () => {
+    const { graph, id } = placeLogo(heroWithProduct(), logo);
+    const n = graph.nodes.find((x) => x.id === id)!;
+    expect(n.type).toBe('product-asset');
+    expect((n.params as NodeParamsMap['product-asset']).role).toBe('logo');
+    expect(outEdges(graph, id)).toEqual(outEdges(graph, 'n-product-0'));
+    expect(validateGraph(graph).filter((i) => i.severity === 'error')).toEqual([]);
+  });
+
+  it('node Logo còn trống → điền vào đó, giữ id và dây; Logo đã có ảnh → thêm node mới', () => {
+    const base = addImageNode(heroWithProduct(), { ...asset('logo', ''), assetId: '' });
+    const filled = placeLogo(base.graph, logo);
+    expect(filled.id).toBe(base.id);
+    expect(filled.graph.nodes.length).toBe(base.graph.nodes.length);
+    expect(outEdges(filled.graph, base.id)).toEqual(outEdges(base.graph, base.id));
+    expect((filled.graph.nodes.find((n) => n.id === base.id)!.params as NodeParamsMap['product-asset']).assetId).toBe('web-logo');
+    const again = placeLogo(filled.graph, { ...logo, assetId: 'web-logo-2' });
+    expect(again.id).not.toBe(base.id);
+    expect(again.graph.nodes.length).toBe(base.graph.nodes.length + 1);
   });
 });

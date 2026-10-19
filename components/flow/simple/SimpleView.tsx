@@ -2,17 +2,19 @@
 
 import { useMemo, useState } from 'react';
 import { CircleAlert, Workflow } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import type { NodeParamsMap } from '@/lib/flow/schema';
 import { resolveExposed, type ExposedParam } from '@/lib/flow/template/template';
 import { validateGraph } from '@/lib/flow/validate';
 import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import { useFlowStore } from '@/store/flow-store';
 import { RunResults } from '../inspector/RunResults';
+import { CampaignBriefFields } from '../inspector/CampaignBriefFields';
 import { ExposedField } from './ExposedField';
 import { ImageListField } from './ImageListField';
 import { LayoutPreview } from './LayoutPreview';
 import { TextStyleModeField } from './TextStyleModeField';
+import { StepSection } from './StepSection';
+import { BRIEF_STEP, missingCount, orderSteps, stepSummary } from '@/lib/flow-ui/simple-steps';
 import { isImageNode } from '@/lib/flow/image-nodes';
 
 const DEFAULT_GROUP = 'Thiết lập';
@@ -28,18 +30,42 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   const exposed = useFlowStore((s) => s.exposed);
   const runInfo = useFlowStore((s) => s.runInfo);
   // Field ảnh: chỉ field ảnh đầu tiên được vẽ, thành danh sách mọi ảnh trong graph (ImageListField).
+  // Node Brief: khối "Brief" riêng (CampaignBriefFields) ở đầu form, đã gồm mục đích chiến dịch.
+  const briefNodeId = graph.nodes.find((n) => n.type === 'brief')?.id;
   const fields = useMemo(() => {
-    const all = resolveExposed(graph, exposed);
+    const all = resolveExposed(graph, exposed).filter((f) => !(f.nodeId === briefNodeId && f.path.join('.') === 'marketingBrief.campaignIntents'));
     const firstAsset = all.find((f) => f.control === 'asset');
     return all.filter((f) => f.control !== 'asset' || f === firstAsset);
-  }, [graph, exposed]);
+  }, [graph, exposed, briefNodeId]);
   const hidden = exposed.length - resolveExposed(graph, exposed).length;
 
-  const groups = useMemo(() => {
+  // Bước = nhóm field của template (+ bước Brief: field của node Brief, vd. bối cảnh nền, gom về đây).
+  const stepFields = useMemo(() => {
     const map = new Map<string, ExposedParam[]>();
-    for (const f of fields) map.set(f.group ?? DEFAULT_GROUP, [...(map.get(f.group ?? DEFAULT_GROUP) ?? []), f]);
-    return [...map];
-  }, [fields]);
+    if (briefNodeId) map.set(BRIEF_STEP, []);
+    for (const f of fields) {
+      const g = f.nodeId === briefNodeId ? BRIEF_STEP : f.group ?? DEFAULT_GROUP;
+      map.set(g, [...(map.get(g) ?? []), f]);
+    }
+    if (!map.has(LOOK_GROUP)) map.set(LOOK_GROUP, []); // luôn có chỗ cho "Kiểu chữ"
+    return map;
+  }, [fields, briefNodeId]);
+  const steps = orderSteps([...stepFields.keys()]);
+
+  // Mở sẵn 2 bước đầu (ảnh, chữ – user gần như luôn phải sửa) + bước còn thiếu mục bắt buộc; còn lại gập. Đổi template thì tính lại.
+  const templateId = useFlowStore((s) => s.templateId);
+  const [openState, setOpenState] = useState<{ key: string | null; open: Set<string> } | null>(null);
+  const initialOpen = () => {
+    const missing = steps.filter((st) => missingCount(graph, stepFields.get(st) ?? []) > 0);
+    return new Set([...steps.filter((st) => st !== BRIEF_STEP).slice(0, 2), ...missing]);
+  };
+  const openSet = openState?.key === templateId ? openState.open : initialOpen();
+  const isOpen = (step: string) => openSet.has(step);
+  const toggle = (step: string, o: boolean) => {
+    const next = new Set(openSet);
+    if (o) next.add(step); else next.delete(step);
+    setOpenState({ key: templateId, open: next });
+  };
 
   // Lỗi/cảnh báo theo node → hiện dưới field của node đó; lỗi node không lộ ra → khối chung.
   const issues = useMemo(() => validateGraph(graph, { measurer: canvasMeasurer }), [graph]);
@@ -66,46 +92,48 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   const setTab = (tab: 'preview' | 'results') => setPicked({ tab, results });
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:overflow-hidden">
-      <section className="flex min-h-0 flex-col border-r bg-card lg:overflow-y-auto" aria-label="Thiết lập banner">
-        <div className="flex items-start justify-between gap-3 border-b p-4">
-          <div>
-            <h2 className="text-sm font-semibold">Thiết lập banner</h2>
-            <p className="text-xs text-muted-foreground">Điền các mục dưới đây rồi bấm “Chạy tất cả”.</p>
-          </div>
-          <Button type="button" size="sm" variant="outline" onClick={onOpenCanvas}>
-            <Workflow aria-hidden />
-            Mở canvas
-          </Button>
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:overflow-hidden">
+      <section className="flex shrink-0 flex-col border-b bg-card lg:min-h-0 lg:shrink lg:border-r lg:border-b-0 lg:overflow-y-auto" aria-label="Thiết lập banner">
+        <div>
+          {steps.map((step, i) => {
+            const items = stepFields.get(step) ?? [];
+            const isBrief = step === BRIEF_STEP;
+            return (
+              <StepSection
+                key={step}
+                index={i + 1}
+                title={step}
+                optional={isBrief}
+                summary={stepSummary(graph, step, items, briefNodeId)}
+                missing={missingCount(graph, items)}
+                open={isOpen(step)}
+                onToggle={(o) => toggle(step, o)}
+              >
+                {isBrief && briefNodeId && (
+                  <>
+                    <p className="-mt-1 text-xs text-muted-foreground">Banner nói gì, với ai. AI dựa vào đây để chọn không khí nền và gợi ý chữ.</p>
+                    <CampaignBriefFields nodeId={briefNodeId} />
+                  </>
+                )}
+                {step === LOOK_GROUP && <TextStyleModeField />}
+                {items.map((f) => (
+                  <div key={f.id} className="flex flex-col gap-1.5">
+                    {f.control === 'asset'
+                      ? <ImageListField requiredNodeId={f.nodeId} label={f.required ? `${f.label} *` : f.label} hint={f.hint} messagesFor={fieldMessages} />
+                      : <ExposedField e={f} />}
+                    {f.control !== 'asset' && firstFieldOfNode.get(f.nodeId) === f.id && fieldMessages(f.nodeId).map((m, k) => (
+                      <p key={k} className={m.severity === 'error' ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
+                        {m.message}
+                      </p>
+                    ))}
+                  </div>
+                ))}
+              </StepSection>
+            );
+          })}
         </div>
 
-        <div className="flex flex-col gap-6 p-4">
-          {groups.map(([group, items]) => (
-            <section key={group} className="flex flex-col gap-4" aria-labelledby={`grp-${group}`}>
-              <h3 id={`grp-${group}`} className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{group}</h3>
-              {group === LOOK_GROUP && <TextStyleModeField />}
-              {items.map((f) => (
-                <div key={f.id} className="flex flex-col gap-1.5">
-                  {f.control === 'asset'
-                    ? <ImageListField requiredNodeId={f.nodeId} label={f.required ? `${f.label} *` : f.label} hint={f.hint} messagesFor={fieldMessages} />
-                    : <ExposedField e={f} />}
-                  {f.control !== 'asset' && firstFieldOfNode.get(f.nodeId) === f.id && fieldMessages(f.nodeId).map((m, k) => (
-                    <p key={k} className={m.severity === 'error' ? 'text-xs text-destructive' : 'text-xs text-muted-foreground'}>
-                      {m.message}
-                    </p>
-                  ))}
-                </div>
-              ))}
-            </section>
-          ))}
-
-          {!groups.some(([g]) => g === LOOK_GROUP) && (
-            <section className="flex flex-col gap-4" aria-label="Kiểu chữ">
-              <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{LOOK_GROUP}</h3>
-              <TextStyleModeField />
-            </section>
-          )}
-
+        <div className="flex flex-col gap-3 p-4">
           {otherIssues.length > 0 && (
             <div className="flex flex-col gap-1.5 rounded-lg bg-destructive/10 p-3 text-xs text-destructive" role="alert">
               <p className="flex items-center gap-1.5 font-medium"><CircleAlert className="size-3.5" aria-hidden />Cần sửa trong canvas</p>
@@ -115,10 +143,15 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
           {hidden > 0 && (
             <p className="text-xs text-muted-foreground">{hidden} mục không còn hiện vì node đã bị xoá ở canvas.</p>
           )}
+          <button type="button" onClick={onOpenCanvas}
+            className="inline-flex items-center gap-1.5 self-start text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+            <Workflow className="size-3.5" aria-hidden />
+            Chỉnh sâu hơn trong Canvas
+          </button>
         </div>
       </section>
 
-      <section className="flex min-h-0 flex-col bg-muted/40 lg:overflow-y-auto" aria-label="Kết quả">
+      <section className="flex shrink-0 flex-col bg-muted/40 lg:min-h-0 lg:shrink lg:overflow-y-auto" aria-label="Kết quả">
         <div className="flex flex-col gap-3 p-4">
           <div className="inline-flex w-fit rounded-lg border bg-muted p-0.5 text-xs" role="tablist" aria-label="Xem">
             {([['preview', 'Xem trước bố cục'], ['results', 'Kết quả']] as const).map(([v, label]) => (

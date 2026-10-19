@@ -6,6 +6,7 @@
  * (style-reference / background) và guide image.
  */
 import type { BrandKit, CanvasConfig, MarketingBrief } from '@/lib/types';
+import { hasCampaign, parseCampaign, type CampaignBrief } from '../brief';
 import type { CompiledJob } from '../compiled-job';
 import type { LayoutPlan, GuideRect } from '../layout/types';
 import type { LegacyRuntime } from '../legacy/from-legacy-config';
@@ -24,6 +25,8 @@ export interface BackgroundRequest {
   model: ModelId;
   prompt: string;
   marketingBrief: MarketingBrief;
+  /** Brief marketing – định hướng không khí, không vẽ thành chữ (brief.ts). */
+  campaign?: CampaignBrief;
   style?: FlowStyle;
   brandKit?: BrandKit;
   /** Hướng sáng (độ, 0 = trên, theo chiều kim đồng hồ; 315 = trên-trái). Compose dùng lại cho bóng. */
@@ -69,6 +72,7 @@ export function toBackgroundRequests(job: CompiledJob, plan: LayoutPlan, runtime
       model: job.model,
       prompt: job.brief.prompt,
       marketingBrief: job.brief.marketingBrief,
+      ...(hasCampaign(job.brief.campaign) ? { campaign: job.brief.campaign } : {}),
       ...(job.style ? { style: job.style } : {}),
       ...(job.brandKit ? { brandKit: job.brandKit } : {}),
       lightDirectionDeg: job.composed!.lightDirectionDeg,
@@ -96,7 +100,7 @@ const IMAGE_DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
  */
 export function parseBackgroundRequestShape(v: unknown): BackgroundRequest | null {
   if (!isRecord(v)) return null;
-  const { canvasConfig, model, prompt, marketingBrief, lightDirectionDeg, strictNoText, guide, guideImage, guideStyle, references, aiHeadline } = v;
+  const { canvasConfig, model, prompt, marketingBrief, campaign, lightDirectionDeg, strictNoText, guide, guideImage, guideStyle, references, aiHeadline } = v;
   if (!isRecord(canvasConfig) || !isNum(canvasConfig.width) || !isNum(canvasConfig.height)
     || !isStr(canvasConfig.platform) || !isStr(canvasConfig.name)) return null;
   if (canvasConfig.width <= 0 || canvasConfig.height <= 0) return null;
@@ -107,6 +111,7 @@ export function parseBackgroundRequestShape(v: unknown): BackgroundRequest | nul
   const FOCALS = ['product', 'person', 'text', 'scene'];
   const okList = (x: unknown, allowed: string[]) => Array.isArray(x) && x.every((i) => allowed.includes(i as string));
   if (!okList(marketingBrief.campaignIntents, INTENTS) || !okList(marketingBrief.focalSubjects, FOCALS)) return null;
+  if (campaign !== undefined && !parseCampaign(campaign)) return null;
   if (!isNum(lightDirectionDeg) || typeof strictNoText !== 'boolean') return null;
   if (guideStyle !== undefined && guideStyle !== 'hatched' && guideStyle !== 'natural') return null;
   if (guideStyle === 'natural' ? guideImage !== undefined : !isStr(guideImage) || !IMAGE_DATA_URL.test(guideImage)) return null;

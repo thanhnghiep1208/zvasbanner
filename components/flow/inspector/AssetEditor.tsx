@@ -47,7 +47,7 @@ export function AssetEditor<R extends PixelAssetRole | ReferenceAssetRole>({ nod
     <>
       {previewSrc && (
         // eslint-disable-next-line @next/next/no-img-element -- blob/data URL của file vừa chọn
-        <img src={previewSrc} alt={params.fileName} className="block max-h-40 w-full rounded-lg border bg-muted object-contain" />
+        <img src={previewSrc} alt={params.fileName} className="block max-h-40 w-full rounded-lg border bg-muted object-contain p-3" />
       )}
       {params.fileName ? (
         <p className="text-xs text-muted-foreground">

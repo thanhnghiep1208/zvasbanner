@@ -92,7 +92,7 @@ export function ProjectMenu() {
           <FolderOpen className="text-muted-foreground" aria-hidden />
           <span className="hidden max-w-24 truncate font-medium md:inline xl:max-w-36">{title}</span>
           <span
-            className={cn('text-xs', status === 'Đã lưu' ? 'text-muted-foreground' : 'text-run-stale')}
+            className={cn('text-xs whitespace-nowrap max-sm:hidden', status === 'Đã lưu' ? 'text-muted-foreground' : 'text-run-stale')}
             aria-hidden
           >
             {status}
