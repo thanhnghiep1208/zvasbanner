@@ -25,7 +25,7 @@ Google Gemini API (generate / enhance / edit / harmony pass)
 | UI | Tailwind CSS v4, shadcn-style components, Base UI, Sonner (toast) |
 | State client | Zustand (`store/editor.ts`) |
 | Auth | Clerk (`@clerk/nextjs`), middleware `proxy.ts` |
-| AI | `@google/generative-ai`; model ảnh theo lựa chọn: `gemini-nano-banana-2.1` (Nano Banana 2.1, slug `nano-banana-2`, **mặc định**) hoặc `gemini-3-pro-image-preview` (Nano Banana Pro, slug `nano-banana-pro`) |
+| AI | `@google/generative-ai`; model ảnh theo lựa chọn: `gemini-nano-banana-2.1` (Nano Banana 2.1, slug `nano-banana-2`, **mặc định**) hoặc `gemini-3-pro-image` (Nano Banana Pro, slug `nano-banana-pro`) |
 | Analytics DB | `pg`, bảng `banner_events` (`db/banner_events.sql`); Flow canvas thêm `flow_docs`, `flow_events` (tự tạo lần gọi đầu) |
 | Deploy | Vercel + Postgres hosted (Neon, Supabase, …) |
 

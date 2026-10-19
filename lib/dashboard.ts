@@ -117,6 +117,7 @@ export function dashboardRangeLabel(range: DashboardRange): string {
 export function labelImageModelSlug(slug: string): string {
   switch (slug) {
     case "nano-banana-pro":
+    case "gemini-3-pro-image":
     case "gemini-3-pro-image-preview":
       return "Nano Banana Pro";
     case "nano-banana-2":

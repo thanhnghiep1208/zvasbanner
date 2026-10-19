@@ -36,7 +36,7 @@ Next.js 16 dùng file `proxy.ts` (thay `middleware.ts`) cho request interception
 
 ## Tích hợp Gemini (`lib/gemini-server.ts`)
 
-- `IMAGE_MODEL_MAP`: `nano-banana-2` → `gemini-nano-banana-2.1` (Nano Banana 2.1, **mặc định** khi request không ghi model), `nano-banana-pro` → `gemini-3-pro-image-preview`. Slug `nano-banana-2` giữ nguyên để payload, project và analytics cũ không đổi.
+- `IMAGE_MODEL_MAP`: `nano-banana-2` → `gemini-nano-banana-2.1` (Nano Banana 2.1, **mặc định** khi request không ghi model), `nano-banana-pro` → `gemini-3-pro-image`. Slug `nano-banana-2` giữ nguyên để payload, project và analytics cũ không đổi.
 - Ảnh role `style-reference` = **banner mẫu**: `REFERENCE_BANNER_RULES` (`lib/prompt-builder.ts`) yêu cầu giữ bố cục + phong cách mẫu, co giãn theo kích thước mới, thay toàn bộ chữ bằng chữ của user (khối "TEXT REPLACEMENT" liệt kê Headline/Subheadline/CTA) và thay sản phẩm/logo bằng ảnh user; ảnh mẫu thắng style/mood/palette khi mâu thuẫn. Kích thước phụ (layout adaptation) vẫn theo luồng cũ.
 - `geminiGenerateOneImage()` — build multimodal parts (text + inline image data) từ assets, gọi model ảnh.
 - `runHarmonyPass()` — sau generate Gemini thành công, chạy một lần chỉnh cohesion (ánh sáng, AO shadow, color grade) qua prompt cố định `HARMONY_EDIT_PROMPT`; best-effort, timeout riêng ~30s, lỗi thì trả ảnh gốc + `harmonyApplied: false`.

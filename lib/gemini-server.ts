@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { usageToMeta, type GeminiUsage } from "@/lib/image-model-pricing";
 
 import type {
   CanvasConfig,
@@ -34,7 +35,8 @@ const ENHANCE_MODELS = [
 ] as const;
 
 export const IMAGE_MODEL_MAP: Record<ImageGenerationModel, string> = {
-  "nano-banana-pro": "gemini-3-pro-image-preview",
+  // gemini-3-pro-image-preview bị Google tắt 25/06/2026 → bản GA.
+  "nano-banana-pro": "gemini-3-pro-image",
   // Slug giữ "nano-banana-2" (payload, project đã lưu, analytics); model thật là bản 2.1 thay cho 3.1 Flash Image.
   "nano-banana-2": "gemini-nano-banana-2.1",
 };
@@ -49,20 +51,6 @@ export type ImageGenerationMeta = {
   harmonyApplied?: boolean;
 };
 
-const INPUT_COST_PER_1K_TOKENS_USD = 0.00015;
-const OUTPUT_COST_PER_1K_TOKENS_USD = 0.0006;
-
-export function estimateGenerationCostUsd(params: {
-  promptTokens?: number;
-  outputTokens?: number;
-}): number {
-  const promptTokens = params.promptTokens ?? 0;
-  const outputTokens = params.outputTokens ?? 0;
-  const cost =
-    (promptTokens / 1000) * INPUT_COST_PER_1K_TOKENS_USD +
-    (outputTokens / 1000) * OUTPUT_COST_PER_1K_TOKENS_USD;
-  return Number(cost.toFixed(6));
-}
 
 export function getGeminiApiKey(): string {
   const key = process.env.GEMINI_API_KEY?.trim();
@@ -221,25 +209,13 @@ export async function geminiGenerateOneImage(
     throw new Error(`No image data in response from ${imageModelId}`);
   }
   const mime = imagePart.inlineData?.mimeType ?? "image/png";
-  const usage = result.response.usageMetadata as
-    | {
-        promptTokenCount?: number;
-        candidatesTokenCount?: number;
-        totalTokenCount?: number;
-      }
-    | undefined;
+  const usage = result.response.usageMetadata as GeminiUsage | undefined;
   return {
     image: `data:${mime};base64,${b64}`,
     meta: {
       model: imageModelId,
       elapsedMs: Date.now() - startedAt,
-      promptTokens: usage?.promptTokenCount,
-      outputTokens: usage?.candidatesTokenCount,
-      totalTokens: usage?.totalTokenCount,
-      costUsd: estimateGenerationCostUsd({
-        promptTokens: usage?.promptTokenCount,
-        outputTokens: usage?.candidatesTokenCount,
-      }),
+      ...usageToMeta(imageModelId, usage),
     },
   };
 }
@@ -382,7 +358,7 @@ export async function runHarmonyPass(
   imageDataUrl: string,
   canvasConfig: CanvasConfig,
   imageModel?: ImageGenerationModel
-): Promise<{ image: string; harmonyApplied: boolean }> {
+): Promise<{ image: string; harmonyApplied: boolean; meta?: ImageGenerationMeta }> {
   try {
     const result = await withTimeout(
       geminiGenerateOneImage(
@@ -394,7 +370,7 @@ export async function runHarmonyPass(
       GEMINI_HARMONY_TIMEOUT_MS,
       "Harmony pass"
     );
-    return { image: result.image, harmonyApplied: true };
+    return { image: result.image, harmonyApplied: true, meta: result.meta };
   } catch (e) {
     const reason = e instanceof Error ? e.message : String(e);
     console.warn(`[harmony-pass] skipped: ${reason}`);

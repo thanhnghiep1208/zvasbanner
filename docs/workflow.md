@@ -216,7 +216,7 @@ Hướng dẫn chi tiết: checklist **Vercel + Clerk + domain + Postgres**, c�
 
 ## Quy ước phát triển
 
-- Model tạo ảnh trên UI chính: mặc định **Nano Banana 2.1** (`gemini-nano-banana-2.1`, slug `nano-banana-2`), có thể chọn **Nano Banana Pro** (`gemini-3-pro-image-preview`); tab **Biến thể kích thước** luôn dùng Nano Banana 2.1.
+- Model tạo ảnh trên UI chính: mặc định **Nano Banana 2.1** (`gemini-nano-banana-2.1`, slug `nano-banana-2`), có thể chọn **Nano Banana Pro** (`gemini-3-pro-image`); tab **Biến thể kích thước** luôn dùng Nano Banana 2.1.
 - Prompt generate: `lib/prompt-builder.ts` — `buildCohesionInstructions()` trong creative layer; harmony pass server: `runHarmonyPass` / `HARMONY_EDIT_PROMPT` (`lib/gemini-server.ts`).
 - Client timeout generate: **92s** (khớp server `maxDuration` 90s + buffer); không rút xuống khi đã bật harmony pass.
 - Ưu tiên **giữ trung thực asset** user upload khi generate.

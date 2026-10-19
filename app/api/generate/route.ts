@@ -10,6 +10,7 @@ import {
   type ImageGenerationMeta,
 } from "@/lib/gemini-server";
 import { assembleFullPrompt } from "@/lib/prompt-builder";
+import { sumUsageMeta } from "@/lib/image-model-pricing";
 import type { GenerationRequest } from "@/lib/types";
 import { parseGenerateApiBody } from "@/lib/validate-generation";
 import { readJsonWithSizeLimit } from "@/lib/request-limits";
@@ -152,8 +153,16 @@ async function generateOneVariation(
     return {
       image: harmony.image,
       source: "gemini",
+      // Harmony pass là 1 lượt gọi ảnh nữa (cùng model) → cộng token + chi phí của cả 2 lượt.
       meta: {
         ...generated.meta,
+        ...(harmony.meta
+          ? sumUsageMeta(
+              { ...generated.meta, costUsd: generated.meta.costUsd ?? 0 },
+              { ...harmony.meta, costUsd: harmony.meta.costUsd ?? 0 }
+            )
+          : {}),
+        elapsedMs: Date.now() - startedAt,
         harmonyApplied: harmony.harmonyApplied,
       },
     };

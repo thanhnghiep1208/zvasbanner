@@ -5,7 +5,7 @@ Tài liệu mô tả **contract** các Route Handlers dưới `app/api/`. Mọi 
 ## Ghi chú chung
 
 - **Auth & RBAC**: một số endpoint yêu cầu **đã đăng nhập** Clerk và có **permission** phù hợp (xem từng mục). `401` khi chưa đăng nhập; `403` khi thiếu quyền hoặc tài khoản **blocked**. Logic role/permission: `lib/authz.ts`, gate: `requirePermissionJson` trong `lib/require-user.ts`.
-- **Model ảnh (generate)**: theo field `imageModel` trong body — `nano-banana-2` → `gemini-nano-banana-2.1` (Nano Banana 2.1, **mặc định server nếu thiếu/sai**), `nano-banana-pro` → `gemini-3-pro-image-preview`. **Edit-image** dùng model theo implementation trong `lib/gemini-server.ts` (thường cùng family flash/pro tùy route).
+- **Model ảnh (generate)**: theo field `imageModel` trong body — `nano-banana-2` → `gemini-nano-banana-2.1` (Nano Banana 2.1, **mặc định server nếu thiếu/sai**), `nano-banana-pro` → `gemini-3-pro-image`. **Edit-image** dùng model theo implementation trong `lib/gemini-server.ts` (thường cùng family flash/pro tùy route).
 - **Ảnh trả về**: thường là chuỗi **data URL** (`data:image/png;base64,...`) hoặc định dạng tương thích client (ví dụ thẻ img với `src` trỏ tới data URL).
 - **Lỗi thân thiện + mã ngắn**: client có thể hiển thị tiền tố dạng `[E-GEN-…]`, `[E-ENH-…]`, `[E-EXP-…]`; server `edit-image` trả các mã kiểu `EDIT_TIMEOUT`, `EDIT_AUTH`, … trong trường `errorCode`. **Chi tiết kỹ thuật (raw error từ Gemini SDK) không còn trả về client** — chỉ `console.error` server-side; client chỉ nhận message thân thiện + `errorCode`.
 - **Rate limit + kích thước request** (`/api/generate`, `/api/enhance-prompt`, `/api/edit-image`): mặc định **20 request/giờ/user** (in-memory, per-instance — xem `lib/request-limits.ts`), vượt hạn mức trả `429`. Kích thước body cap **30MB** (`generate`, `enhance-prompt`) hoặc **20MB** (`edit-image`), enforce trên **byte thực tế đọc từ stream** (không chỉ header `Content-Length`) → `413` nếu vượt.
@@ -70,7 +70,7 @@ Tạo **một** banner từ prompt + assets (multimodal).
   "image": "data:image/png;base64,...",
   "source": "gemini",
   "meta": {
-    "model": "gemini-3-pro-image-preview",
+    "model": "gemini-3-pro-image",
     "elapsedMs": 8421,
     "promptTokens": 2100,
     "outputTokens": 340,

@@ -93,7 +93,7 @@ export function VariationGrid({ className }: { className?: string }) {
   };
 
   const modelBadgeLabel =
-    generationStats?.model === "gemini-3-pro-image-preview"
+    generationStats?.model?.startsWith("gemini-3-pro-image")
       ? "Nano Banana Pro"
       : generationStats?.model === "gemini-nano-banana-2.1"
         ? "Nano Banana 2.1"
