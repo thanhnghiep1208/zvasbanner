@@ -34,6 +34,13 @@ function textColumn(x: number, w: number, top: number, logoW: number): Omit<Slot
 
 const M = 0.06; // lề an toàn
 
+/**
+ * Slot sản phẩm banner ngang/rất dẹt: đáy ở 0.82 chứ không sát mép dưới. Nền AI vẽ mặt bục/sàn quanh ~4/5 khung
+ * dù prompt mô tả đáy thấp hơn – đáy ~0.9 làm sản phẩm như đứng trước bục; 0.82 để sản phẩm đứng lên mặt bục.
+ */
+const PY = 0.06;
+const PH = 0.76;
+
 export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
   landscape: [
     {
@@ -44,7 +51,7 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
       slots: (s) => {
         const pw = 0.42 * s;
         const textW = 1 - M - pw - 0.04 - M;
-        return { ...textColumn(M, textW, 0.06, 0.14), product: { x: 1 - M - pw, y: 0.08, w: pw, h: 0.84 } };
+        return { ...textColumn(M, textW, 0.06, 0.14), product: { x: 1 - M - pw, y: PY, w: pw, h: PH } };
       },
     },
     {
@@ -55,7 +62,7 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
       slots: (s) => {
         const pw = 0.42 * s;
         const textX = M + pw + 0.04;
-        return { ...textColumn(textX, 1 - M - textX, 0.06, 0.14), product: { x: M, y: 0.08, w: pw, h: 0.84 } };
+        return { ...textColumn(textX, 1 - M - textX, 0.06, 0.14), product: { x: M, y: PY, w: pw, h: PH } };
       },
     },
   ],
@@ -74,7 +81,7 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
           headline: { x: textX, y: 0.1, w: textW, h: 0.38 },
           subheadline: { x: textX, y: 0.52, w: textW, h: 0.18 },
           cta: { x: textX, y: 0.74, w: textW, h: 0.18 },
-          product: { x: 1 - 0.04 - pw, y: 0.08, w: pw, h: 0.84 },
+          product: { x: 1 - 0.04 - pw, y: PY, w: pw, h: PH },
         };
       },
     },
@@ -88,7 +95,7 @@ export const LAYOUT_VARIANTS: Record<RatioClass, LayoutVariant[]> = {
         const textX = 0.04 + pw + 0.04;
         const textW = 0.82 - textX;
         return {
-          product: { x: 0.04, y: 0.08, w: pw, h: 0.84 },
+          product: { x: 0.04, y: PY, w: pw, h: PH },
           headline: { x: textX, y: 0.1, w: textW, h: 0.38 },
           subheadline: { x: textX, y: 0.52, w: textW, h: 0.18 },
           cta: { x: textX, y: 0.74, w: textW, h: 0.18 },
