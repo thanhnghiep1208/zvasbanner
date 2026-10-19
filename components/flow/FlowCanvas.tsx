@@ -21,11 +21,11 @@ import {
 import '@xyflow/react/dist/style.css';
 import './flow-theme.css';
 import { Show, UserButton, useAuth } from '@clerk/nextjs';
-import { CircleAlert, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, Redo2, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
+import { CircleAlert, CircleHelp, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, Redo2, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { REJECT_MESSAGES } from '@/lib/flow/connection-rules';
 import { getDefinition, NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
@@ -381,6 +381,15 @@ function FlowCanvasInner() {
               <Redo2 />
             </Button>
           </div>
+          <Link
+            href="/flow/guide"
+            target="_blank"
+            className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
+            aria-label="Hướng dẫn dùng node (mở tab mới)"
+            title="Hướng dẫn dùng node"
+          >
+            <CircleHelp />
+          </Link>
           <ProjectMenu />
           <Button type="button" size="sm" onClick={() => void run()} disabled={isRunning || isEmpty} aria-busy={isRunning}>
             {isRunning
