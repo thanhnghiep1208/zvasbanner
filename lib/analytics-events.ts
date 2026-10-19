@@ -51,7 +51,8 @@ export type AnalyticsEventPayloadMap = {
     output_tokens?: number;
     total_tokens?: number;
     /** `extra_size_preview` = layout-adapt variants shown under canvas before download. */
-    generation_context?: "editor" | "extra_size_download" | "extra_size_preview";
+    /** `flow_flat` / `flow_background` = Flow canvas (flat qua /api/generate, composed qua /api/flow/generate-background). */
+    generation_context?: "editor" | "extra_size_download" | "extra_size_preview" | "flow_flat" | "flow_background";
     target_preset_id?: string;
     target_width?: number;
     target_height?: number;

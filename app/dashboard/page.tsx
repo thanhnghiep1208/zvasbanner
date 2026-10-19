@@ -210,10 +210,16 @@ export default function DashboardPage() {
   );
 
   const generationsByModelRows = React.useMemo(
-    () =>
-      Object.entries(data.generations_by_model)
-        .filter(([, n]) => n > 0)
-        .sort((a, b) => b[1] - a[1]),
+    () => {
+      // Event cũ lưu slug (`nano-banana-2`), event mới lưu id model thật (`gemini-nano-banana-2.1`) → gộp theo tên hiển thị.
+      const byLabel = new Map<string, number>();
+      for (const [slug, n] of Object.entries(data.generations_by_model)) {
+        if (n <= 0) continue;
+        const label = labelImageModelSlug(slug);
+        byLabel.set(label, (byLabel.get(label) ?? 0) + n);
+      }
+      return [...byLabel.entries()].sort((a, b) => b[1] - a[1]);
+    },
     [data.generations_by_model]
   );
 
@@ -395,13 +401,13 @@ export default function DashboardPage() {
                 </p>
               ) : (
                 <ul className="divide-y divide-zinc-100">
-                  {generationsByModelRows.map(([slug, count]) => (
+                  {generationsByModelRows.map(([label, count]) => (
                     <li
-                      key={slug}
+                      key={label}
                       className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0"
                     >
                       <span className="text-sm font-medium text-zinc-800">
-                        {labelImageModelSlug(slug)}
+                        {label}
                       </span>
                       <span className="text-sm tabular-nums text-zinc-600">
                         {formatDashboardNumber(count)}

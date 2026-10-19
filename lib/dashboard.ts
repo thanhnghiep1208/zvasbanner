@@ -110,12 +110,25 @@ export function dashboardRangeLabel(range: DashboardRange): string {
   return "Showing last 7 days";
 }
 
-/** Human label for stored `image_model` router slug (dashboard + tables). */
+/**
+ * Human label for stored `image_model` (dashboard + tables). Cột này chứa cả slug preset (`nano-banana-2`, event cũ
+ * và fallback) lẫn id model Gemini thật từ `meta.model` (form, Flow canvas) – xem IMAGE_MODEL_MAP trong gemini-server.
+ */
 export function labelImageModelSlug(slug: string): string {
-  if (slug === "nano-banana-pro") return "Nano Banana Pro";
-  if (slug === "nano-banana-2") return "Nano Banana 2.1";
-  if (slug === "unknown") return "Chưa ghi nhận model";
-  return slug;
+  switch (slug) {
+    case "nano-banana-pro":
+    case "gemini-3-pro-image-preview":
+      return "Nano Banana Pro";
+    case "nano-banana-2":
+    case "gemini-nano-banana-2.1":
+      return "Nano Banana 2.1";
+    case "gemini-3.1-flash-image-preview":
+      return "Nano Banana 2 (3.1 Flash, cũ)";
+    case "unknown":
+      return "Chưa ghi nhận model";
+    default:
+      return slug;
+  }
 }
 
 /** Shared by `/api/dashboard` and `/api/dashboard/users` — keep window logic identical. */

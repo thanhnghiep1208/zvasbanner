@@ -4,6 +4,7 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { requestGenerationWithPayload } from '@/lib/client-generation';
 import type { BackgroundRequest } from '@/lib/flow/background/request';
+import type { ImageGenerationMeta } from '@/lib/gemini-server';
 import { pendingAiCalls, runAll, type BackgroundResult, type GenerateResult } from '@/lib/flow/executor';
 import { downstreamOf } from '@/lib/flow/cache-keys';
 import { imageCache, imageCacheVersion, subscribeImageCache } from '@/lib/flow-ui/image-cache';
@@ -12,13 +13,16 @@ import { canvasMeasurer, composeRatio, ensureFonts } from '@/lib/flow-ui/compose
 import type { NodeParamsMap } from '@/lib/flow/schema';
 import { exportedRatios } from '@/lib/flow/compiled-job';
 import { compileGraph } from '@/lib/flow/compiler';
-import { runErrorCode, trackFlow } from './flow-analytics';
+import { runErrorCode, trackFlow, trackFlowGeneration } from './flow-analytics';
 import { useFlowStore } from '@/store/flow-store';
 
 /** Gọi /api/generate qua client hiện có (timeout, map lỗi HTTP → message tiếng Việt giữ nguyên như form). */
 async function generate(request: Parameters<typeof requestGenerationWithPayload>[0]): Promise<GenerateResult> {
   const res = await requestGenerationWithPayload(request);
   if (!res.ok) return { ok: false, error: res.error };
+  trackFlowGeneration({
+    bannerId: res.bannerId, source: res.source, meta: res.meta, hasAsset: request.assets.length > 0, context: 'flow_flat',
+  });
   return { ok: true, image: res.image, source: res.source, placeholderError: res.placeholderError };
 }
 
@@ -40,8 +44,15 @@ async function generateBackground(request: BackgroundRequest): Promise<Backgroun
       body: JSON.stringify(request),
       signal: AbortSignal.timeout(BACKGROUND_TIMEOUT_MS),
     });
-    const json = (await res.json().catch(() => null)) as { image?: unknown; error?: unknown; errorCode?: unknown } | null;
-    if (res.ok && typeof json?.image === 'string') return { ok: true, image: json.image };
+    const json = (await res.json().catch(() => null)) as
+      | { image?: unknown; meta?: ImageGenerationMeta; error?: unknown; errorCode?: unknown }
+      | null;
+    if (res.ok && typeof json?.image === 'string') {
+      trackFlowGeneration({
+        source: 'gemini', meta: json.meta ?? undefined, hasAsset: request.references.length > 0, context: 'flow_background',
+      });
+      return { ok: true, image: json.image };
+    }
     const code = typeof json?.errorCode === 'string' ? `[E-BG-${json.errorCode}] ` : `[E-BG-${res.status}] `;
     return { ok: false, error: code + (typeof json?.error === 'string' ? json.error : `Tạo nền thất bại (HTTP ${res.status}).`) };
   } catch (e) {
