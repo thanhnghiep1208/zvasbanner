@@ -72,7 +72,7 @@ export const NODE_DEFINITIONS: Registry = {
   },
   'brief': {
     type: 'brief', kind: 'input', label: 'Brief',
-    description: 'Mô tả banner và mục tiêu chiến dịch.',
+    description: 'Mục đích, đối tượng, thông điệp, ưu đãi, tone của banner.',
     inputs: [], outputs: [out('brief', 'brief')],
     defaultParams: { prompt: '', marketingBrief: { campaignIntents: [], focalSubjects: [] } },
     aiCallsPerRatio: 0,

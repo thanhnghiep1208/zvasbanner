@@ -36,15 +36,14 @@ export const BRIEF_EXAMPLES: { label: string; intent: CampaignIntent; prompt: st
 const FORMULA = ['Bối cảnh', 'Đạo cụ, chất liệu', 'Ánh sáng', 'Tông màu'];
 
 /**
- * Gợi ý viết Brief trong Inspector (user không biết viết gì). Mở sẵn khi prompt còn trống.
- * "Dùng" thay prompt bằng mẫu (Hoàn tác được) và thêm mục tiêu chiến dịch của mẫu nếu chưa chọn mục tiêu nào.
+ * Gợi ý viết mô tả bối cảnh nền (mục tuỳ chọn của Brief). "Dùng" thay mô tả bằng mẫu (Hoàn tác được).
  */
 export function BriefGuide({ empty, onUse }: { empty: boolean; onUse: (ex: (typeof BRIEF_EXAMPLES)[number]) => void }) {
   return (
     <details open={empty} className="group rounded-lg border bg-muted/30 text-sm">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium [&::-webkit-details-marker]:hidden">
         <Lightbulb className="size-4 text-run-stale" aria-hidden />
-        Gợi ý cách viết
+        Gợi ý mô tả nền
         <span className="ml-auto text-xs font-normal text-muted-foreground group-open:hidden">Xem</span>
       </summary>
       <div className="flex flex-col gap-3 border-t px-3 pt-2.5 pb-3">

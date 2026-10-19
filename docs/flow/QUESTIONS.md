@@ -133,3 +133,8 @@ Trạng thái: **đã làm theo yêu cầu trực tiếp** (2026-10-16). Slug gi
 Bối cảnh: Nghiệp yêu cầu Brand kit tự lấy màu, font, logo từ link website. Cần route server mới `POST /api/flow/brand-from-url` tải HTML/CSS/JS + ảnh logo của URL do user nhập (nguy cơ SSRF), không dùng AI.
 Cách làm: chỉ http(s) cổng 80/443; kiểm IP lúc kết nối (`lookup` riêng – chặn loopback, mạng trong, link-local/metadata, CGNAT, IPv6 nội bộ, kể cả qua redirect/DNS rebinding); timeout 8s/request; giới hạn HTML 1.5MB, CSS 1.5MB ×6, JS 4MB ×2, logo 1.5MB ×3; rate limit riêng 30 lần/giờ/user (không ăn lượt tạo ảnh); sau flag Flow canvas.
 Trạng thái: **đã làm theo yêu cầu trực tiếp** (2026-10-19). Chưa xử lý: trang chỉ dựng bằng JS mà bundle không chứa URL logo/màu (cần trình duyệt headless hoặc AI đọc ảnh chụp – để sau).
+
+## Q17 – Brief marketing + route AI văn bản "Gợi ý chữ từ brief"
+Bối cảnh: Nghiệp muốn Brief là brief marketing (mục đích, đối tượng, giá trị/thông điệp, ưu đãi, tone), không chỉ mô tả nền. Chọn (2026-10-19): đủ 4 mục; brief định hướng AI tạo nền + có nút gợi ý chữ (1 lượt AI văn bản/lần bấm); giữ mô tả nền thành mục tuỳ chọn.
+Cách làm: `campaign` tuỳ chọn trên params Brief (project cũ không đổi); prompt nền thêm khối CAMPAIGN (dặn không vẽ thành chữ); flat ghép brief thành các dòng tiếng Việt trong userPrompt qua adapter (không sửa pipeline cũ). Route mới `POST /api/flow/suggest-copy` gọi Gemini văn bản (`gemini-flash-latest` → `gemini-2.5-flash`, JSON schema, thinkingBudget 0, timeout 25s) bằng code mới `lib/flow-server/suggest-copy.ts` – không dùng `runGeminiEnhance` vì model đầu danh sách là model ảnh, trả chat thay JSON, ~30s. Rate limit riêng 30/giờ/user, không ăn lượt tạo ảnh.
+Trạng thái: **đã làm theo lựa chọn của Nghiệp** (2026-10-19).

@@ -2,6 +2,7 @@
  * Chi tiết hiện ngay trên node card (dưới header): nội dung chữ đầy đủ + các tuỳ chọn đã chọn dạng chip, để đọc graph
  * không cần mở Inspector. Header vẫn giữ tóm tắt 1 dòng (summarizeNode).
  */
+import { BRIEF_TONE_LABELS } from '@/lib/flow/brief';
 import { FOCAL_OPTIONS, INTENT_OPTIONS } from '@/components/prompt/MarketingBriefChips';
 import {
   BACKGROUND_EFFECT_OPTIONS, BACKGROUND_GRAIN_OPTIONS, BACKGROUND_SHAPE_OPTIONS, BACKGROUND_TONE_OPTIONS,
@@ -54,9 +55,12 @@ function textLayer(p: NodeParamsMap['text-layer']): NodeDetails {
 }
 
 function brief(p: NodeParamsMap['brief']): NodeDetails {
+  // Thẻ node ưu tiên thông điệp (brief marketing); chưa có thì hiện mô tả nền như trước.
+  const c = p.campaign;
   return {
-    text: p.prompt,
+    text: c?.message.trim() || c?.offer.trim() || p.prompt,
     chips: [
+      ...(c?.tone ? [{ label: BRIEF_TONE_LABELS[c.tone] }] : []),
       ...p.marketingBrief.campaignIntents.map((v) => ({ label: plain(labelOf(INTENT_OPTIONS, v)) })),
       ...p.marketingBrief.focalSubjects.map((v) => ({ label: plain(labelOf(FOCAL_OPTIONS, v)) })),
     ],

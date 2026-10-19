@@ -34,13 +34,13 @@ export function TextField({ label, value, onChange, placeholder, hint }: {
   );
 }
 
-export function TextAreaField({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+export function TextAreaField({ label, value, onChange, placeholder, rows = 4, hint }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; hint?: string;
 }) {
   return (
-    <Field label={label}>
+    <Field label={label} hint={hint}>
       {(id) => (
-        <Textarea id={id} value={value} rows={4} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+        <Textarea id={id} value={value} rows={rows} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
       )}
     </Field>
   );

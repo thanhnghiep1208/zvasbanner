@@ -31,7 +31,7 @@ const SUMMARIZERS: Summarizers = {
   'product-asset': (p) => p.fileName || null,
   'reference-image': (p) => p.fileName || null,
   // Text / Brief: nội dung đầy đủ hiện trong card (FlowNodeCard → node-details), header không lặp lại.
-  'brief': (p) => (p.prompt ? null : 'Chưa có mô tả'),
+  'brief': (p) => (p.prompt || p.campaign?.message.trim() || p.campaign?.offer.trim() ? null : 'Chưa có brief'),
   'text-layer': (p) => TEXT_ROLE_LABELS[p.role],
   'brand-kit': (p) => (p.colors.length ? `${p.colors.length} màu` : null),
   // Nhiều kích thước: card liệt kê đủ bên dưới (FlowNodeCard → RatioList), header chỉ cần số lượng.

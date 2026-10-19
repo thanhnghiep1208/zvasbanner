@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { FOCAL_OPTIONS, INTENT_OPTIONS } from '@/components/prompt/MarketingBriefChips';
+import { FOCAL_OPTIONS } from '@/components/prompt/MarketingBriefChips';
 import { CANVAS_PRESET_GROUPS, getPresetById, presetToCanvasConfig } from '@/lib/canvas-presets';
 import { FONT_STYLE_OPTIONS, MOOD_OPTIONS, PALETTE_OPTIONS, STYLE_OPTIONS } from '@/lib/style-options';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
@@ -23,6 +23,7 @@ import { ExportRatiosField } from './ExportRatiosField';
 import { TextLayerEditor } from './TextLayerEditor';
 import { BrandKitEditor } from './BrandKitEditor';
 import { BriefGuide } from './BriefGuide';
+import { CampaignBriefFields } from './CampaignBriefFields';
 import { aspectLabel, RatioShape } from '../RatioShape';
 import {
   CheckboxField, NumberField, SelectField, TextAreaField, ToggleGroupField,
@@ -49,19 +50,16 @@ function NodeEditor({ node }: { node: FlowNode }) {
       const p = node.params as NodeParamsMap['brief'];
       return (
         <>
-          <TextAreaField label="Mô tả bối cảnh nền" value={p.prompt}
-            placeholder="VD: mặt bàn gỗ sồi, cây xanh mờ phía sau, nắng sớm, tông kem"
-            onChange={(prompt) => set<'brief'>({ prompt })} />
-          <BriefGuide
-            empty={!p.prompt.trim()}
-            onUse={(ex) => set<'brief'>({
-              prompt: ex.prompt,
-              marketingBrief: p.marketingBrief.campaignIntents.length
-                ? p.marketingBrief
-                : { ...p.marketingBrief, campaignIntents: [ex.intent] },
-            })} />
-          <ToggleGroupField label="Mục tiêu chiến dịch" values={p.marketingBrief.campaignIntents} options={INTENT_OPTIONS}
-            onChange={(campaignIntents) => set<'brief'>({ marketingBrief: { ...p.marketingBrief, campaignIntents } })} />
+          <CampaignBriefFields nodeId={node.id} />
+          <div className="flex flex-col gap-2 border-t pt-4">
+            <TextAreaField label="Bối cảnh nền mong muốn (tuỳ chọn)" value={p.prompt} rows={3}
+              placeholder="VD: mặt bàn gỗ sồi, cây xanh mờ phía sau, nắng sớm, tông kem"
+              hint="Để trống: AI tự chọn nền theo brief ở trên."
+              onChange={(prompt) => set<'brief'>({ prompt })} />
+            <BriefGuide
+              empty={false}
+              onUse={(ex) => set<'brief'>({ prompt: ex.prompt })} />
+          </div>
           <ToggleGroupField label="Chủ thể chính" values={p.marketingBrief.focalSubjects} options={FOCAL_OPTIONS}
             onChange={(focalSubjects) => set<'brief'>({ marketingBrief: { ...p.marketingBrief, focalSubjects } })} />
         </>

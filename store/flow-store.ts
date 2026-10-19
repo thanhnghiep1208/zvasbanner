@@ -6,6 +6,7 @@
  * (đang chọn, đang kéo, kích thước đo được) để riêng trong `nodeUi`/`edgeUi`, không đi vào graph.
  * RF nodes/edges được dẫn xuất bằng `selectRFNodes`/`selectRFEdges`.
  */
+import { newTextLayerParams } from '@/lib/flow/text-nodes';
 import { create } from 'zustand';
 import type { Connection, Edge, EdgeChange, Node, NodeChange, XYPosition } from '@xyflow/react';
 import type { ConnectionResult } from '@/lib/flow/connection-rules';
@@ -15,8 +16,6 @@ import { checkConnection } from '@/lib/flow-ui/connection-feedback';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { NodeRunInfo } from '@/lib/flow/run-state';
-import { FONT_FOR_STYLE } from '@/lib/flow/text/text-style';
-import { fontIdFromLabel } from '@/lib/flow/brand';
 import {
   instantiateTemplate, setExposedValue, type ExposedParam, type FlowTemplate,
 } from '@/lib/flow/template/template';
@@ -153,19 +152,10 @@ export const useFlowStore = create<FlowState>()((set, get) => ({
   addNode: (type, position) => {
     const { graph, nodeUi } = get();
     const id = nextNodeId(graph, type);
-    const params = structuredClone(NODE_DEFINITIONS[type].defaultParams) as NodeParamsMap[typeof type];
-    if (type === 'text-layer') {
-      const text = params as NodeParamsMap['text-layer'];
-      text.layerId = id;
-      // Text mới: tự chọn font/cỡ/màu theo banner; user tắt trong Inspector nếu muốn chỉnh tay.
-      text.autoStyle = true;
-      // Font mặc định: font thương hiệu (Brand kit, T4.5) > kiểu chữ của node Phong cách (Q10B).
-      const brandNode = graph.nodes.find((n) => n.type === 'brand-kit');
-      const styleNode = graph.nodes.find((n) => n.type === 'style');
-      const brandFont = fontIdFromLabel((brandNode?.params as NodeParamsMap['brand-kit'] | undefined)?.fontPreference);
-      if (brandFont) text.style.fontFamily = brandFont;
-      else if (styleNode) text.style.fontFamily = FONT_FOR_STYLE[(styleNode.params as NodeParamsMap['style']).fontStyle];
-    }
+    // Text mới: chữ tự động theo banner, font Brand kit > Phong cách (text-nodes.ts, dùng chung với gợi ý chữ).
+    const params = type === 'text-layer'
+      ? newTextLayerParams(graph, id)
+      : structuredClone(NODE_DEFINITIONS[type].defaultParams) as NodeParamsMap[typeof type];
     const node = { id, type, params, position: { x: position.x, y: position.y } } as FlowNode;
     const deselected = Object.fromEntries(
       Object.entries(nodeUi).map(([k, v]) => [k, { ...v, selected: false }]),

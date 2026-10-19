@@ -5,6 +5,7 @@
  * Type nghiệp vụ dùng lại từ `lib/types.ts` (Q6), không định nghĩa lại.
  * Mapping với GenerationRequest: xem `lib/flow/legacy/README.md`.
  */
+import type { CampaignBrief } from './brief';
 import type {
   AssetRole,
   BrandKit,
@@ -84,7 +85,8 @@ export type FlowStyle = Omit<StyleControls, 'strictPreserveMode'>;
 export interface NodeParamsMap {
   'product-asset': FlowAsset<PixelAssetRole>;
   'reference-image': FlowAsset<ReferenceAssetRole>;
-  'brief': { prompt: string; marketingBrief: MarketingBrief };
+  /** `campaign` (brief marketing, lib/flow/brief.ts) tuỳ chọn – project cũ không có. */
+  'brief': { prompt: string; marketingBrief: MarketingBrief; campaign?: CampaignBrief };
   'text-layer': {
     layerId: string;
     role: TextRole;

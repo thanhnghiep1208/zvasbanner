@@ -6,6 +6,7 @@
  * Không mô tả chủ thể chính (focal subject): nền không được tự vẽ sản phẩm – sản phẩm thật ghép ở Compose.
  */
 import { buildStylePhrase } from '@/lib/prompt-builder';
+import { campaignPromptLines } from '../brief';
 import type { GuideRect } from '../layout/types';
 import { DEFAULT_STYLE } from '../schema';
 import type { BackgroundRequest } from './request';
@@ -90,6 +91,8 @@ function naturalPrompt(
   } else if (req.strictNoText) {
     lines.push('Absolutely no text, letters or numbers anywhere in the image.');
   }
+  const campaign = campaignPromptLines(req.campaign);
+  if (campaign.length) lines.push('', ...campaign);
   lines.push('', `Scene brief: ${req.prompt.trim() || '(none)'}`);
   return lines.join('\n');
 }
@@ -166,6 +169,8 @@ export function buildBackgroundPrompt(req: Omit<BackgroundRequest, 'guideImage' 
     lines.push('Avoid text; the real copy will be added later.');
   }
 
+  const campaign = campaignPromptLines(req.campaign);
+  if (campaign.length) lines.push('', '=== CAMPAIGN ===', ...campaign);
   lines.push('', '=== BRIEF ===', req.prompt.trim() || '(no extra brief)');
   return lines.join('\n');
 }

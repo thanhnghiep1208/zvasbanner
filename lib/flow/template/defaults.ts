@@ -86,8 +86,8 @@ const fTextColor = (layerId: string, label: string): ExposedParam => ({
   id: `${layerId}-color`, nodeId: `n-text-${layerId}`, path: ['style', 'fill', 'color'], label, control: 'color', group: G.look,
 });
 const fBrief = (placeholder: string): ExposedParam => ({
-  id: 'brief', nodeId: 'n-brief', path: ['prompt'], label: 'Mô tả bối cảnh nền', control: 'textarea', group: G.content,
-  placeholder, hint: 'Chỉ mô tả nền và không khí; sản phẩm và chữ giữ nguyên, không do AI vẽ.',
+  id: 'brief', nodeId: 'n-brief', path: ['prompt'], label: 'Bối cảnh nền mong muốn (tuỳ chọn)', control: 'textarea', group: G.content,
+  placeholder, hint: 'Để trống: AI tự chọn nền theo Brief. Chỉ tả nền và không khí; sản phẩm và chữ không do AI vẽ.',
 });
 const fIntents: ExposedParam = {
   id: 'intents', nodeId: 'n-brief', path: ['marketingBrief', 'campaignIntents'], label: 'Mục tiêu chiến dịch',

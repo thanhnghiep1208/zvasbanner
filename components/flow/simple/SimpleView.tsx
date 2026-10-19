@@ -9,6 +9,7 @@ import { validateGraph } from '@/lib/flow/validate';
 import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import { useFlowStore } from '@/store/flow-store';
 import { RunResults } from '../inspector/RunResults';
+import { CampaignBriefFields } from '../inspector/CampaignBriefFields';
 import { ExposedField } from './ExposedField';
 import { ImageListField } from './ImageListField';
 import { LayoutPreview } from './LayoutPreview';
@@ -28,11 +29,13 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   const exposed = useFlowStore((s) => s.exposed);
   const runInfo = useFlowStore((s) => s.runInfo);
   // Field ảnh: chỉ field ảnh đầu tiên được vẽ, thành danh sách mọi ảnh trong graph (ImageListField).
+  // Node Brief: khối "Brief" riêng (CampaignBriefFields) ở đầu form, đã gồm mục đích chiến dịch.
+  const briefNodeId = graph.nodes.find((n) => n.type === 'brief')?.id;
   const fields = useMemo(() => {
-    const all = resolveExposed(graph, exposed);
+    const all = resolveExposed(graph, exposed).filter((f) => !(f.nodeId === briefNodeId && f.path.join('.') === 'marketingBrief.campaignIntents'));
     const firstAsset = all.find((f) => f.control === 'asset');
     return all.filter((f) => f.control !== 'asset' || f === firstAsset);
-  }, [graph, exposed]);
+  }, [graph, exposed, briefNodeId]);
   const hidden = exposed.length - resolveExposed(graph, exposed).length;
 
   const groups = useMemo(() => {
@@ -80,6 +83,15 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
         </div>
 
         <div className="flex flex-col gap-6 p-4">
+          {briefNodeId && (
+            <section className="flex flex-col gap-4" aria-labelledby="grp-brief">
+              <div>
+                <h3 id="grp-brief" className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Brief</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">Banner nói gì, với ai. AI dựa vào đây để chọn không khí nền và gợi ý chữ.</p>
+              </div>
+              <CampaignBriefFields nodeId={briefNodeId} />
+            </section>
+          )}
           {groups.map(([group, items]) => (
             <section key={group} className="flex flex-col gap-4" aria-labelledby={`grp-${group}`}>
               <h3 id={`grp-${group}`} className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{group}</h3>
