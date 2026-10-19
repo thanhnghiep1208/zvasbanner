@@ -236,7 +236,7 @@ export function FlowGuide() {
         <section aria-labelledby="flow" className="border-t pt-10">
           <h2 id="flow" className="text-lg font-semibold">Muốn chỉnh sâu: flow trên canvas</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Bấm <b className="font-medium text-foreground">Canvas</b> trên header để thấy toàn bộ node. Một flow nối từ trái sang phải theo 4 bước.
+            Bấm <b className="font-medium text-foreground">Canvas</b> trên header để thấy toàn bộ node. Một flow nối từ trái sang phải theo 4 bước. Muốn tự dựng từ đầu: chọn <b className="font-medium text-foreground">Canvas trống</b> trong menu template.
           </p>
 
           <div className="mt-6 rounded-2xl border bg-card p-4 sm:p-5">

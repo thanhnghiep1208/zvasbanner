@@ -481,15 +481,21 @@ function FlowCanvasInner() {
                 </span>
                 <p className="text-sm font-semibold">Canvas trống</p>
                 <p className="text-xs text-muted-foreground">
-                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Brief, Kích thước và Tạo banner.
+                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Kích thước, Brief, Auto layout, Tạo nền, Ghép layer và Xuất ảnh.
                 </p>
-                <Button type="button" size="sm" variant="outline" className="pointer-events-auto mt-1"
-                  onClick={() => {
-                    useFlowStore.getState().loadTemplate(DEFAULT_TEMPLATES[0]!);
-                    trackFlow('flow_template_used', { source: 'empty_canvas' });
-                  }}>
-                  Nạp template mặc định
-                </Button>
+                <div className="pointer-events-auto mt-1 flex flex-wrap justify-center gap-2">
+                  <Link href="/flow/guide" target="_blank" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                    <CircleHelp aria-hidden />
+                    Xem hướng dẫn
+                  </Link>
+                  <Button type="button" size="sm" variant="ghost"
+                    onClick={() => {
+                      useFlowStore.getState().loadTemplate(DEFAULT_TEMPLATES[0]!);
+                      trackFlow('flow_template_used', { source: 'empty_canvas' });
+                    }}>
+                    Nạp template mặc định
+                  </Button>
+                </div>
               </div>
             </div>
           )}
