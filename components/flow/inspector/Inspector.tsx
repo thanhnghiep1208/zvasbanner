@@ -15,7 +15,7 @@ import { FONT_STYLE_OPTIONS, MOOD_OPTIONS, PALETTE_OPTIONS, STYLE_OPTIONS } from
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { FlowNode, NodeParamsMap, NodeType } from '@/lib/flow/schema';
 import { validateGraph } from '@/lib/flow/validate';
-import { MODEL_LABELS } from '@/lib/flow-ui/node-summary';
+import { MODEL_LABELS, truncate } from '@/lib/flow-ui/node-summary';
 import { useFlowStore } from '@/store/flow-store';
 import { AssetEditor } from './AssetEditor';
 import { RunResults } from './RunResults';
@@ -26,8 +26,12 @@ import { BriefGuide } from './BriefGuide';
 import { CampaignBriefFields } from './CampaignBriefFields';
 import { aspectLabel, RatioShape } from '../RatioShape';
 import {
-  CheckboxField, NumberField, SelectField, TextAreaField, ToggleGroupField,
+  CheckboxField, CollapsibleSection, NumberField, SelectField, TextAreaField, ToggleGroupField,
 } from './fields';
+
+/** Nhãn đã chọn, nối "·", bỏ emoji đầu nhãn; rỗng → undefined (mục gập không có tóm tắt). */
+const labelsOf = <V extends string>(opts: readonly { value: V; label: string }[], values: readonly V[]) =>
+  values.map((v) => (opts.find((o) => o.value === v)?.label ?? v).replace(/^[^\p{L}\p{N}]+/u, '')).join(' · ') || undefined;
 
 const MODEL_OPTIONS = (Object.keys(MODEL_LABELS) as (keyof typeof MODEL_LABELS)[])
   .map((value) => ({ value, label: MODEL_LABELS[value] }));
@@ -51,17 +55,21 @@ function NodeEditor({ node }: { node: FlowNode }) {
       return (
         <>
           <CampaignBriefFields nodeId={node.id} />
-          <div className="flex flex-col gap-2 border-t pt-4">
-            <TextAreaField label="Bối cảnh nền mong muốn (tuỳ chọn)" value={p.prompt} rows={3}
+          {/* Tuỳ chọn: mở sẵn khi đã có mô tả nền để thấy ngay đang dùng gì. */}
+          <CollapsibleSection title="Bối cảnh nền" defaultOpen={Boolean(p.prompt.trim())}
+            summary={p.prompt.trim() ? truncate(p.prompt) : 'AI tự chọn theo brief'}>
+            <TextAreaField label="Mô tả bối cảnh nền" value={p.prompt} rows={3}
               placeholder="VD: mặt bàn gỗ sồi, cây xanh mờ phía sau, nắng sớm, tông kem"
               hint="Để trống: AI tự chọn nền theo brief ở trên."
               onChange={(prompt) => set<'brief'>({ prompt })} />
             <BriefGuide
               empty={false}
               onUse={(ex) => set<'brief'>({ prompt: ex.prompt })} />
-          </div>
-          <ToggleGroupField label="Chủ thể chính" values={p.marketingBrief.focalSubjects} options={FOCAL_OPTIONS}
-            onChange={(focalSubjects) => set<'brief'>({ marketingBrief: { ...p.marketingBrief, focalSubjects } })} />
+          </CollapsibleSection>
+          <CollapsibleSection summary={labelsOf(FOCAL_OPTIONS, p.marketingBrief.focalSubjects)}>
+            <ToggleGroupField label="Chủ thể chính" values={p.marketingBrief.focalSubjects} options={FOCAL_OPTIONS}
+              onChange={(focalSubjects) => set<'brief'>({ marketingBrief: { ...p.marketingBrief, focalSubjects } })} />
+          </CollapsibleSection>
         </>
       );
     }
@@ -75,12 +83,18 @@ function NodeEditor({ node }: { node: FlowNode }) {
       const p = node.params as NodeParamsMap['style'];
       return (
         <>
-          <SelectField label="Phong cách" value={p.style} options={STYLE_OPTIONS} onChange={(style) => set<'style'>({ style })} />
-          <SelectField label="Mood" value={p.mood} options={MOOD_OPTIONS} onChange={(mood) => set<'style'>({ mood })} />
-          <SelectField label="Bảng màu" value={p.colorPalette} options={PALETTE_OPTIONS}
-            onChange={(colorPalette) => set<'style'>({ colorPalette })} />
-          <SelectField label="Kiểu chữ" value={p.fontStyle} options={FONT_STYLE_OPTIONS}
-            onChange={(fontStyle) => set<'style'>({ fontStyle })} />
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label="Phong cách" value={p.style} options={STYLE_OPTIONS} onChange={(style) => set<'style'>({ style })} />
+            <SelectField label="Mood" value={p.mood} options={MOOD_OPTIONS} onChange={(mood) => set<'style'>({ mood })} />
+          </div>
+          <CollapsibleSection
+            summary={`${labelsOf(PALETTE_OPTIONS, [p.colorPalette])} · ${labelsOf(FONT_STYLE_OPTIONS, [p.fontStyle])}`}>
+            <SelectField label="Bảng màu" value={p.colorPalette} options={PALETTE_OPTIONS}
+              onChange={(colorPalette) => set<'style'>({ colorPalette })} />
+            <SelectField label="Kiểu chữ" value={p.fontStyle} options={FONT_STYLE_OPTIONS}
+              hint="Chữ tự động theo banner chọn font theo mục này."
+              onChange={(fontStyle) => set<'style'>({ fontStyle })} />
+          </CollapsibleSection>
         </>
       );
     }
@@ -96,11 +110,13 @@ function NodeEditor({ node }: { node: FlowNode }) {
       return (
         <>
           <SelectField label="Model" value={p.model} options={MODEL_OPTIONS} onChange={(model) => set<'generate-background'>({ model })} />
-          <NumberField label="Hướng sáng (độ)" value={p.lightDirectionDeg} min={0} max={359}
-            hint="315 = trên-trái. Bóng tự động của sản phẩm đổ theo hướng này."
-            onChange={(lightDirectionDeg) => set<'generate-background'>({ lightDirectionDeg })} />
-          <CheckboxField label="Cấm chữ trên nền" checked={p.strictNoText}
-            onChange={(strictNoText) => set<'generate-background'>({ strictNoText })} />
+          <CollapsibleSection summary={`Sáng ${p.lightDirectionDeg}°${p.strictNoText ? ' · Cấm chữ' : ''}`}>
+            <NumberField label="Hướng sáng (độ)" value={p.lightDirectionDeg} min={0} max={359}
+              hint="315 = trên-trái. Bóng tự động của sản phẩm đổ theo hướng này."
+              onChange={(lightDirectionDeg) => set<'generate-background'>({ lightDirectionDeg })} />
+            <CheckboxField label="Cấm chữ trên nền" checked={p.strictNoText}
+              onChange={(strictNoText) => set<'generate-background'>({ strictNoText })} />
+          </CollapsibleSection>
         </>
       );
     }
@@ -110,8 +126,7 @@ function NodeEditor({ node }: { node: FlowNode }) {
         <>
           <SelectField label="Model" value={p.model} options={MODEL_OPTIONS} onChange={(model) => set<'generate-flat'>({ model })} />
           <p className="text-xs text-muted-foreground">
-            Luôn giữ nguyên sản phẩm/logo (không đổi tỉ lệ, màu, hình dạng). Chế độ này để AI vẽ cả banner nên ảnh vẫn
-            có thể lệch nhẹ; muốn giữ đúng từng pixel, dùng template ghép layer (Tạo nền + Ghép layer).
+            AI vẽ cả banner nên sản phẩm/logo có thể lệch nhẹ. Cần giữ đúng từng pixel: dùng Tạo nền + Ghép layer.
           </p>
         </>
       );
@@ -143,16 +158,18 @@ function NodeEditor({ node }: { node: FlowNode }) {
       const p = node.params as NodeParamsMap['export'];
       return (
         <>
-          <SelectField label="Định dạng" value={p.format}
-            options={[{ value: 'png', label: 'PNG' }, { value: 'jpg', label: 'JPG' }]}
-            onChange={(format) => set<'export'>({ format })} />
-          {p.format === 'jpg' && (
-            <NumberField label="Chất lượng (%)" value={Math.round(p.quality * 100)} min={10} max={100}
-              onChange={(q) => set<'export'>({ quality: q / 100 })} />
-          )}
-          <SelectField label="Tỉ lệ xuất" value={String(p.scale) as '1' | '2'}
-            options={[{ value: '1', label: '1x' }, { value: '2', label: '2x' }]}
-            onChange={(v) => set<'export'>({ scale: v === '2' ? 2 : 1 })} />
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label="Định dạng" value={p.format}
+              options={[{ value: 'png', label: 'PNG' }, { value: 'jpg', label: 'JPG' }]}
+              onChange={(format) => set<'export'>({ format })} />
+            <SelectField label="Tỉ lệ xuất" value={String(p.scale) as '1' | '2'}
+              options={[{ value: '1', label: '1x' }, { value: '2', label: '2x' }]}
+              onChange={(v) => set<'export'>({ scale: v === '2' ? 2 : 1 })} />
+            {p.format === 'jpg' && (
+              <NumberField label="Chất lượng (%)" value={Math.round(p.quality * 100)} min={10} max={100}
+                onChange={(q) => set<'export'>({ quality: q / 100 })} />
+            )}
+          </div>
           <ExportRatiosField nodeId={node.id} p={p} />
           <RunResults exportParams={p} />
         </>
@@ -260,7 +277,8 @@ export function Inspector({ node }: { node: FlowNode | null }) {
           </Button>
         )}
       </header>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+      {/* key: đổi node → cuộn về đầu. */}
+      <div key={node.id} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
         {issues.length > 0 && (
           <ul className="space-y-1.5" aria-label="Vấn đề của node">
             {issues.map((i, k) => (

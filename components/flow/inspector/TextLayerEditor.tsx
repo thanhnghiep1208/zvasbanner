@@ -11,7 +11,7 @@ import { autoStyleContextFromGraph, autoTypography } from '@/lib/flow/text/auto-
 
 const EMPTY: string[] = [];
 import {
-  CheckboxField, ColorField, NumberField, SelectField, TextAreaField, ToggleSection,
+  CheckboxField, CollapsibleSection, ColorField, NumberField, SelectField, TextAreaField, ToggleSection,
 } from './fields';
 
 type TextParams = NodeParamsMap['text-layer'];
@@ -79,8 +79,20 @@ export function TextLayerEditor({ nodeId, p }: { nodeId: string; p: TextParams }
   const autoCtx = useFlowStore(useShallow((st) => autoStyleContextFromGraph(st.graph)));
   const resolved = p.autoStyle ? autoTypography(p, autoCtx) : p;
 
+  const manual = p.renderSource !== 'ai' && !p.autoStyle;
+  // Tóm tắt mục Nâng cao khi gập: chỉ những gì đang bật.
+  const advanced = [
+    p.renderSource === 'ai' && 'AI vẽ chữ',
+    manual && s.textTransform === 'uppercase' && 'IN HOA',
+    manual && s.italic && 'Nghiêng',
+    manual && s.stroke && 'Viền',
+    manual && s.shadow && 'Bóng chữ',
+    manual && s.plate && 'Nền nút',
+  ].filter(Boolean).join(' · ');
+
   return (
     <>
+      <TextAreaField label="Nội dung" value={p.content} rows={3} onChange={(content) => set({ content })} />
       <SelectField label="Vai trò" value={p.role} options={ROLE_OPTIONS}
         onChange={(role) => set({
           role,
@@ -89,118 +101,119 @@ export function TextLayerEditor({ nodeId, p }: { nodeId: string; p: TextParams }
           minFontSizePx: TEXT_ROLE_DEFAULTS[role].minFontSizePx,
           renderSource: role === 'headline' ? p.renderSource : 'layer',
         })} />
-      <TextAreaField label="Nội dung" value={p.content} onChange={(content) => set({ content })} />
-      {p.role === 'headline' && (
-        <SelectField label="Cách vẽ chữ" value={p.renderSource}
-          options={[{ value: 'layer', label: 'Layer (chính xác)' }, { value: 'ai', label: 'AI vẽ (có thể sai chính tả)' }]}
-          onChange={(renderSource) => set({ renderSource })} />
-      )}
 
       {p.renderSource === 'ai' ? (
         <p className="text-xs text-muted-foreground">
-          Chữ do AI vẽ vào nền trong vùng tiêu đề, nên không chỉnh được font/màu ở đây.
+          Chữ do AI vẽ vào nền nên không chỉnh được font/màu. Đổi ở mục Nâng cao.
         </p>
       ) : (
         <>
           <CheckboxField
             label="Tự động theo banner"
             checked={Boolean(p.autoStyle)}
-            hint="Font, cỡ chữ theo Phong cách và Brand kit; màu chữ, bóng, màu nút chọn theo nền thật khi ghép."
+            hint={p.autoStyle ? 'Font, cỡ, màu theo Phong cách, Brand kit và nền thật khi ghép.' : undefined}
             // Tắt: bắt đầu chỉnh tay từ đúng kiểu đang tự động (không nhảy về kiểu cũ).
             onChange={(on) => set(on ? { autoStyle: true } : { autoStyle: false, style: resolved.style, minFontSizePx: resolved.minFontSizePx })}
           />
+          <TextPreview content={p.content} style={manual ? s : resolved.style} />
+          {p.autoStyle ? (
+            <p className="text-xs text-muted-foreground">
+              {FLOW_FONTS[resolved.style.fontFamily].label} · {WEIGHT_LABELS[resolved.style.fontWeight]} · {resolved.style.fontSizePx}px
+              {resolved.style.textTransform === 'uppercase' ? ' · IN HOA' : ''}. Màu thật chọn theo nền khi chạy.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <SelectField label="Font" value={s.fontFamily} options={FONT_OPTIONS}
+                  onChange={(fontFamily) => {
+                    const ws = FLOW_FONTS[fontFamily].weights as readonly FontWeight[];
+                    setStyle({ fontFamily, fontWeight: ws.includes(s.fontWeight) ? s.fontWeight : ws[ws.length - 1]! });
+                  }} />
+              </div>
+              <NumberField label="Cỡ chữ (px)" value={s.fontSizePx} min={1} max={400}
+                onChange={(fontSizePx) => setStyle({ fontSizePx })} />
+              <SelectField label="Căn lề" value={s.align} options={ALIGN_OPTIONS} onChange={(align) => setStyle({ align })} />
+              <div className="col-span-2">
+                <ColorField swatches={brandColors} label="Màu chữ" value={s.fill.color} onChange={(color) => setStyle({ fill: { kind: 'solid', color } })} />
+              </div>
+            </div>
+          )}
         </>
       )}
 
-      {p.renderSource !== 'ai' && p.autoStyle && (
-        <>
-          <TextPreview content={p.content} style={resolved.style} />
-          <p className="text-xs text-muted-foreground">
-            {FLOW_FONTS[resolved.style.fontFamily].label} · {WEIGHT_LABELS[resolved.style.fontWeight]} · {resolved.style.fontSizePx}px
-            {resolved.style.textTransform === 'uppercase' ? ' · IN HOA' : ''}. Màu ở bản xem trước là tạm – màu thật chọn theo nền
-            khi chạy. Muốn tự chọn font/màu, tắt &quot;Tự động theo banner&quot;.
-          </p>
-        </>
-      )}
-
-      {p.renderSource !== 'ai' && !p.autoStyle && (
-        <>
-          <TextPreview content={p.content} style={s} />
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <SelectField label="Font" value={s.fontFamily} options={FONT_OPTIONS}
-                onChange={(fontFamily) => {
-                  const ws = FLOW_FONTS[fontFamily].weights as readonly FontWeight[];
-                  setStyle({ fontFamily, fontWeight: ws.includes(s.fontWeight) ? s.fontWeight : ws[ws.length - 1]! });
-                }} />
-            </div>
-            <SelectField label="Độ đậm" value={String(s.fontWeight) as `${FontWeight}`}
-              options={weights.map((w) => ({ value: String(w) as `${FontWeight}`, label: `${WEIGHT_LABELS[w]} (${w})` }))}
-              onChange={(v) => setStyle({ fontWeight: Number(v) as FontWeight })} />
-            <SelectField label="Căn lề" value={s.align} options={ALIGN_OPTIONS} onChange={(align) => setStyle({ align })} />
-            <NumberField label="Cỡ chữ (px)" value={s.fontSizePx} min={1} max={400}
-              hint="Tại cạnh ngắn 1080px." onChange={(fontSizePx) => setStyle({ fontSizePx })} />
-            <NumberField label="Cỡ tối thiểu" value={p.minFontSizePx} min={1} max={400}
-              hint="Auto layout co tới mức này." onChange={(minFontSizePx) => set({ minFontSizePx })} />
-            <NumberField label="Giãn dòng" value={s.lineHeight} min={0.8} max={3} step={0.05}
-              onChange={(lineHeight) => setStyle({ lineHeight })} />
-            <NumberField label="Giãn chữ (em)" value={s.letterSpacingEm} min={-0.1} max={1} step={0.01}
-              onChange={(letterSpacingEm) => setStyle({ letterSpacingEm })} />
-            <NumberField label="Số dòng tối đa" value={s.maxLines} min={0} max={10}
-              hint="0 = không giới hạn." onChange={(maxLines) => setStyle({ maxLines: Math.round(maxLines) })} />
-            <div className="flex flex-col justify-end gap-2 pb-1">
-              <CheckboxField label="In nghiêng" checked={s.italic} onChange={(italic) => setStyle({ italic })} />
-              <CheckboxField label="IN HOA" checked={s.textTransform === 'uppercase'}
-                onChange={(on) => setStyle({ textTransform: on ? 'uppercase' : 'none' })} />
-            </div>
-          </div>
-
-          <ColorField swatches={brandColors} label="Màu chữ" value={s.fill.color} onChange={(color) => setStyle({ fill: { kind: 'solid', color } })} />
-
-          <ToggleSection title="Viền chữ" enabled={Boolean(s.stroke)}
-            onToggle={(on) => setStyle({ stroke: on ? { color: '#000000', widthPx: 2 } : undefined })}>
-            {s.stroke && (
+      {(p.role === 'headline' || manual) && (
+        <CollapsibleSection summary={advanced || undefined}>
+          {p.role === 'headline' && (
+            <SelectField label="Cách vẽ chữ" value={p.renderSource}
+              options={[{ value: 'layer', label: 'Layer (chính xác)' }, { value: 'ai', label: 'AI vẽ (có thể sai chính tả)' }]}
+              onChange={(renderSource) => set({ renderSource })} />
+          )}
+          {manual && (
+            <>
               <div className="grid grid-cols-2 gap-3">
-                <ColorField swatches={brandColors} label="Màu viền" value={s.stroke.color} onChange={(color) => setStyle({ stroke: { ...s.stroke!, color } })} />
-                <NumberField label="Độ dày (px)" value={s.stroke.widthPx} min={0.5} max={40} step={0.5}
-                  onChange={(widthPx) => setStyle({ stroke: { ...s.stroke!, widthPx } })} />
-              </div>
-            )}
-          </ToggleSection>
-
-          <ToggleSection title="Bóng chữ" enabled={Boolean(s.shadow)}
-            onToggle={(on) => setStyle({ shadow: on ? { color: '#00000066', blurPx: 8, offsetX: 0, offsetY: 3 } : undefined })}>
-            {s.shadow && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <ColorField swatches={brandColors} label="Màu bóng (#RRGGBBAA)" value={s.shadow.color} onChange={(color) => setStyle({ shadow: { ...s.shadow!, color } })} />
+                <SelectField label="Độ đậm" value={String(s.fontWeight) as `${FontWeight}`}
+                  options={weights.map((w) => ({ value: String(w) as `${FontWeight}`, label: `${WEIGHT_LABELS[w]} (${w})` }))}
+                  onChange={(v) => setStyle({ fontWeight: Number(v) as FontWeight })} />
+                <NumberField label="Cỡ tối thiểu" value={p.minFontSizePx} min={1} max={400}
+                  hint="Auto layout co tới mức này." onChange={(minFontSizePx) => set({ minFontSizePx })} />
+                <NumberField label="Giãn dòng" value={s.lineHeight} min={0.8} max={3} step={0.05}
+                  onChange={(lineHeight) => setStyle({ lineHeight })} />
+                <NumberField label="Giãn chữ (em)" value={s.letterSpacingEm} min={-0.1} max={1} step={0.01}
+                  onChange={(letterSpacingEm) => setStyle({ letterSpacingEm })} />
+                <NumberField label="Số dòng tối đa" value={s.maxLines} min={0} max={10}
+                  hint="0 = không giới hạn." onChange={(maxLines) => setStyle({ maxLines: Math.round(maxLines) })} />
+                <div className="flex flex-col justify-end gap-2 pb-1">
+                  <CheckboxField label="In nghiêng" checked={s.italic} onChange={(italic) => setStyle({ italic })} />
+                  <CheckboxField label="IN HOA" checked={s.textTransform === 'uppercase'}
+                    onChange={(on) => setStyle({ textTransform: on ? 'uppercase' : 'none' })} />
                 </div>
-                <NumberField label="Độ nhoè" value={s.shadow.blurPx} min={0} max={100}
-                  onChange={(blurPx) => setStyle({ shadow: { ...s.shadow!, blurPx } })} />
-                <NumberField label="Lệch dọc" value={s.shadow.offsetY} min={-100} max={100}
-                  onChange={(offsetY) => setStyle({ shadow: { ...s.shadow!, offsetY } })} />
               </div>
-            )}
-          </ToggleSection>
 
-          <ToggleSection title="Nền chữ (nút)" enabled={Boolean(s.plate)}
-            onToggle={(on) => setStyle({ plate: on ? { color: '#111111', paddingX: 32, paddingY: 16, radiusPx: 12 } : undefined })}>
-            {s.plate && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <ColorField swatches={brandColors} label="Màu nền" value={s.plate.color} onChange={(color) => setStyle({ plate: { ...s.plate!, color } })} />
-                </div>
-                <NumberField label="Đệm ngang" value={s.plate.paddingX} min={0} max={200}
-                  onChange={(paddingX) => setStyle({ plate: { ...s.plate!, paddingX } })} />
-                <NumberField label="Đệm dọc" value={s.plate.paddingY} min={0} max={200}
-                  onChange={(paddingY) => setStyle({ plate: { ...s.plate!, paddingY } })} />
-                <NumberField label="Bo góc" value={s.plate.radiusPx} min={0} max={999}
-                  onChange={(radiusPx) => setStyle({ plate: { ...s.plate!, radiusPx } })} />
-              </div>
-            )}
-          </ToggleSection>
-        </>
+              <ToggleSection title="Viền chữ" enabled={Boolean(s.stroke)}
+                onToggle={(on) => setStyle({ stroke: on ? { color: '#000000', widthPx: 2 } : undefined })}>
+                {s.stroke && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <ColorField swatches={brandColors} label="Màu viền" value={s.stroke.color} onChange={(color) => setStyle({ stroke: { ...s.stroke!, color } })} />
+                    <NumberField label="Độ dày (px)" value={s.stroke.widthPx} min={0.5} max={40} step={0.5}
+                      onChange={(widthPx) => setStyle({ stroke: { ...s.stroke!, widthPx } })} />
+                  </div>
+                )}
+              </ToggleSection>
+
+              <ToggleSection title="Bóng chữ" enabled={Boolean(s.shadow)}
+                onToggle={(on) => setStyle({ shadow: on ? { color: '#00000066', blurPx: 8, offsetX: 0, offsetY: 3 } : undefined })}>
+                {s.shadow && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <ColorField swatches={brandColors} label="Màu bóng (#RRGGBBAA)" value={s.shadow.color} onChange={(color) => setStyle({ shadow: { ...s.shadow!, color } })} />
+                    </div>
+                    <NumberField label="Độ nhoè" value={s.shadow.blurPx} min={0} max={100}
+                      onChange={(blurPx) => setStyle({ shadow: { ...s.shadow!, blurPx } })} />
+                    <NumberField label="Lệch dọc" value={s.shadow.offsetY} min={-100} max={100}
+                      onChange={(offsetY) => setStyle({ shadow: { ...s.shadow!, offsetY } })} />
+                  </div>
+                )}
+              </ToggleSection>
+
+              <ToggleSection title="Nền chữ (nút)" enabled={Boolean(s.plate)}
+                onToggle={(on) => setStyle({ plate: on ? { color: '#111111', paddingX: 32, paddingY: 16, radiusPx: 12 } : undefined })}>
+                {s.plate && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                      <ColorField swatches={brandColors} label="Màu nền" value={s.plate.color} onChange={(color) => setStyle({ plate: { ...s.plate!, color } })} />
+                    </div>
+                    <NumberField label="Đệm ngang" value={s.plate.paddingX} min={0} max={200}
+                      onChange={(paddingX) => setStyle({ plate: { ...s.plate!, paddingX } })} />
+                    <NumberField label="Đệm dọc" value={s.plate.paddingY} min={0} max={200}
+                      onChange={(paddingY) => setStyle({ plate: { ...s.plate!, paddingY } })} />
+                    <NumberField label="Bo góc" value={s.plate.radiusPx} min={0} max={999}
+                      onChange={(radiusPx) => setStyle({ plate: { ...s.plate!, radiusPx } })} />
+                  </div>
+                )}
+              </ToggleSection>
+            </>
+          )}
+        </CollapsibleSection>
       )}
     </>
   );

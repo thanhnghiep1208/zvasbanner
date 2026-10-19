@@ -36,20 +36,23 @@ import { RatioShape } from '../RatioShape';
 
 type AssetParams = { assetId: string; url: string; fileName: string };
 
-/** Nội dung chữ đầy đủ + tuỳ chọn đã chọn (node-details.ts). Không cắt: card cao theo nội dung. */
+/** Nội dung chữ (tối đa 3 dòng, đủ ở tooltip / Inspector) + vài chip chính (node-details.ts). */
 function DetailsBlock({ details }: { details: NodeDetails }) {
   const hasText = details.text !== undefined;
   if (!hasText && !details.chips.length) return null;
   return (
     <div className="flex flex-col gap-2 border-t px-3 py-2">
       {hasText && (
-        <p className={cn('text-xs leading-snug break-words whitespace-pre-wrap', !details.text && 'text-muted-foreground italic')}>
+        <p className={cn('line-clamp-3 text-xs leading-snug break-words whitespace-pre-wrap', !details.text && 'text-muted-foreground italic')}
+          title={details.text || undefined}>
           {details.text || '(trống)'}
         </p>
       )}
       {details.chips.length > 0 && (
-        <ul className="flex flex-wrap gap-1" aria-label="Tuỳ chọn">
-          {details.chips.map((c, i) => (
+        <ul className="flex flex-wrap items-center gap-1" aria-label="Tuỳ chọn">
+          {details.chips.map((c, i) => c.swatchOnly ? (
+            <li key={i} className="size-4 rounded-sm border" style={{ background: c.swatch }} title={c.label} aria-label={c.label} />
+          ) : (
             <li key={i} className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] leading-4 text-muted-foreground">
               {c.swatch && <span className="size-2.5 shrink-0 rounded-sm border" style={{ background: c.swatch }} aria-hidden />}
               <span className="truncate">{c.label}</span>
@@ -260,7 +263,7 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
       {unconnected && (
         <p className="mx-3 mb-2 flex gap-1.5 rounded-lg bg-run-stale/15 p-2 text-xs text-foreground" role="status">
           <TriangleAlert className="mt-px size-3.5 shrink-0 text-run-stale" aria-hidden />
-          <span>{ASSET_UNCONNECTED_MESSAGE} Kéo dây từ ô ra bên phải vào node cần dùng ảnh.</span>
+          <span title={ASSET_UNCONNECTED_MESSAGE}>Chưa nối – kéo dây từ ô bên phải vào node cần ảnh.</span>
         </p>
       )}
       {isImage && <AssetThumb params={data.params as AssetParams} />}
