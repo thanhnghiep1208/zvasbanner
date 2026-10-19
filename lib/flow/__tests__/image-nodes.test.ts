@@ -43,6 +43,18 @@ describe('image-nodes (Simple view nhiều ảnh)', () => {
     expect(pos(b.id).y).toBeGreaterThan(pos(a.id).y);
   });
 
+  it('ảnh mới không đè node khác trong cột (template có Text ngay dưới ảnh)', () => {
+    for (const id of ['event-brand', 'product-hero', 'sale-multi-ratio']) {
+      const t = instantiateTemplate(getTemplate(id)!);
+      const { graph, id: nid } = addImageNode(t.graph, asset('logo'));
+      const p = graph.nodes.find((n) => n.id === nid)!.position;
+      for (const n of graph.nodes) {
+        if (n.id === nid || Math.abs(n.position.x - p.x) >= 200) continue;
+        expect(p.y - n.position.y, `${id}: ${n.id}`).toBeGreaterThanOrEqual(280);
+      }
+    }
+  });
+
   it('đổi loại trong cùng nhóm chỉ đổi role, không đổi dây', () => {
     const g = heroWithProduct();
     const next = setImageRole(g, 'n-product-0', 'logo');

@@ -153,17 +153,24 @@ export function BrandFromWebsite({ nodeId, p }: { nodeId: string; p: BrandParams
           <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
             <legend className="mb-1 p-0 text-xs text-muted-foreground">Logo</legend>
             {result.logos.length ? (
-              <div className="grid grid-cols-2 gap-1.5" role="radiogroup">
-                {result.logos.map((l, i) => (
-                  <button key={l.url} type="button" role="radio" aria-checked={logoIdx === i} title={l.fileName}
-                    onClick={() => setLogoIdx(i)}
-                    className="grid h-16 place-items-center rounded-md border bg-[repeating-conic-gradient(var(--muted)_0_25%,transparent_0_50%)] bg-[length:12px_12px] p-1.5 aria-checked:border-primary aria-checked:ring-2 aria-checked:ring-primary/30 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- data URL server vừa tải */}
-                    <img src={l.dataUrl} alt={`Logo ${i + 1}: ${l.fileName}`} className="max-h-full max-w-full object-contain" />
-                  </button>
-                ))}
+              <div className="flex flex-col gap-1.5" role="radiogroup" aria-label="Chọn logo">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {result.logos.map((l, i) => (
+                    <button key={l.url} type="button" role="radio" aria-checked={logoIdx === i} title={l.fileName}
+                      onClick={() => setLogoIdx(i)}
+                      className="flex h-16 min-w-0 items-center justify-center overflow-hidden rounded-md border bg-muted/60 px-2 transition-colors hover:bg-muted aria-checked:border-primary aria-checked:bg-background aria-checked:ring-2 aria-checked:ring-primary/30 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- data URL server vừa tải */}
+                      <img src={l.dataUrl} alt={`Logo ${i + 1}: ${l.fileName}`}
+                        // Viền bóng mảnh để logo trắng vẫn thấy trên nền sáng; icon nhỏ (favicon 16px) phóng lên tối thiểu 32px.
+                        className="h-auto max-h-11 min-h-8 w-auto max-w-full object-contain [filter:drop-shadow(0_0_1px_rgb(0_0_0/0.55))]" />
+                    </button>
+                  ))}
+                </div>
                 <button type="button" role="radio" aria-checked={logoIdx === null} onClick={() => setLogoIdx(null)}
-                  className="grid h-16 place-items-center rounded-md border border-dashed text-xs text-muted-foreground aria-checked:border-primary aria-checked:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+                  className="group inline-flex items-center gap-2 self-start rounded-md py-0.5 text-xs text-muted-foreground aria-checked:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+                  <span className="grid size-3.5 place-items-center rounded-full border border-muted-foreground group-aria-checked:border-primary" aria-hidden>
+                    <span className="size-1.5 rounded-full bg-primary opacity-0 group-aria-checked:opacity-100" />
+                  </span>
                   Không lấy logo
                 </button>
               </div>

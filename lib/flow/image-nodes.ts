@@ -56,12 +56,21 @@ function nextImageId(graph: FlowGraph): string {
   return `n-image-${k}`;
 }
 
-/** Vị trí node ảnh mới: ngay dưới node ảnh thấp nhất (cùng cột), không có thì góc trên trái. */
+/** Khoảng dọc giữa các node trong 1 cột – đủ cho card ảnh có thumbnail (card cao nhất ở cột đầu vào). */
+const ROW_GAP = 280;
+/** Node lệch ngang ít hơn mức này coi như cùng cột (card rộng ~280). */
+const COLUMN_SLACK = 200;
+
+/**
+ * Vị trí node ảnh mới: cột của các node ảnh, dưới node THẤP NHẤT trong cột đó (không chỉ dưới ảnh cuối –
+ * template xếp Text ngay dưới ảnh, đặt "dưới ảnh" sẽ đè lên Text). Chưa có ảnh thì góc trên trái.
+ */
 function nextImagePosition(graph: FlowGraph): { x: number; y: number } {
   const images = graph.nodes.filter(isImageNode);
   if (!images.length) return { x: 0, y: 0 };
-  const last = images.reduce((a, b) => (b.position.y > a.position.y ? b : a));
-  return { x: last.position.x, y: last.position.y + 280 };
+  const x = images.reduce((a, b) => (b.position.y > a.position.y ? b : a)).position.x;
+  const bottom = Math.max(...graph.nodes.filter((n) => Math.abs(n.position.x - x) < COLUMN_SLACK).map((n) => n.position.y));
+  return { x, y: bottom + ROW_GAP };
 }
 
 /** Thêm node ảnh (type theo `asset.role`), nối dây như ảnh cùng loại đang có. */
