@@ -314,7 +314,7 @@ function FlowCanvasInner() {
       className={`flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground ${FLOW_FONT_VARIABLES}`}
       style={{ '--flow-handle-boost': handleBoost } as CSSProperties}
     >
-      <header className="relative grid h-[52px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b bg-background/80 px-3 backdrop-blur-md lg:px-4">
+      <header className="relative flex shrink-0 flex-wrap items-center gap-2 border-b bg-background/80 px-3 py-2 backdrop-blur-md md:grid md:h-[52px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:py-0 lg:px-4">
         {isRunning && (
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-muted"
@@ -354,7 +354,7 @@ function FlowCanvasInner() {
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 justify-self-center text-xs text-muted-foreground" aria-live="polite">
+        <div className="flex items-center gap-1.5 justify-self-center text-xs text-muted-foreground max-md:order-last" aria-live="polite">
           {!isEmpty && (
             <span className="hidden tabular-nums 2xl:inline">{graph.nodes.length} node · {graph.edges.length} dây</span>
           )}
@@ -372,14 +372,14 @@ function FlowCanvasInner() {
           )}
         </div>
 
-        <div className="flex min-w-0 items-center gap-2 justify-self-end">
+        <div className="flex min-w-0 items-center gap-2 justify-self-end max-md:w-full max-md:justify-end">
           <div className="flex items-center">
             <Button type="button" variant="ghost" size="icon-sm" aria-label="Hoàn tác" title="Hoàn tác (⌘/Ctrl+Z)"
               disabled={!canUndo} onClick={() => undo()}>
               <Undo2 />
             </Button>
             <Button type="button" variant="ghost" size="icon-sm" aria-label="Làm lại" title="Làm lại (⇧⌘Z / Ctrl+Y)"
-              disabled={!canRedo} onClick={() => redo()}>
+              className="max-sm:hidden" disabled={!canRedo} onClick={() => redo()}>
               <Redo2 />
             </Button>
           </div>
