@@ -26,6 +26,8 @@ import { toast } from 'sonner';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { REJECT_MESSAGES } from '@/lib/flow/connection-rules';
 import { getDefinition, NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
@@ -381,15 +383,22 @@ function FlowCanvasInner() {
               <Redo2 />
             </Button>
           </div>
-          <Link
-            href="/flow/guide"
-            target="_blank"
-            className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}
-            aria-label="Hướng dẫn dùng node (mở tab mới)"
-            title="Hướng dẫn dùng node"
-          >
-            <CircleHelp />
-          </Link>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Link
+                  href="/flow/guide"
+                  target="_blank"
+                  className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-xl:px-2')}
+                  aria-label="Hướng dẫn (mở tab mới)"
+                />
+              }
+            >
+              <CircleHelp aria-hidden />
+              <span className="max-xl:sr-only">Hướng dẫn</span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Chưa biết làm thế nào? Nhấn để xem hướng dẫn</TooltipContent>
+          </Tooltip>
           <ProjectMenu />
           <Button type="button" size="sm" onClick={() => void run()} disabled={isRunning || isEmpty} aria-busy={isRunning}>
             {isRunning
@@ -472,15 +481,21 @@ function FlowCanvasInner() {
                 </span>
                 <p className="text-sm font-semibold">Canvas trống</p>
                 <p className="text-xs text-muted-foreground">
-                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Brief, Kích thước và Tạo banner.
+                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Kích thước, Brief, Auto layout, Tạo nền, Ghép layer và Xuất ảnh.
                 </p>
-                <Button type="button" size="sm" variant="outline" className="pointer-events-auto mt-1"
-                  onClick={() => {
-                    useFlowStore.getState().loadTemplate(DEFAULT_TEMPLATES[0]!);
-                    trackFlow('flow_template_used', { source: 'empty_canvas' });
-                  }}>
-                  Nạp template mặc định
-                </Button>
+                <div className="pointer-events-auto mt-1 flex flex-wrap justify-center gap-2">
+                  <Link href="/flow/guide" target="_blank" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                    <CircleHelp aria-hidden />
+                    Xem hướng dẫn
+                  </Link>
+                  <Button type="button" size="sm" variant="ghost"
+                    onClick={() => {
+                      useFlowStore.getState().loadTemplate(DEFAULT_TEMPLATES[0]!);
+                      trackFlow('flow_template_used', { source: 'empty_canvas' });
+                    }}>
+                    Nạp template mặc định
+                  </Button>
+                </div>
               </div>
             </div>
           )}

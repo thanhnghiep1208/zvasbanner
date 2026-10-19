@@ -275,6 +275,19 @@ const referenceBanner: FlowTemplate = {
 /** Thứ tự = thứ tự hiện trong UI chọn template; phần tử đầu là mặc định khi mở /flow (T5.4). */
 export const DEFAULT_TEMPLATES: readonly FlowTemplate[] = [productHero, referenceBanner, saleMultiRatio, socialPost, eventBrand];
 
+/**
+ * Canvas trống (Nghiệp yêu cầu 2026-10-19): user tự kéo node và nối. Không nằm trong DEFAULT_TEMPLATES vì graph
+ * rỗng không qua validate (thiếu Xuất ảnh) và không có Simple view; chỉ mở khi user chọn, /flow vẫn mặc định
+ * template đầu (SPEC 5.6). `exposed` rỗng → loadTemplate mở thẳng Canvas view.
+ */
+export const BLANK_TEMPLATE: FlowTemplate = {
+  id: 'blank',
+  name: 'Canvas trống',
+  description: 'Không có node nào – tự kéo node từ thư viện và nối theo ý bạn.',
+  graph: { nodes: [], edges: [] },
+  exposed: [],
+};
+
 export function getTemplate(id: string): FlowTemplate | undefined {
-  return DEFAULT_TEMPLATES.find((t) => t.id === id);
+  return id === BLANK_TEMPLATE.id ? BLANK_TEMPLATE : DEFAULT_TEMPLATES.find((t) => t.id === id);
 }

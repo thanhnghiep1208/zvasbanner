@@ -1,7 +1,7 @@
 /**
  * Nội dung trang hướng dẫn /flow/guide. Port, nhãn, mô tả, số lượt AI đọc thẳng từ NODE_DEFINITIONS
  * (FlowGuide.tsx) nên không lệch registry; file này chỉ giữ phần viết tay: mức cần thiết theo từng
- * kiểu flow và mẹo dùng. Đổi node/port → kiểm lại `NEED` và `TIPS` (có test).
+ * kiểu flow, các bước, dây và mẹo. Đổi node/port → kiểm lại (có test).
  */
 import type { NodeType } from '@/lib/flow/schema';
 
@@ -31,116 +31,66 @@ export const NEED: Record<NodeType, { composed: Need; flat: Need }> = {
   'export': { composed: 'required', flat: 'required' },
 };
 
-/** Nối ra đâu + mẹo. Viết ngắn, theo đúng nhãn UI. */
+/** Mẹo ngắn cho từng node: nối đi đâu (flow Ghép layer) + 1–2 ý cần nhớ. */
 export const TIPS: Record<NodeType, { connect: string; tips: string[] }> = {
   'product-asset': {
-    connect: 'Composed: nối vào cả Auto layout và Ghép layer. Flat: nối vào Tạo banner (flat).',
-    tips: [
-      'Chọn "Loại ảnh": ảnh sản phẩm, logo hoặc trang trí. Mỗi ảnh là 1 node.',
-      'Dùng PNG nền trong suốt để có bóng đổ tự động; ảnh còn nền gốc sẽ hiện cả viền nền trên banner.',
-      'Pixel ảnh không đi qua AI ở chế độ composed: sản phẩm giữ nguyên màu, hình dạng, chữ trên bao bì.',
-      'Kéo thả ảnh từ máy vào chỗ trống trên canvas để tạo node nhanh; thả lên node ảnh để thay ảnh.',
-    ],
+    connect: 'Auto layout + Ghép layer',
+    tips: ['Chọn loại: sản phẩm, logo hoặc trang trí.', 'PNG nền trong suốt → có bóng đổ tự động.'],
   },
   'reference-image': {
-    connect: 'Nối vào Tạo nền (composed) hoặc Tạo banner (flat).',
-    tips: [
-      'Tối đa 4MB mỗi ảnh.',
-      'Composed: AI dựng lại phần nền của mẫu (loại nền, màu, ánh sáng, hoạ tiết), bỏ chữ/logo/sản phẩm của mẫu. Bố cục vẫn do Auto layout.',
-      'Muốn bám cả bố cục của mẫu: dùng template "Theo banner mẫu" (flat).',
-    ],
+    connect: 'Tạo nền',
+    tips: ['Tối đa 4MB. AI lấy màu, ánh sáng, hoạ tiết nền của mẫu.'],
   },
   'brief': {
-    connect: 'Nối vào Tạo nền hoặc Tạo banner (flat).',
-    tips: [
-      'Mô tả bối cảnh nền: chất liệu, không gian, ánh sáng, tông màu. VD: "mặt bàn gỗ sồi, cây xanh mờ phía sau, nắng sớm".',
-      'Không ghi chữ cần hiện trên banner vào đây – dùng node Text.',
-      'Chọn mục tiêu chiến dịch (flash sale, ra mắt sản phẩm…) để AI chọn không khí phù hợp.',
-    ],
+    connect: 'Tạo nền',
+    tips: ['Tả bối cảnh nền, VD: "mặt bàn gỗ, nắng sớm".', 'Chữ trên banner để ở node Text, không ghi vào đây.'],
   },
   'text-layer': {
-    connect: 'Composed: nối vào cả Auto layout và Ghép layer. Flat: nối vào Tạo banner (flat).',
-    tips: [
-      'Mỗi dòng chữ là 1 node: Tiêu đề, Tiêu đề phụ, CTA (nút) hoặc Text khác.',
-      '"Tự động theo banner" (mặc định bật): font, cỡ theo Phong cách + Brand kit, màu chữ chọn theo nền thật để đọc rõ. Tắt để chỉnh tay.',
-      'Composed: chữ vẽ bằng font thật, không sai chính tả. Flat: AI vẽ chữ nên có thể sai.',
-      'Chữ dài quá không vừa khung → lỗi "không đủ chỗ" trên Auto layout. Rút ngắn chữ hoặc giảm "Cỡ tối thiểu".',
-    ],
+    connect: 'Auto layout + Ghép layer',
+    tips: ['Mỗi dòng chữ 1 node: tiêu đề, tiêu đề phụ, CTA.', '"Tự động theo banner" tự chọn font, cỡ, màu dễ đọc.'],
   },
   'brand-kit': {
-    connect: 'Nối vào Tạo nền hoặc Tạo banner (flat).',
-    tips: [
-      'Màu thương hiệu dạng hex (#E30613). Tiêu đề tự động ưu tiên màu thương hiệu nếu đủ tương phản.',
-      'Font thương hiệu thắng font theo Phong cách.',
-      'Góc logo: logo dời vào góc đã chọn nếu không đè lên sản phẩm/chữ; không thì giữ vị trí layout và báo cảnh báo.',
-    ],
+    connect: 'Tạo nền',
+    tips: ['Màu hex, font và góc đặt logo của thương hiệu.'],
   },
   'ratio': {
-    connect: 'Composed: nối vào Auto layout. Flat: nối vào Tạo banner (flat).',
-    tips: [
-      'Thêm nhiều kích thước để xuất cùng lúc (Zalo OA, Báo Mới, story…). Mỗi kích thước tự xếp lại bố cục.',
-      'Mỗi kích thước tốn 1 lượt AI (composed) hoặc 2 lượt (flat). Số lượt hiện trên nút "Chạy tất cả".',
-    ],
+    connect: 'Auto layout',
+    tips: ['Thêm nhiều kích thước để xuất cùng lúc; mỗi kích thước tốn thêm lượt AI.'],
   },
   'style': {
-    connect: 'Nối vào Tạo nền hoặc Tạo banner (flat).',
-    tips: [
-      'Phong cách, mood, bảng màu và kiểu chữ của nền.',
-      'Ảnh hưởng cả chữ tự động: phong cách Nổi bật → chữ IN HOA, đậm, lớn; Sang trọng → chữ có chân.',
-    ],
+    connect: 'Tạo nền',
+    tips: ['Phong cách nền, đồng thời quyết định kiểu chữ tự động.'],
   },
   'auto-layout': {
-    connect: 'Nhận Kích thước + Asset + Text; nối ra Tạo nền và Ghép layer.',
-    tips: [
-      'Tự xếp sản phẩm và chữ cho từng kích thước, không tốn lượt AI.',
-      'Không đủ chỗ: co sản phẩm, rồi co chữ (chữ ưu tiên thấp co trước), rồi thử bố cục khác. Vẫn không vừa → báo lỗi, không tự bỏ phần tử.',
-      'Kéo chỉnh tay vị trí ở từng kích thước được lưu riêng, luôn thắng bố cục tự động.',
-    ],
+    connect: 'Tạo nền + Ghép layer',
+    tips: ['Báo "không đủ chỗ" → rút ngắn chữ hoặc bớt kích thước hẹp.'],
   },
   'generate-background': {
-    connect: 'Nhận Layout + Brief (+ Phong cách, Brand kit, Ảnh tham chiếu); nối ra Ghép layer.',
-    tips: [
-      'AI chỉ tạo nền, chừa chỗ trống đúng vùng sản phẩm và chữ của Auto layout.',
-      '"Hướng sáng" quyết định hướng bóng đổ của sản phẩm khi ghép.',
-      'Mặc định cấm chữ trên nền để không chồng lên text layer.',
-    ],
+    connect: 'Ghép layer',
+    tips: ['Chừa chỗ trống cho sản phẩm và chữ.', '"Hướng sáng" quyết định hướng bóng đổ.'],
   },
   'generate-flat': {
-    connect: 'Nhận Kích thước + Brief (+ Asset, Text, Phong cách, Brand kit, Ảnh tham chiếu); nối ra Xuất ảnh.',
-    tips: [
-      'AI vẽ cả banner như form cũ, kèm 1 lượt chỉnh hài hoà → 2 lượt AI mỗi kích thước.',
-      'Sản phẩm và chữ đi qua AI: có thể lệch chi tiết hoặc sai chính tả. Dùng khi cần bám bố cục banner mẫu.',
-      'Không dùng chung với Auto layout / Tạo nền / Ghép layer trong cùng 1 flow.',
-    ],
+    connect: 'Xuất ảnh',
+    tips: ['AI vẽ cả chữ và sản phẩm: có thể sai chính tả, lệch chi tiết.'],
   },
   'compose': {
-    connect: 'Nhận Nền + Layout (+ Asset, Text); nối ra Xuất ảnh.',
-    tips: [
-      'Ghép trên máy bạn, không tốn lượt AI: nền + sản phẩm + bóng đổ + chữ.',
-      'Bóng đổ: Tự động (theo hướng sáng), Tuỳ chỉnh (độ mờ, độ nhoè, lệch) hoặc Tắt.',
-      'Chỉ asset và text nối vào đây mới xuất hiện trên banner.',
-    ],
+    connect: 'Xuất ảnh',
+    tips: ['Chỉ ảnh và chữ nối vào đây mới hiện trên banner.'],
   },
   'export': {
-    connect: 'Nhận Bản ghép (từ Ghép layer) hoặc Ảnh (từ Tạo banner flat) – đúng 1 nguồn.',
-    tips: [
-      'PNG hoặc JPG, chất lượng, độ phân giải ×1/×2.',
-      'Chọn xuất tất cả hoặc một số kích thước.',
-      'Mỗi flow cần đúng 1 node Xuất ảnh.',
-    ],
+    connect: 'Điểm cuối',
+    tips: ['PNG/JPG, ×1/×2. Mỗi flow đúng 1 node Xuất ảnh.'],
   },
 };
 
 /** Lỗi/cảnh báo hay gặp → cách sửa. Message gốc nằm ở lib/flow/validate.ts. */
 export const COMMON_ISSUES: { title: string; fix: string; severity: 'error' | 'warning' }[] = [
-  { severity: 'error', title: 'Thiếu input bắt buộc', fix: 'Node có port bắt buộc chưa nối. Mở Inspector của node để xem port nào thiếu, kéo dây từ node cùng màu port.' },
-  { severity: 'error', title: 'Cần đúng 1 node Xuất ảnh', fix: 'Xoá node Xuất ảnh thừa, hoặc thêm 1 node nếu chưa có.' },
-  { severity: 'error', title: 'Xuất ảnh cần đúng 1 nguồn', fix: 'Nối Xuất ảnh với Ghép layer hoặc Tạo banner (flat), không nối cả hai.' },
-  { severity: 'error', title: 'Không đủ chỗ (Auto layout)', fix: 'Rút ngắn chữ, giảm "Cỡ tối thiểu" của chữ, bớt ảnh, hoặc bỏ kích thước quá hẹp/dài.' },
-  { severity: 'error', title: 'Graph có vòng lặp', fix: 'Dây chỉ đi một chiều từ đầu vào tới Xuất ảnh. Xoá dây quay ngược.' },
-  { severity: 'warning', title: 'Ảnh chưa nối vào node nào', fix: 'Node ảnh viền vàng: kéo dây từ ảnh vào Auto layout + Ghép layer (hoặc Tạo nền với ảnh tham chiếu).' },
-  { severity: 'warning', title: 'Ảnh sản phẩm chưa tách nền', fix: 'Dùng PNG nền trong suốt để có bóng đổ tự động và không lộ nền gốc.' },
-  { severity: 'warning', title: 'Cần tải lại ảnh', fix: 'Project đã lưu không giữ ảnh. Tải lại ảnh vào các node ảnh trước khi chạy.' },
+  { severity: 'error', title: 'Thiếu input bắt buộc', fix: 'Chọn node, xem port nào thiếu, kéo dây từ node cùng màu.' },
+  { severity: 'error', title: 'Không đủ chỗ', fix: 'Rút ngắn chữ, giảm "Cỡ tối thiểu", bớt ảnh hoặc kích thước hẹp.' },
+  { severity: 'error', title: 'Lỗi ở Xuất ảnh', fix: 'Giữ đúng 1 node Xuất ảnh, nối từ đúng 1 nguồn.' },
+  { severity: 'warning', title: 'Ảnh chưa nối', fix: 'Node viền vàng: nối ảnh vào Auto layout + Ghép layer.' },
+  { severity: 'warning', title: 'Ảnh chưa tách nền', fix: 'Dùng PNG nền trong suốt để có bóng đổ.' },
+  { severity: 'warning', title: 'Cần tải lại ảnh', fix: 'Project đã lưu không giữ ảnh – tải lại trước khi chạy.' },
 ];
 
 /** Dây của 1 flow đầy đủ. `required` = thiếu dây này thì flow báo lỗi. */
@@ -152,6 +102,13 @@ export interface RecipeEdge {
   required: boolean;
 }
 
+/** 1 bước trên sơ đồ flow: các node thuộc bước đó, theo thứ tự hiển thị. */
+export interface RecipeStage {
+  title: string;
+  hint: string;
+  nodes: NodeType[];
+}
+
 export interface Recipe {
   id: 'composed' | 'flat';
   title: string;
@@ -159,19 +116,28 @@ export interface Recipe {
   aiCalls: string;
   templateId: string;
   templateName: string;
+  stages: RecipeStage[];
   edges: RecipeEdge[];
 }
 
 const e = (from: NodeType, to: NodeType, port: string, required = false): RecipeEdge => ({ from, to, port, required });
 
+const INPUT_NODES: NodeType[] = ['ratio', 'brief', 'product-asset', 'text-layer', 'style', 'brand-kit', 'reference-image'];
+
 export const RECIPES: Recipe[] = [
   {
     id: 'composed',
-    title: 'Ghép layer (mặc định)',
-    summary: 'AI chỉ tạo nền. Sản phẩm giữ nguyên pixel, chữ vẽ bằng font thật, bố cục tự xếp theo từng kích thước.',
-    aiCalls: '1 lượt AI mỗi kích thước',
+    title: 'Ghép layer',
+    summary: 'AI chỉ tạo nền. Sản phẩm giữ nguyên, chữ không sai chính tả.',
+    aiCalls: '1 lượt AI / kích thước',
     templateId: 'product-hero',
     templateName: 'Sản phẩm nổi bật',
+    stages: [
+      { title: 'Chuẩn bị', hint: 'Kích thước, mô tả, ảnh, chữ', nodes: INPUT_NODES },
+      { title: 'Xếp bố cục', hint: 'Tự động, không tốn AI', nodes: ['auto-layout'] },
+      { title: 'Tạo nền', hint: 'AI vẽ nền', nodes: ['generate-background'] },
+      { title: 'Ghép & xuất', hint: 'Ghép trên máy, tải ảnh', nodes: ['compose', 'export'] },
+    ],
     edges: [
       e('ratio', 'auto-layout', 'ratio', true),
       e('product-asset', 'auto-layout', 'product'),
@@ -190,11 +156,16 @@ export const RECIPES: Recipe[] = [
   },
   {
     id: 'flat',
-    title: 'Flat – AI vẽ cả banner',
-    summary: 'Giống form cũ: AI vẽ nền, sản phẩm và chữ trong 1 ảnh. Dùng khi cần bám bố cục của banner mẫu.',
-    aiCalls: '2 lượt AI mỗi kích thước',
+    title: 'Flat',
+    summary: 'AI vẽ cả banner. Dùng khi cần bám bố cục banner mẫu.',
+    aiCalls: '2 lượt AI / kích thước',
     templateId: 'reference-banner',
     templateName: 'Theo banner mẫu',
+    stages: [
+      { title: 'Chuẩn bị', hint: 'Kích thước, mô tả, banner mẫu', nodes: INPUT_NODES },
+      { title: 'Tạo banner', hint: 'AI vẽ cả banner', nodes: ['generate-flat'] },
+      { title: 'Xuất', hint: 'Tải ảnh', nodes: ['export'] },
+    ],
     edges: [
       e('ratio', 'generate-flat', 'ratio', true),
       e('brief', 'generate-flat', 'brief', true),

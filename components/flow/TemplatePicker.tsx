@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, ChevronDown, LayoutTemplate } from 'lucide-react';
+import { Check, ChevronDown, LayoutTemplate, SquareDashed } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
-import { DEFAULT_TEMPLATES, type FlowTemplate } from '@/lib/flow/template';
+import { BLANK_TEMPLATE, DEFAULT_TEMPLATES, type FlowTemplate } from '@/lib/flow/template';
 import { estimateAiCalls } from '@/lib/flow/compiled-job';
 import { compileGraph } from '@/lib/flow/compiler';
 import type { NodeParamsMap } from '@/lib/flow/schema';
@@ -34,7 +34,7 @@ export function TemplatePicker() {
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState<FlowTemplate | null>(null);
 
-  const current = DEFAULT_TEMPLATES.find((t) => t.id === templateId);
+  const current = [...DEFAULT_TEMPLATES, BLANK_TEMPLATE].find((t) => t.id === templateId);
   const apply = (t: FlowTemplate) => {
     loadTemplate(t);
     setDocUrl(null); // project mới, chưa lưu
@@ -92,6 +92,23 @@ export function TemplatePicker() {
               );
             })}
           </ul>
+        )}
+        {!pending && (
+          <button
+            type="button"
+            onClick={() => (edited ? setPending(BLANK_TEMPLATE) : apply(BLANK_TEMPLATE))}
+            aria-current={templateId === BLANK_TEMPLATE.id || undefined}
+            className="flex w-full items-center gap-2.5 rounded-md border border-dashed px-2 py-2 text-left transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden>
+              <SquareDashed className="size-4" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm font-medium">{BLANK_TEMPLATE.name}</span>
+              <span className="text-xs text-muted-foreground">{BLANK_TEMPLATE.description}</span>
+            </span>
+            {templateId === BLANK_TEMPLATE.id && <Check className="size-4 shrink-0" aria-label="Đang dùng" />}
+          </button>
         )}
       </PopoverContent>
     </Popover>

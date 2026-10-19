@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_TEMPLATES, getTemplate } from '@/lib/flow/template';
+import { BLANK_TEMPLATE, DEFAULT_TEMPLATES, getTemplate } from '@/lib/flow/template';
 
 /** Module mới mỗi test: kiểm state đầu của store singleton (T5.4). */
 async function freshStore() {
@@ -56,5 +56,20 @@ describe('project đã lưu (T6.1)', () => {
     expect(s().view).toBe('canvas'); // doc không có exposed
     s().loadTemplate(getTemplate('event-brand')!);
     expect(s()).toMatchObject({ docId: null, savedGraph: null, docTitle: 'Sự kiện theo thương hiệu' });
+  });
+
+  it('Canvas trống: chỉ mở khi chọn, graph rỗng, mở thẳng Canvas view', async () => {
+    const store = await freshStore();
+    expect(getTemplate('blank')).toBe(BLANK_TEMPLATE);
+    expect(DEFAULT_TEMPLATES.some((t) => t.id === BLANK_TEMPLATE.id)).toBe(false);
+    store.getState().loadTemplate(BLANK_TEMPLATE);
+    const s = store.getState();
+    expect(s.templateId).toBe('blank');
+    expect(s.graph).toEqual({ nodes: [], edges: [] });
+    expect(s.graph).not.toBe(BLANK_TEMPLATE.graph);
+    expect(s.exposed).toEqual([]);
+    expect(s.view).toBe('canvas');
+    s.setView('simple');
+    expect(store.getState().view).toBe('canvas');
   });
 });
