@@ -27,7 +27,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - [Flow Canvas](docs/flow/SPEC.md) — trình tạo banner dạng node (`/flow`, sau cờ `FLOW_CANVAS`): spec, quyết định ([QUESTIONS](docs/flow/QUESTIONS.md)), nhật ký
 - [Roadmap](docs/roadmap/) — đề xuất tính năng chưa triển khai (ví dụ Canva Connect)
 
-Tính năng chính: tạo banner AI (Gemini Nano Banana 2.1 mặc định, cohesion prompt + harmony pass ngầm), **làm theo banner mẫu** (ảnh tham chiếu style), chỉnh sửa ảnh, **biến thể kích thước** (preset có icon tỉ lệ), export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`, **Flow Canvas** `/flow` (template + chế độ Đơn giản, ghép sản phẩm giữ nguyên pixel, chữ tự động theo banner, lưu project).
+Tính năng chính: tạo banner AI (Gemini Nano Banana 2.1 mặc định, cohesion prompt + harmony pass ngầm), **làm theo banner mẫu** (ảnh tham chiếu style), chỉnh sửa ảnh, **biến thể kích thước** (preset có icon tỉ lệ), export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`, **Flow Canvas** `/flow` (template + chế độ Đơn giản, AI vẽ cả banner qua node Tạo banner, đánh dấu node cần bổ sung, lưu project, hướng dẫn `/flow/guide`).
 
 ## Troubleshooting (Local Dev)
 

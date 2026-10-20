@@ -242,7 +242,7 @@ Hướng dẫn chi tiết: checklist **Vercel + Clerk + domain + Postgres**, c�
    - User bị `blocked` vẫn không gọi được `/api/generate` (403).
 8. **RBAC — bảo vệ admin**: đăng nhập là `mod`, thử `PATCH /api/dashboard/users` đổi role của một user đang là `admin` → phải nhận `403` (cả promote lẫn demote).
 9. **Rate limit / size cap** (tùy chọn, để xác nhận sau khi đổi `lib/request-limits.ts`): gọi `/api/generate` quá 20 lần/giờ → `429`; gửi body vượt cap → `413`.
-10. **Flow canvas** (`FLOW_CANVAS=on`): mở `/flow` → chế độ Đơn giản có template; tải ảnh → tab "Xem trước bố cục" thấy sản phẩm + chữ; Chạy tất cả ra ảnh; tải lại trang → nháp mở lại đủ chữ + ảnh; ⌘/Ctrl+Z hoàn tác; Lưu ⌘/Ctrl+S → mở lại từ menu project (ảnh cần tải lại).
+10. **Flow canvas** (`FLOW_CANVAS=on`): mở `/flow` → chế độ Đơn giản có template; sang Canvas thấy node ảnh sản phẩm trống viền nét đứt + nút "1 node cần bổ sung"; tải ảnh → hết đánh dấu; xoá 1 dây vào Tạo banner → node đỏ "Thiếu dây"; Chạy tất cả ra ảnh (2 lượt AI / kích thước); tải lại trang → nháp mở lại đủ chữ + ảnh; ⌘/Ctrl+Z hoàn tác; Lưu ⌘/Ctrl+S → mở lại từ menu project (ảnh cần tải lại).
 11. **Console không có lỗi CSP**: mở DevTools khi dùng app (đăng nhập, generate, mở dashboard) — không thấy dòng `Refused to connect/load because it violates the following Content Security Policy directive`.
 
 ## Xử lý sự cố (troubleshooting)

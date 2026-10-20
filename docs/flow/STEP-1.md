@@ -1,5 +1,7 @@
 # Bước 1 – Schema + compiler
 
+> Tài liệu lịch sử. Chế độ composed (Ghép layer) đã gỡ 2026-10-20 – xem SPEC mục 3.
+
 ## Đã có
 - `schema.ts` – port types, params từng node, Transform/ShadowConfig, schemaVersion
 - `node-definitions.ts` – registry 13 node: ports, default params, aiCallsPerRatio

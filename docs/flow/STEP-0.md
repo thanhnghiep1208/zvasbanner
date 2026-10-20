@@ -1,5 +1,7 @@
 # Bước 0 – Checklist
 
+> Tài liệu lịch sử. Chế độ composed (Ghép layer) đã gỡ 2026-10-20 – xem SPEC mục 3.
+
 ## A. Quyết định composed mode (đã chốt)
 - [x] 1. Gemini biết vị trí sản phẩm khi sinh background → Auto Layout chạy TRƯỚC Generate BG, truyền layout guide (vùng trống) vào prompt
 - [x] 2. Tự động tối ưu layout theo từng ratio, không được làm mất content → Auto Layout node rule-based, transform lưu theo ratio, user override lưu riêng

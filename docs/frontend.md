@@ -61,8 +61,11 @@ State không persist (reload mất draft) — không có middleware `persist` tr
 Chỉ hiện khi cờ `FLOW_CANVAS` bật cho user (form có thêm nút **Mở trong canvas**). Code: `components/flow/`, state `store/flow-store.ts`.
 
 - **Header**: chọn template, chuyển **Đơn giản / Canvas**, Hoàn tác / Làm lại (⌘/Ctrl+Z, ⇧⌘Z), menu project (Lưu ⌘/Ctrl+S, mở, xoá), **Chạy tất cả** kèm số lượt AI.
-- **Đơn giản** (`components/flow/simple/`): form từ template – ô ảnh kéo thả nhiều ảnh + dropdown chức năng từng ảnh, nội dung, phong cách (gồm "Kiểu chữ: Tự động theo banner / Chỉnh tay"), kích thước; cột phải có tab **Xem trước bố cục** (không tốn lượt AI) và **Kết quả**.
-- **Canvas**: thư viện node (kéo thả), canvas React Flow, Inspector node đang chọn. Kéo ảnh từ máy thả vào canvas; nút "Xoá tất cả ảnh"; node ảnh chưa nối có cảnh báo; node Kích thước có hình tỉ lệ.
+- **Một luồng duy nhất – Tạo banner**: Ảnh sản phẩm, Brief, Text, Kích thước, Phong cách, Brand kit, Ảnh tham chiếu → **Tạo banner** (AI vẽ cả banner, 2 lượt AI / kích thước) → **Xuất ảnh**. Chế độ ghép layer đã gỡ 2026-10-20; project cũ tự chuyển khi mở.
+- **Đơn giản** (`components/flow/simple/`): form từ template – Brief, ô ảnh kéo thả nhiều ảnh + dropdown chức năng từng ảnh, nội dung chữ, phong cách, kích thước; cột phải là **Kết quả** (tải từng ảnh / Tải tất cả).
+- **Canvas**: thư viện node (kéo thả), canvas React Flow, Inspector node đang chọn (Text chỉ có Nội dung + Vai trò; font/màu do AI theo Phong cách + Brand kit). Kéo ảnh từ máy thả vào canvas; nút "Xoá tất cả ảnh"; node Kích thước có hình tỉ lệ.
+- **Node cần bổ sung** (`lib/flow/attention.ts`): node thiếu dây bắt buộc (đỏ), chưa có thông tin hoặc chưa nối (vàng) có viền nét đứt, nhãn và lời nhắc trên node; header có nút "N node cần bổ sung" để nhảy tới từng node; minimap tô màu các node đó.
+- **Hướng dẫn**: `/flow/guide` (nút "Hướng dẫn" trên header) – bắt đầu nhanh, sơ đồ 3 bước, mô tả từng node, lỗi hay gặp.
 - **Nháp**: tự lưu trên trình duyệt (localStorage + IndexedDB, theo tài khoản), mở lại `/flow` thì khôi phục, có "Bỏ nháp".
 - Chi tiết: [Flow SPEC](./flow/SPEC.md).
 

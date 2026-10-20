@@ -267,6 +267,7 @@ export function FlowGuide() {
               <li>Chỉ nối được 2 ô <span className="font-medium">cùng màu</span>. Khi kéo dây, ô nối được sẽ sáng lên.</li>
               <li>Ảnh, Text, Ảnh tham chiếu nối được nhiều dây; ô khác chỉ 1 dây.</li>
               <li>Mỗi flow có đúng 1 <span className="font-medium">Xuất ảnh</span>.</li>
+              <li>Node <span className="font-medium">viền nét đứt</span> là node cần bổ sung: đỏ = thiếu dây, vàng = chưa có thông tin hoặc chưa nối.</li>
             </ul>
             <Disclosure summary="Bảng màu ô nối">
               <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">

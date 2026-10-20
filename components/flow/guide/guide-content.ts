@@ -69,9 +69,9 @@ export const TIPS: Record<NodeType, { connect: string; tips: string[] }> = {
 
 /** Lỗi/cảnh báo hay gặp → cách sửa. Message gốc nằm ở lib/flow/validate.ts. */
 export const COMMON_ISSUES: { title: string; fix: string; severity: 'error' | 'warning' }[] = [
-  { severity: 'error', title: 'Thiếu input bắt buộc', fix: 'Chọn node, xem port nào thiếu, kéo dây từ node cùng màu.' },
+  { severity: 'error', title: 'Node viền đỏ nét đứt "Thiếu dây"', fix: 'Kéo dây từ node cùng màu vào ô có dấu *. Nút "N node cần bổ sung" trên header đưa bạn tới từng node.' },
   { severity: 'error', title: 'Lỗi ở Xuất ảnh', fix: 'Giữ đúng 1 node Xuất ảnh, nối từ Tạo banner.' },
-  { severity: 'warning', title: 'Ảnh chưa nối', fix: 'Node viền vàng: nối ảnh vào Tạo banner.' },
+  { severity: 'warning', title: 'Node viền vàng nét đứt', fix: '"Chưa có thông tin": điền nội dung hoặc tải ảnh. "Chưa nối": kéo dây từ ô bên phải vào Tạo banner.' },
   { severity: 'warning', title: 'Text không được gửi', fix: 'Mỗi loại tiêu đề chính, tiêu đề phụ, CTA chỉ dùng 1 node Text.' },
   { severity: 'warning', title: 'Cần tải lại ảnh', fix: 'Project đã lưu không giữ ảnh – tải lại trước khi chạy.' },
 ];

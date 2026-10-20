@@ -499,7 +499,23 @@ Cần đăng nhập + cờ `FLOW_CANVAS` (tắt → 404). Mọi thao tác lọc 
 - `PUT /api/flow/docs/:id` body như POST → `{ "doc" }`. `DELETE /api/flow/docs/:id` → `204`.
 - Body ≤ 1MB; graph được kiểm cấu trúc (`parseStoredFlowDoc`) và luôn bỏ `url` ảnh (không lưu ảnh). Lỗi DB → `503`.
 
-## 12) `POST /api/flow/track`
+## 12) `POST /api/flow/suggest-copy`
+
+"Gợi ý chữ từ brief" của Flow canvas: 3 phương án headline / subheadline / CTA tiếng Việt (model văn bản Gemini, `lib/flow-server/suggest-copy.ts`). Cần đăng nhập + cờ `FLOW_CANVAS`; rate limit riêng 30 lần/giờ/user (không tính vào lượt tạo ảnh); body ≤ 16KB; `maxDuration = 45`.
+
+- Body: `{ "campaign": CampaignBrief, "intents"?: CampaignIntent[], "scene"?: string, "brandName"?: string }` – `campaign` = `{ audience, message, offer, tone? }` (`lib/flow/brief.ts`, mỗi chuỗi ≤ 300 ký tự), cần có thông điệp hoặc ưu đãi.
+- `200`: `{ "variants": [{ "headline", "subheadline", "cta" }] }` (tối đa 3, cắt theo `COPY_LIMITS` 40 / 90 / 22 ký tự).
+- Lỗi: `400` (brief thiếu / sai), `401`/`404`, `413`, `429` (rate limit hoặc quota Gemini), `502` (AI không trả gợi ý hợp lệ), `504` (quá thời gian).
+
+## 13) `POST /api/flow/brand-from-url`
+
+Gợi ý Brand kit từ website thương hiệu, **không gọi AI** (đọc HTML/CSS/icon – `lib/flow/brand-extract.ts`, tải có chống SSRF + giới hạn dung lượng trong `lib/flow-server/brand-fetch.ts`). Cần đăng nhập + cờ; rate limit riêng 30 lần/giờ/user; body ≤ 4KB; `maxDuration = 30`.
+
+- Body: `{ "url": "https://..." }` (≤ 2048 ký tự).
+- `200`: `{ "name"?, "description"?, "colors": string[], "fontFamily"?, "fontId"?, "logos": [{ "url", "dataUrl", "fileName", "svg"? }] }`.
+- Lỗi: `400` (thiếu link, link không hợp lệ, không phải http(s), địa chỉ nội bộ / cổng lạ), `401`/`404`, `413` (body hoặc file trang quá lớn), `429`, `502` (website trả lỗi / không đọc được), `504` (website phản hồi chậm).
+
+## 14) `POST /api/flow/track`
 
 Ghi 1 event Flow canvas vào `flow_events` (`flow_opened`, `flow_template_used`, `flow_view_switched`, `flow_run_started`, `flow_run_completed`, `flow_run_failed`). Cần đăng nhập + cờ; body ≤ 4KB; field sai/thừa → `400`; thành công `204`.
 
