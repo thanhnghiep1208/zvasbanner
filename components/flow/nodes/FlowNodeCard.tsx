@@ -7,6 +7,8 @@ import {
   Download,
   FileText,
   Image as ImageIcon,
+  ImagePlus,
+  Plug,
   Package,
   Palette,
   Paintbrush,
@@ -25,7 +27,7 @@ import type { FlowNode, NodeParamsMap, NodeType, PortType } from '@/lib/flow/sch
 import type { FlowRFNode } from '@/lib/flow-ui/rf-adapter';
 import { summarizeNode } from '@/lib/flow-ui/node-summary';
 import { checkConnection } from '@/lib/flow-ui/connection-feedback';
-import { ASSET_UNCONNECTED_MESSAGE } from '@/lib/flow/validate';
+import { nodeAttention, type AttentionKind, type NodeAttention } from '@/lib/flow/attention';
 import { useFlowStore } from '@/store/flow-store';
 import { KIND_CHIP, PORT_HANDLE, RUN_BORDER, RUN_DOT, RUN_PILL } from '../flow-styles';
 import { nodeDetails, type NodeDetails } from './node-details';
@@ -96,7 +98,16 @@ function RatioList({ ratios }: { ratios: NodeParamsMap['ratio']['ratios'] }) {
 function AssetThumb({ params }: { params: AssetParams }) {
   const dataUrl = useFlowStore((s) => (params.assetId ? s.assetData[params.assetId] : undefined));
   const src = params.url || dataUrl;
-  if (!params.fileName) return null;
+  if (!params.fileName) {
+    return (
+      <div className="px-3 pb-3">
+        <div className="flex h-20 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-run-stale/60 bg-run-stale/5 text-xs text-muted-foreground">
+          <ImagePlus className="size-5 text-run-stale" aria-hidden />
+          Thả ảnh vào đây
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="px-3 pb-3">
       {src ? (
@@ -113,6 +124,34 @@ function AssetThumb({ params }: { params: AssetParams }) {
         </p>
       )}
     </div>
+  );
+}
+
+const ATTENTION_ICON: Record<AttentionKind, LucideIcon> = {
+  'missing-input': CircleAlert,
+  'empty': TriangleAlert,
+  'unconnected': Plug,
+};
+
+/** Lời nhắc node cần bổ sung (attention.ts): ngay dưới header để thấy trước tiên. */
+function AttentionCallout({ attention }: { attention: NodeAttention }) {
+  const error = attention.level === 'error';
+  return (
+    <ul
+      className={cn('mx-3 mb-2 flex flex-col gap-1 rounded-lg p-2 text-xs',
+        error ? 'bg-destructive/10 text-destructive' : 'bg-run-stale/15 text-foreground')}
+      role="status"
+    >
+      {attention.issues.map((i) => {
+        const Icon = ATTENTION_ICON[i.kind];
+        return (
+          <li key={i.kind} className="flex gap-1.5">
+            <Icon className={cn('mt-px size-3.5 shrink-0', i.kind === 'missing-input' ? 'text-destructive' : 'text-run-stale')} aria-hidden />
+            <span>{i.message}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -206,8 +245,15 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
     c.inProgress && c.fromHandle?.id ? `${c.fromNode.id}|${c.fromHandle.id}|${c.fromHandle.type}` : null);
   const candidates = useMemo(() => portCandidates(dragging, id, type), [dragging, id, type]);
   const isImage = type === 'product-asset' || type === 'reference-image';
-  // Ảnh chưa có dây ra → viền vàng + nhắc ngay trên node (cùng cảnh báo asset-unconnected của validate).
-  const unconnected = useFlowStore((s) => isImage && !s.graph.edges.some((e) => e.source === id));
+  // Thiếu dây / chưa có thông tin / chưa nối (attention.ts) → viền nét đứt + quầng màu + lời nhắc. Không che trạng thái chạy.
+  // Chuỗi JSON để chỉ render lại khi kết quả đổi (graph đổi liên tục khi kéo node).
+  const attentionKey = useFlowStore((s) => {
+    const n = s.graph.nodes.find((x) => x.id === id);
+    const a = n ? nodeAttention(s.graph, n) : null;
+    return a ? JSON.stringify(a) : '';
+  });
+  const attention = useMemo(() => (attentionKey ? JSON.parse(attentionKey) as NodeAttention : null), [attentionKey]);
+  const showAttention = attention && (run.state === 'idle' || run.state === 'stale');
 
   return (
     <div
@@ -215,10 +261,13 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
         'relative w-64 overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm transition-shadow',
         'hover:shadow-md',
         RUN_BORDER[run.state],
-        unconnected && run.state === 'idle' && 'border-run-stale',
+        showAttention && 'border-2 border-dashed',
+        showAttention && (attention.level === 'error' ? 'border-destructive' : 'border-run-stale'),
+        showAttention && !selected && (attention.level === 'error' ? 'ring-4 ring-destructive/15' : 'ring-4 ring-run-stale/25'),
         selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background',
       )}
       aria-busy={run.state === 'running' || undefined}
+      aria-description={showAttention ? attention.issues.map((i) => i.message).join(' ') : undefined}
     >
       {run.state === 'running' && (
         <div className="absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-run-running/20" aria-hidden>
@@ -234,6 +283,16 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
             {summary ?? def.description}
           </p>
         </div>
+        {showAttention && run.state === 'idle' && (
+          <span
+            className={cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
+              attention.level === 'error' ? 'bg-destructive/10 text-destructive' : 'bg-run-stale/15 text-foreground')}
+          >
+            <span className={cn('size-1.5 rounded-full animate-pulse motion-reduce:animate-none',
+              attention.level === 'error' ? 'bg-destructive' : 'bg-run-stale')} aria-hidden />
+            {attention.label}
+          </span>
+        )}
         {run.state !== 'idle' && (
           <span
             className={cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', RUN_PILL[run.state])}
@@ -245,6 +304,7 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
         )}
       </header>
 
+      {showAttention && <AttentionCallout attention={attention} />}
       {details && <DetailsBlock details={details} />}
 
       {(def.inputs.length > 0 || def.outputs.length > 0) && (
@@ -254,12 +314,6 @@ function FlowNodeCardImpl({ id, type, data, selected }: NodeProps<FlowRFNode>) {
         </ul>
       )}
 
-      {unconnected && (
-        <p className="mx-3 mb-2 flex gap-1.5 rounded-lg bg-run-stale/15 p-2 text-xs text-foreground" role="status">
-          <TriangleAlert className="mt-px size-3.5 shrink-0 text-run-stale" aria-hidden />
-          <span title={ASSET_UNCONNECTED_MESSAGE}>Chưa nối – kéo dây từ ô bên phải vào node cần ảnh.</span>
-        </p>
-      )}
       {isImage && <AssetThumb params={data.params as AssetParams} />}
       {type === 'ratio' && <RatioList ratios={(data.params as NodeParamsMap['ratio']).ratios} />}
 

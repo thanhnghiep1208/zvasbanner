@@ -21,7 +21,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import './flow-theme.css';
 import { Show, UserButton, useAuth } from '@clerk/nextjs';
-import { CircleAlert, CircleHelp, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, Redo2, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
+import { CircleAlert, CircleHelp, Crosshair, ImagePlus, LoaderCircle, MousePointerSquareDashed, PanelLeft, PanelRight, Play, Redo2, Trash2, TriangleAlert, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useShallow } from 'zustand/react/shallow';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,7 @@ import { getDefinition, NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { FlowAsset, NodeType } from '@/lib/flow/schema';
 import { DEFAULT_TEMPLATES, getTemplate } from '@/lib/flow/template';
 import { validateGraph } from '@/lib/flow/validate';
+import { graphAttention } from '@/lib/flow/attention';
 import {
   checkConnection, nearestValidConnection, rejectMessageForConnectionEnd, type HandlePoint,
 } from '@/lib/flow-ui/connection-feedback';
@@ -79,7 +80,7 @@ function FlowCanvasInner() {
       addNode: s.addNode,
     })),
   );
-  const { screenToFlowPosition, fitView, getInternalNode } = useReactFlow();
+  const { screenToFlowPosition, fitView, getInternalNode, setCenter } = useReactFlow();
   // Zoom làm tròn 0.05 → chỉ render lại khi đổi bậc, không phải mỗi tick cuộn chuột.
   const zoom = useRFStore((s) => Math.max(0.05, Math.round(s.transform[2] * 20) / 20));
   // Bù zoom cho ô nối: zoom nhỏ (graph 6 cột trên laptop ~0.4) thì chấm 12px chỉ còn ~5px trên màn hình.
@@ -153,6 +154,27 @@ function FlowCanvasInner() {
   const errorCount = issues.filter((i) => i.severity === 'error').length;
   const warningCount = issues.length - errorCount;
   const isEmpty = nodes.length === 0;
+
+  // Node thiếu dây / chưa có thông tin / chưa nối (attention.ts): đếm trên header, bấm để đi lần lượt tới từng node.
+  const attention = useMemo(() => graphAttention(graph), [graph]);
+  const attentionIds = useMemo(() => [...attention.keys()], [attention]);
+  const attentionErrors = useMemo(() => [...attention.values()].filter((a) => a.level === 'error').length, [attention]);
+  const attentionCursor = useRef(0);
+  const focusNextAttention = useCallback(() => {
+    if (!attentionIds.length) return;
+    const id = attentionIds[attentionCursor.current % attentionIds.length]!;
+    attentionCursor.current += 1;
+    const ui = useFlowStore.getState().nodeUi;
+    onNodesChange([
+      ...Object.keys(ui).filter((k) => k !== id && ui[k]?.selected).map((k) => ({ type: 'select' as const, id: k, selected: false })),
+      { type: 'select', id, selected: true },
+    ]);
+    const n = getInternalNode(id);
+    if (n) {
+      const { x, y } = n.internals.positionAbsolute;
+      void setCenter(x + (n.measured.width ?? 256) / 2, y + (n.measured.height ?? 160) / 2, { zoom: Math.max(zoom, 0.8), duration: 300 });
+    }
+  }, [attentionIds, onNodesChange, getInternalNode, setCenter, zoom]);
 
   // Đọc graph mới nhất từ store: các callback này được gọi liên tục khi đang kéo dây.
   const isValidConnection = useCallback<IsValidConnection>(
@@ -366,6 +388,20 @@ function FlowCanvasInner() {
               {warningCount} cảnh báo
             </span>
           )}
+          {view === 'canvas' && attentionIds.length > 0 && (
+            <button
+              type="button"
+              onClick={focusNextAttention}
+              title="Bấm để đi lần lượt tới từng node cần bổ sung"
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+                attentionErrors ? 'border-destructive/40 text-destructive hover:bg-destructive/10' : 'border-run-stale/60 text-foreground hover:bg-run-stale/15',
+              )}
+            >
+              <Crosshair className={cn('size-3.5', !attentionErrors && 'text-run-stale')} aria-hidden />
+              {attentionIds.length} node cần bổ sung
+            </button>
+          )}
         </div>
 
         <div className="flex min-w-0 items-center gap-2 justify-self-end max-md:w-full max-md:justify-end">
@@ -449,7 +485,16 @@ function FlowCanvasInner() {
             >
               <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} />
               <Controls showInteractive={false} position="bottom-left" />
-              <MiniMap pannable zoomable position="bottom-right" />
+              <MiniMap
+                pannable
+                zoomable
+                position="bottom-right"
+                // Node cần bổ sung nổi màu trên minimap để thấy ngay khi graph lớn.
+                nodeColor={(n) => {
+                  const a = attention.get(n.id);
+                  return !a ? 'var(--border)' : a.level === 'error' ? 'var(--destructive)' : 'var(--flow-run-stale)';
+                }}
+              />
               {imageNodeIds.length > 0 && (
                 <Panel position="top-right">
                   <Button type="button" size="sm" variant="outline" className="bg-card shadow-xs" onClick={removeAllImagesNow}>
