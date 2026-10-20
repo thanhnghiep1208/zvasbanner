@@ -18,10 +18,22 @@ export const FLOW_FONTS = {
   'noto-serif': { label: 'Noto Serif', fallback: 'serif', weights: [400, 500, 600, 700] },
   'montserrat': { label: 'Montserrat', fallback: 'sans-serif', weights: [400, 500, 600, 700] },
   'dancing-script': { label: 'Dancing Script', fallback: 'cursive', weights: [400, 500, 600, 700] },
+  'playfair-display': { label: 'Playfair Display', fallback: 'serif', weights: [400, 500, 600, 700] },
+  'barlow': { label: 'Barlow', fallback: 'sans-serif', weights: [400, 500, 600, 700] },
+  'merriweather': { label: 'Merriweather', fallback: 'serif', weights: [400, 500, 600, 700] },
+  'prompt': { label: 'Prompt', fallback: 'sans-serif', weights: [400, 500, 600, 700] },
+  'philosopher': { label: 'Philosopher', fallback: 'sans-serif', weights: [400, 700] },
+  'paytone-one': { label: 'Paytone One', fallback: 'sans-serif', weights: [400] },
 } as const;
 
 export type FontId = keyof typeof FLOW_FONTS;
 export type FontWeight = 400 | 500 | 600 | 700;
+
+/** Độ đậm gần nhất font có (Philosopher chỉ 400/700, Paytone One chỉ 400); hoà thì lấy đậm hơn. */
+export function nearestFontWeight(fontId: FontId, weight: FontWeight): FontWeight {
+  const ws = FLOW_FONTS[fontId].weights as readonly FontWeight[];
+  return ws.reduce((best, w) => (Math.abs(w - weight) <= Math.abs(best - weight) ? w : best), ws[0]!);
+}
 
 /** Font mặc định theo `StyleControls.fontStyle` của form (lib/types.ts). */
 export const FONT_FOR_STYLE: Record<'sans' | 'serif' | 'display' | 'handwritten' | 'modern', FontId> = {

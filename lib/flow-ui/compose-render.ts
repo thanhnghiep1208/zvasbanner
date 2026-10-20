@@ -24,6 +24,12 @@ const FONT_CSS_VAR: Record<FontId, string> = {
   'noto-serif': '--font-flow-noto-serif',
   'montserrat': '--font-flow-montserrat',
   'dancing-script': '--font-flow-dancing-script',
+  'playfair-display': '--font-flow-playfair-display',
+  'barlow': '--font-flow-barlow',
+  'merriweather': '--font-flow-merriweather',
+  'prompt': '--font-flow-prompt',
+  'philosopher': '--font-flow-philosopher',
+  'paytone-one': '--font-flow-paytone-one',
 };
 
 /** Tên font thật để Canvas dùng (next/font đổi tên thành `__Inter_xxx`…). */

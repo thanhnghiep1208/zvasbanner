@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultTextStyle, FLOW_FONTS, FONT_FOR_STYLE, TEXT_ROLE_DEFAULTS, validateTextStyle } from '../text/text-style';
+import { defaultTextStyle, FLOW_FONTS, FONT_FOR_STYLE, nearestFontWeight, TEXT_ROLE_DEFAULTS, validateTextStyle } from '../text/text-style';
 import type { TextRole } from '../schema';
 import { validateGraph } from '../validate';
 import { decompileJob } from '../decompiler';
@@ -62,9 +62,18 @@ describe('validateGraph với text style', () => {
 });
 
 describe('Bộ font (Q10B)', () => {
-  it('5 font, mỗi font có đủ độ đậm 400–700 mà UI cho chọn', () => {
-    expect(Object.keys(FLOW_FONTS)).toHaveLength(5);
-    for (const f of Object.values(FLOW_FONTS)) expect([...f.weights]).toEqual([400, 500, 600, 700]);
+  it('11 font; độ đậm là tập con của 400–700, đủ cả 4 trừ font chỉ có 400/700 hoặc 400', () => {
+    expect(Object.keys(FLOW_FONTS)).toHaveLength(11);
+    for (const [id, f] of Object.entries(FLOW_FONTS)) {
+      const expected = id === 'philosopher' ? [400, 700] : id === 'paytone-one' ? [400] : [400, 500, 600, 700];
+      expect([...f.weights]).toEqual(expected);
+    }
+  });
+  it('nearestFontWeight lấy độ đậm gần nhất font có', () => {
+    expect(nearestFontWeight('philosopher', 500)).toBe(400);
+    expect(nearestFontWeight('philosopher', 600)).toBe(700);
+    expect(nearestFontWeight('paytone-one', 700)).toBe(400);
+    expect(nearestFontWeight('barlow', 600)).toBe(600);
   });
   it('mỗi kiểu chữ của form map sang 1 font có trong registry', () => {
     expect(FONT_FOR_STYLE).toEqual({

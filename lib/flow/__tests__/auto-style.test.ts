@@ -40,6 +40,16 @@ describe('autoTypography', () => {
     expect(autoTypography(layer('subheadline'), ctx).style.fontFamily).toBe('be-vietnam-pro');
   });
 
+  it('font thương hiệu thiếu độ đậm → lấy độ đậm gần nhất; Paytone One chỉ cho tiêu đề', () => {
+    const paytone = { brandKit: { colors: [], fontPreference: 'Paytone One' } };
+    const h = autoTypography(layer('headline'), paytone).style;
+    expect([h.fontFamily, h.fontWeight]).toEqual(['paytone-one', 400]);
+    expect(autoTypography(layer('cta'), paytone).style.fontFamily).toBe('be-vietnam-pro');
+    const philo = { brandKit: { colors: [], fontPreference: 'Philosopher' } };
+    expect(autoTypography(layer('subheadline'), philo).style.fontWeight).toBe(400);
+    expect(autoTypography(layer('cta'), { ...philo, style: { ...DEFAULT_STYLE, style: 'luxury' } }).style.fontWeight).toBe(700);
+  });
+
   it('CTA có nút; chữ khác không có nút/viền/bóng; cỡ tối thiểu không vượt cỡ chữ', () => {
     const cta = autoTypography(layer('cta'), {});
     expect(cta.style.plate).toBeDefined();

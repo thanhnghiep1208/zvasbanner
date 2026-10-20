@@ -12,7 +12,7 @@ import type { BrandKit } from '@/lib/types';
 import { fontIdFromLabel, isHexColor } from '../brand';
 import type { FlowStyle, NodeParamsMap, TextRole } from '../schema';
 import { DEFAULT_STYLE } from '../schema';
-import { FONT_FOR_STYLE, TEXT_ROLE_DEFAULTS, type FontId, type HexColor, type TextStyle } from './text-style';
+import { FONT_FOR_STYLE, TEXT_ROLE_DEFAULTS, nearestFontWeight, type FontId, type HexColor, type TextStyle } from './text-style';
 
 type TextLayer = NodeParamsMap['text-layer'];
 
@@ -35,8 +35,8 @@ export function autoTypography(layer: TextLayer, ctx: AutoStyleContext): TextLay
   const st = ctx.style ?? DEFAULT_STYLE;
   const brandFont = fontIdFromLabel(ctx.brandKit?.fontPreference);
   const displayFont: FontId = brandFont ?? FONT_FOR_STYLE[st.fontStyle];
-  // Chữ viết tay chỉ hợp tiêu đề; chữ nhỏ và nút dùng sans dễ đọc.
-  const bodyFont: FontId = displayFont === 'dancing-script' ? 'be-vietnam-pro' : displayFont;
+  // Chữ viết tay / display một độ đậm chỉ hợp tiêu đề; chữ nhỏ và nút dùng sans dễ đọc.
+  const bodyFont: FontId = displayFont === 'dancing-script' || displayFont === 'paytone-one' ? 'be-vietnam-pro' : displayFont;
   const loud = st.style === 'bold' || (st.mood === 'energetic' && st.style !== 'luxury');
   const headline = HEADLINE_SIZE[st.style];
   const base = TEXT_ROLE_DEFAULTS[layer.role].style;
@@ -61,9 +61,10 @@ export function autoTypography(layer: TextLayer, ctx: AutoStyleContext): TextLay
       textTransform: 'none', letterSpacingEm: 0,
     },
   };
+  const merged = { ...base, ...byRole[layer.role] };
   const style: TextStyle = {
-    ...base,
-    ...byRole[layer.role],
+    ...merged,
+    fontWeight: nearestFontWeight(merged.fontFamily, merged.fontWeight),
     italic: false,
     // Căn lề giữ của layer (layout/biến thể quyết định); màu tạm – vẽ thật thì autoTextColors thay theo nền.
     align: layer.style.align,
