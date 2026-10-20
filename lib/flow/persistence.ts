@@ -1,6 +1,6 @@
-import type { FlowGraph } from './schema';
+import type { FlowEdge, FlowGraph, FlowNode } from './schema';
 import type { ExposedParam } from './template/template';
-import { FLOW_SCHEMA_VERSION } from './schema';
+import { FLOW_SCHEMA_VERSION, makeEdgeId } from './schema';
 import { NODE_DEFINITIONS } from './node-definitions';
 
 /** Lưu vào Postgres (bảng flow_docs, cột JSONB – T6.1). Không lưu ảnh (Q7B): node ảnh chỉ giữ metadata. */
@@ -74,7 +74,7 @@ const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFin
 const KNOWN_TYPES: ReadonlySet<string> = new Set(Object.keys(NODE_DEFINITIONS));
 
 export function parseStoredFlowDoc(raw: unknown): StoredFlowDoc {
-  const doc = migrateFlowDoc(raw);
+  const doc = convertComposedDoc(migrateFlowDoc(raw));
   const g = doc.graph as unknown;
   if (!isObj(g) || !Array.isArray(g.nodes) || !Array.isArray(g.edges)) throw new Error('Graph không hợp lệ.');
   if (g.nodes.length > FLOW_DOC_LIMITS.maxNodes) throw new Error(`Graph quá ${FLOW_DOC_LIMITS.maxNodes} node.`);
@@ -98,6 +98,65 @@ export function parseStoredFlowDoc(raw: unknown): StoredFlowDoc {
   if (vp !== undefined && !(isObj(vp) && isNum(vp.x) && isNum(vp.y) && isNum(vp.zoom))) throw new Error('Viewport không hợp lệ.');
   if (doc.exposed !== undefined && !Array.isArray(doc.exposed)) throw new Error('Exposed không hợp lệ.');
   return { ...doc, graph: stripRuntimeAssets(doc.graph) };
+}
+
+/* ── Gỡ chế độ Ghép layer (2026-10-20) ───────────────────────── */
+
+/** Node của chế độ Ghép layer đã gỡ (Auto layout → Tạo nền → Ghép layer). */
+export const REMOVED_COMPOSED_TYPES: ReadonlySet<string> = new Set(['auto-layout', 'generate-background', 'compose']);
+
+type RawNode = { id: string; type: string; params: Record<string, unknown>; position: { x: number; y: number } };
+
+/**
+ * Project/nháp cũ dùng Ghép layer → đổi sang Tạo banner để vẫn mở và chạy được: bỏ 3 node đã gỡ, nối các
+ * input của chúng (kích thước, brief, ảnh, chữ, phong cách, brand kit, ảnh tham chiếu) vào 1 node Tạo banner đặt chỗ
+ * node Tạo nền cũ, rồi nối ra Xuất ảnh. Graph đã có Tạo banner thì chỉ bỏ node cũ. Field Simple view trỏ vào node đã
+ * bỏ hoặc vào kiểu chữ (chỉ có nghĩa khi ghép) cũng bỏ. Graph không có node cũ → trả nguyên.
+ */
+export function convertComposedDoc(doc: StoredFlowDoc): StoredFlowDoc {
+  const g = doc.graph as unknown as { nodes?: unknown; edges?: unknown };
+  if (!Array.isArray(g?.nodes) || !Array.isArray(g.edges)) return doc;
+  const nodes = g.nodes as RawNode[];
+  const edges = g.edges as FlowEdge[];
+  const removed = nodes.filter((n) => isObj(n) && REMOVED_COMPOSED_TYPES.has(n.type));
+  if (!removed.length) return doc;
+
+  const removedIds = new Set(removed.map((n) => n.id));
+  const keptNodes = nodes.filter((n) => !removedIds.has(n.id));
+  const keptEdges = edges.filter((e) => !removedIds.has(e.source) && !removedIds.has(e.target));
+  const exportNode = keptNodes.find((n) => n.type === 'export');
+  const out: FlowGraph = { nodes: keptNodes as FlowNode[], edges: keptEdges };
+
+  if (!keptNodes.some((n) => n.type === 'generate-flat')) {
+    const gen = removed.find((n) => n.type === 'generate-background');
+    const used = new Set(keptNodes.map((n) => n.id));
+    let id = 'n-generate-flat';
+    for (let k = 2; used.has(id); k++) id = `n-generate-flat-${k}`;
+    const model = gen?.params.model === 'nano-banana-pro' ? 'nano-banana-pro' : 'nano-banana-2';
+    out.nodes = [...out.nodes, {
+      id, type: 'generate-flat', params: { model, strictPreserveMode: true },
+      position: (gen ?? removed[0]!).position,
+    } as FlowNode];
+    // Port của node cũ trùng tên port của Tạo banner (ratio, brief, product, text, style, brand, image).
+    const seen = new Set<string>();
+    for (const e of edges) {
+      if (!removedIds.has(e.target) || removedIds.has(e.source)) continue;
+      if (!['ratio', 'brief', 'product', 'text', 'style', 'brand', 'image'].includes(e.targetPort)) continue;
+      const key = `${e.source}.${e.sourcePort}.${e.targetPort}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.edges.push({ id: makeEdgeId(e.source, e.sourcePort, id, e.targetPort), source: e.source, sourcePort: e.sourcePort,
+        target: id, targetPort: e.targetPort });
+    }
+    if (exportNode && !out.edges.some((e) => e.target === exportNode.id)) {
+      out.edges.push({ id: makeEdgeId(id, 'raster', exportNode.id, 'raster'), source: id, sourcePort: 'raster',
+        target: exportNode.id, targetPort: 'raster' });
+    }
+  }
+
+  const textIds = new Set(keptNodes.filter((n) => n.type === 'text-layer').map((n) => n.id));
+  const exposed = doc.exposed?.filter((e) => !removedIds.has(e.nodeId) && !(textIds.has(e.nodeId) && e.path?.[0] === 'style'));
+  return { ...doc, graph: out, ...(doc.exposed ? { exposed } : {}) };
 }
 
 /** Tên project: cắt khoảng trắng, giới hạn độ dài; rỗng → mặc định. */

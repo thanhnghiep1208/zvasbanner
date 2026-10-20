@@ -13,8 +13,7 @@
  * | brief.marketingBrief                | marketingBrief                                      |
  * | runtime.layoutAdaptationFromBanner  | layoutAdaptationFromBanner (mọi request)            |
  *
- * Bỏ qua (chỉ dùng trong canvas): textLayers[].renderSource/priority/minFontSizePx/style,
- * composed.*, export.*.
+ * Bỏ qua: textLayers[].renderSource/priority/minFontSizePx/style (dữ liệu cũ của Ghép layer), export.*.
  */
 import { campaignLegacyLines } from '../brief';
 import type { GenerationRequest, UploadedAsset } from '@/lib/types';
@@ -25,7 +24,7 @@ import { DEFAULT_STYLE } from '../schema';
 import type { LegacyRuntime } from './from-legacy-config';
 
 export interface LegacyIssue {
-  code: 'composed-not-supported' | 'no-ratio' | 'missing-asset-data' | 'unmapped-text';
+  code: 'no-ratio' | 'missing-asset-data' | 'unmapped-text';
   message: string;
   /** assetId hoặc layerId liên quan. */
   refs?: string[];
@@ -47,10 +46,6 @@ export function toLegacyConfig(
   job: CompiledJob,
   runtime: LegacyRuntime = { dataUrls: {} },
 ): ToLegacyResult {
-  if (job.renderMode !== 'flat') {
-    return { ok: false, error: { code: 'composed-not-supported',
-      message: 'Composed chưa có API legacy tương ứng (cần route mới, Q8). Chỉ chạy được flat.' } };
-  }
   if (job.ratios.length === 0) {
     return { ok: false, error: { code: 'no-ratio', message: 'Cần ít nhất 1 kích thước.' } };
   }

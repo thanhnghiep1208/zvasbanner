@@ -1,8 +1,8 @@
 import type { NodeParamsMap, NodeType, PortType } from './schema';
-import { DEFAULT_RATIO, DEFAULT_SHADOW, DEFAULT_STYLE } from './schema';
+import { DEFAULT_RATIO, DEFAULT_STYLE } from './schema';
 import { TEXT_ROLE_DEFAULTS } from './text/text-style';
 
-export type NodeKind = 'input' | 'config' | 'layout' | 'executor' | 'output';
+export type NodeKind = 'input' | 'config' | 'executor' | 'output';
 
 export interface PortDef {
   id: string;
@@ -23,7 +23,7 @@ export interface NodeDefinition<T extends NodeType = NodeType> {
   defaultParams: NodeParamsMap[T];
   /** Số lần gọi model AI mỗi ratio. 0 = chạy client-side. */
   aiCallsPerRatio: number;
-  /** Executor legacy được phép nhận 'product' (chỉ path flat migrate). */
+  /** Executor nhận port 'product' (AI vẽ lại ảnh sản phẩm, có strictPreserveMode). */
   legacy?: boolean;
 }
 
@@ -34,16 +34,13 @@ const out = (id: string, type: PortType) => ({ id, type });
 
 /** Nhãn hiển thị theo kiểu port (port id = kiểu port trong registry hiện tại). */
 export const PORT_TYPE_LABELS: Record<PortType, string> = {
-  product: 'Asset giữ pixel',
+  product: 'Ảnh sản phẩm',
   image: 'Ảnh tham chiếu',
   brief: 'Brief',
   text: 'Text',
   brand: 'Brand kit',
   ratio: 'Kích thước',
   style: 'Phong cách',
-  layout: 'Layout',
-  background: 'Nền',
-  composition: 'Bản ghép',
   raster: 'Ảnh',
 };
 
@@ -51,8 +48,8 @@ type Registry = { [K in NodeType]: NodeDefinition<K> };
 
 export const NODE_DEFINITIONS: Registry = {
   'product-asset': {
-    type: 'product-asset', kind: 'input', label: 'Asset (giữ pixel)',
-    description: 'Ảnh sản phẩm, logo, trang trí – giữ nguyên pixel.',
+    type: 'product-asset', kind: 'input', label: 'Ảnh sản phẩm',
+    description: 'Ảnh sản phẩm, logo, trang trí – AI giữ nguyên chủ thể.',
     inputs: [], outputs: [out('product', 'product')],
     defaultParams: {
       assetId: '', url: '', fileName: '', role: 'image', hasAlpha: false,
@@ -106,34 +103,9 @@ export const NODE_DEFINITIONS: Registry = {
     inputs: [], outputs: [out('style', 'style')],
     defaultParams: DEFAULT_STYLE, aiCallsPerRatio: 0,
   },
-  'auto-layout': {
-    type: 'auto-layout', kind: 'layout', label: 'Auto layout',
-    description: 'Tự xếp sản phẩm và chữ theo từng kích thước.',
-    inputs: [
-      inPort('ratio', 'ratio', true),
-      inPort('product', 'product', false, true),
-      inPort('text', 'text', false, true),
-    ],
-    outputs: [out('layout', 'layout')],
-    defaultParams: { overrides: {} }, aiCallsPerRatio: 0,
-  },
-  'generate-background': {
-    type: 'generate-background', kind: 'executor', label: 'Tạo nền',
-    description: 'AI tạo nền, chừa chỗ cho sản phẩm và chữ.',
-    inputs: [
-      inPort('layout', 'layout', true),
-      inPort('brief', 'brief', true),
-      inPort('style', 'style'),
-      inPort('brand', 'brand'),
-      inPort('image', 'image', false, true),
-    ],
-    outputs: [out('background', 'background')],
-    defaultParams: { model: 'nano-banana-2', lightDirectionDeg: 315, strictNoText: true },
-    aiCallsPerRatio: 1,
-  },
   'generate-flat': {
-    type: 'generate-flat', kind: 'executor', label: 'Tạo banner (flat)', legacy: true,
-    description: 'AI tạo cả banner như form hiện tại.',
+    type: 'generate-flat', kind: 'executor', label: 'Tạo banner', legacy: true,
+    description: 'AI tạo cả banner: nền, sản phẩm, chữ.',
     inputs: [
       inPort('ratio', 'ratio', true),
       inPort('brief', 'brief', true),
@@ -148,22 +120,10 @@ export const NODE_DEFINITIONS: Registry = {
     // Generate + harmony pass server luôn chạy ngay sau (app/api/generate/route.ts) – Q4.
     aiCallsPerRatio: 2,
   },
-  'compose': {
-    type: 'compose', kind: 'output', label: 'Ghép layer',
-    description: 'Ghép nền, sản phẩm, chữ và bóng đổ.',
-    inputs: [
-      inPort('background', 'background', true),
-      inPort('layout', 'layout', true),
-      inPort('product', 'product', false, true),
-      inPort('text', 'text', false, true),
-    ],
-    outputs: [out('composition', 'composition')],
-    defaultParams: { shadow: DEFAULT_SHADOW }, aiCallsPerRatio: 0,
-  },
   'export': {
     type: 'export', kind: 'output', label: 'Xuất ảnh',
     description: 'Định dạng, chất lượng, tải ảnh kết quả.',
-    inputs: [inPort('composition', 'composition'), inPort('raster', 'raster')],
+    inputs: [inPort('raster', 'raster', true)],
     outputs: [],
     defaultParams: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' }, aiCallsPerRatio: 0,
   },

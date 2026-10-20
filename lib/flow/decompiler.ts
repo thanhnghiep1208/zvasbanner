@@ -37,56 +37,26 @@ export function decompileJob(job: CompiledJob): FlowGraph {
   const style = job.style ? add('n-style', 'style', job.style, COL.config) : undefined;
   const brand = job.brandKit ? add('n-brand', 'brand-kit', job.brandKit, COL.config) : undefined;
 
-  const exportNode = (x: number) => add('n-export', 'export', job.export, x, 0);
+  const gen = add('n-generate-flat', 'generate-flat', {
+    model: job.model, strictPreserveMode: job.flat.strictPreserveMode,
+  }, COL.exec, 0);
+  link(ratio.id, 'ratio', gen.id, 'ratio');
+  link(brief.id, 'brief', gen.id, 'brief');
+  for (const p of products) link(p.id, 'product', gen.id, 'product');
+  for (const t of texts) link(t.id, 'text', gen.id, 'text');
+  if (style) link(style.id, 'style', gen.id, 'style');
+  if (brand) link(brand.id, 'brand', gen.id, 'brand');
+  for (const r of refs) link(r.id, 'image', gen.id, 'image');
 
-  if (job.renderMode === 'composed') {
-    const c = job.composed!;
-    const layout = add('n-layout', 'auto-layout', { overrides: c.layoutOverrides }, COL.layout, 0);
-    const gen = add('n-generate', 'generate-background', {
-      model: job.model, lightDirectionDeg: c.lightDirectionDeg, strictNoText: c.strictNoText,
-    }, COL.exec, 0);
-    const compose = add('n-compose', 'compose', { shadow: c.shadow }, COL.compose, 0);
-    const ex = exportNode(COL.export);
-
-    link(ratio.id, 'ratio', layout.id, 'ratio');
-    for (const p of products) link(p.id, 'product', layout.id, 'product');
-    for (const t of texts) link(t.id, 'text', layout.id, 'text');
-
-    link(layout.id, 'layout', gen.id, 'layout');
-    link(brief.id, 'brief', gen.id, 'brief');
-    if (style) link(style.id, 'style', gen.id, 'style');
-    if (brand) link(brand.id, 'brand', gen.id, 'brand');
-    for (const r of refs) link(r.id, 'image', gen.id, 'image');
-
-    link(gen.id, 'background', compose.id, 'background');
-    link(layout.id, 'layout', compose.id, 'layout');
-    for (const p of products) link(p.id, 'product', compose.id, 'product');
-    for (const t of texts) link(t.id, 'text', compose.id, 'text');
-
-    link(compose.id, 'composition', ex.id, 'composition');
-  } else {
-    const f = job.flat!;
-    const gen = add('n-generate-flat', 'generate-flat', {
-      model: job.model, strictPreserveMode: f.strictPreserveMode,
-    }, COL.exec, 0);
-    link(ratio.id, 'ratio', gen.id, 'ratio');
-    link(brief.id, 'brief', gen.id, 'brief');
-    for (const p of products) link(p.id, 'product', gen.id, 'product');
-    for (const t of texts) link(t.id, 'text', gen.id, 'text');
-    if (style) link(style.id, 'style', gen.id, 'style');
-    if (brand) link(brand.id, 'brand', gen.id, 'brand');
-    for (const r of refs) link(r.id, 'image', gen.id, 'image');
-
-    const ex = exportNode(COL.export);
-    link(gen.id, 'raster', ex.id, 'raster');
-  }
+  const ex = add('n-export', 'export', job.export, COL.export, 0);
+  link(gen.id, 'raster', ex.id, 'raster');
 
   return { nodes, edges };
 }
 
 /** Khoảng trống giữa 2 node xếp chồng trong cột. */
 const NODE_GAP = 32;
-const COL = { input: 0, config: 280, layout: 560, exec: 840, compose: 1120, export: 1400 } as const;
+const COL = { input: 0, config: 280, exec: 560, export: 840 } as const;
 
 /**
  * Chiều cao (px) ước tính của node card (components/flow/nodes/FlowNodeCard) để xếp node trong cột không đè nhau.

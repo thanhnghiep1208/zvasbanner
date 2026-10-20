@@ -47,7 +47,7 @@ Next.js 16 dùng file `proxy.ts` (thay `middleware.ts`) cho request interception
 
 ## Flow canvas (server)
 
-- Route: `/api/flow/generate-background` (tạo nền cho chế độ ghép layer, quyền `generate_image`, dùng chung bộ đếm rate limit với `/api/generate` qua `lib/generation-rate-limit.ts`, body ≤ 30MB), `/api/flow/docs` + `/api/flow/docs/[id]` (lưu/mở project), `/api/flow/track` (analytics). Mọi route kiểm đăng nhập + cờ `FLOW_CANVAS` (tắt → 404).
+- Route: Flow canvas tạo ảnh qua `/api/generate` như form (route `/api/flow/generate-background` của chế độ ghép layer đã gỡ 2026-10-20); `/api/flow/docs` + `/api/flow/docs/[id]` (lưu/mở project), `/api/flow/track` (analytics). Mọi route kiểm đăng nhập + cờ `FLOW_CANVAS` (tắt → 404).
 - Bảng `flow_docs`, `flow_events` tự tạo ở lần gọi đầu (`lib/flow-server/flow-docs.ts`, `flow-events.ts`; SQL tham khảo `db/flow_docs.sql`, `db/flow_events.sql`). Project không lưu ảnh (chỉ metadata), tối đa 200 project/user.
 - Prompt tạo nền: `lib/flow/background/prompt.ts` (bố cục bằng lời, hướng sáng, không chữ; có ảnh tham chiếu thì dựng lại nền theo mẫu). Không gửi pixel sản phẩm.
 

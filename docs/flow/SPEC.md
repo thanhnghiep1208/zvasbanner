@@ -16,7 +16,7 @@ Graph là source of truth duy nhất.
 
 ## 2. Nguyên tắc không được vi phạm
 
-1. **Asset fidelity**: pixel gốc của sản phẩm không bao giờ đi qua model AI (trừ executor `legacy`). Đã khoá bằng test `rules.test.ts`; không được xoá hoặc nới test này.
+1. **Asset fidelity**: chỉ executor `legacy` (Tạo banner) được nhận ảnh sản phẩm, và luôn gửi `strictPreserveMode = true` (không đổi tỉ lệ, màu, hình dạng). Khoá bằng test `rules.test.ts`. Chế độ Ghép layer (pixel sản phẩm không qua AI) đã gỡ 2026-10-20 – xem mục 3.
 2. **Không viết lại pipeline cũ** trong P1. Graph biên dịch xuống `CompiledJob` → adapter → input mà pipeline hiện tại đã hiểu. Không sửa Route Handler, `lib/prompt-builder.ts`, `lib/export.ts`, `lib/gemini-server.ts`, `lib/client-generation.ts` trừ khi task ghi rõ; nếu buộc phải sửa, dừng lại và ghi câu hỏi (mục 9). Đã duyệt: rate limit dùng chung (Q8), Nano Banana 2.1 + prompt bám banner mẫu (Q15).
 3. **`lib/flow/` là domain thuần**: không import React, React Flow, Next.js, Zustand.
 4. **Feature flag**: mọi UI mới nằm sau `FLOW_CANVAS` (`lib/flags.ts`, logic `lib/flow-rollout.ts`): `off` | `allowlist` | `rollout` (`FLOW_CANVAS_PERCENT`, bucket sha256 ổn định theo userId + `FLOW_CANVAS_SALT`) | `on`; `FLOW_CANVAS_DENYLIST` luôn tắt. Form cũ giữ nguyên đến bước 6.
@@ -24,23 +24,24 @@ Graph là source of truth duy nhất.
 6. **Không đoán field**: trước khi dùng type có sẵn, đọc định nghĩa thật trong `lib/types.ts` (`GenerationRequest`, `CanvasConfig`, `UploadedAsset`, `AssetRole`, `BrandKit`, `StyleControls`, `ImageGenerationModel`, `MarketingBrief`) và tái sử dụng, không định nghĩa lại. Repo **không có** `TextLayer`, `ComposedDoc`, `ProductLayer`, `LightingProfile`, `lib/text-layer-render.ts`: các phần này phải xây mới (Q2, Q3).
 7. Rate limit hiện có (20 request/giờ/user) và body size cap phải được tôn trọng; graph không được tạo đường vòng qua chúng.
 
-## 3. Quyết định đã chốt (composed mode)
+## 3. Quyết định đã chốt
 
-| # | Quyết định | Hệ quả bắt buộc |
-|---|---|---|
-| 1 | Gemini biết vị trí sản phẩm khi sinh background | Auto Layout chạy **trước** Generate BG. Vị trí vùng sản phẩm/chữ truyền bằng **mô tả bố cục bằng lời** (không ảnh guide, không con số – Q11, T4.2b), không gửi ảnh sản phẩm thật |
-| 2 | Tự tối ưu layout theo từng ratio, không mất content | Auto Layout rule-based client-side. Transform chuẩn hoá theo từng ratio; override tay lưu riêng theo ratio. Không đủ chỗ → báo lỗi trên node, **không tự bỏ phần tử** |
-| 3 | Shadow tự động mặc định, có tuỳ chỉnh | `ShadowConfig.mode = 'auto' \| 'custom' \| 'off'`, mặc định `auto`. Hướng shadow lấy từ `lightDirectionDeg` đã chỉ định trong prompt Generate BG |
-| 4 | Mặc định composed | Mọi template đi qua Compose, trừ template "Theo banner mẫu" (flat – Q13). Flat chỉ cho project migrate, path nâng cao và làm theo banner mẫu |
+**2026-10-20 – Gỡ chế độ Ghép layer (composed), chỉ giữ Tạo banner (flat).** Nghiệp quyết sau khi dùng thử: banner ghép (AI tạo nền + ghép sản phẩm/chữ bằng Canvas 2D) chất lượng thấp hơn rõ so với để AI vẽ cả banner. Đã xoá node Auto layout, Tạo nền, Ghép layer; layout engine (`lib/flow/layout/`), compose (`lib/flow/compose/`, `lib/flow-ui/compose-render.ts`), prompt nền (`lib/flow/background/`), chữ tự động (`text/auto-style.ts`, `text/treatment.ts`), bảng màu ảnh (`palette.ts`), font next/font của canvas, route `/api/flow/generate-background`, tab "Xem trước bố cục". Các quyết định composed cũ (Gemini biết vị trí sản phẩm, layout rule-based, auto shadow, mặc định composed) không còn hiệu lực; xem lịch sử git trước commit gỡ nếu cần khôi phục.
+
+Hệ quả:
+- Mọi template dùng Tạo banner (2 lượt AI / kích thước: tạo + chỉnh hài hoà). Kích thước sau dựng lại theo ảnh kích thước đầu (Biến thể kích thước của form).
+- Project/nháp cũ có node Ghép layer: `parseStoredFlowDoc` → `convertComposedDoc` thay 3 node cũ bằng 1 node Tạo banner nối đủ input, bỏ field Simple view của node đã gỡ và field kiểu chữ.
+- Text layer giữ field `renderSource`, `priority`, `minFontSizePx`, `style`, `autoStyle` (dữ liệu cũ đọc được) nhưng không dùng: AI vẽ chữ theo nội dung + vai trò, font/màu theo Phong cách + Brand kit.
+- Analytics: `render_mode` chỉ còn `flat` cho lần chạy mới; `composed` / `flow_background` chỉ còn trong dữ liệu cũ.
 
 ## 4. Kiến trúc
 
 ```
 Product Asset ─┐
-Text Layers ───┼─→ Auto Layout ─→ Generate BG ─→ Compose ─→ Export
-Ratio(s) ──────┤        │              ↑            ↑
-Brief ─────────┼────────┼──────────────┘            │
-Style/Brand/Ref┘        └──── transforms ───────────┘
+Text Layers ───┤
+Ratio(s) ──────┼─→ Tạo banner (flat, AI vẽ cả banner + harmony pass) ─→ Xuất ảnh
+Brief ─────────┤
+Style/Brand/Ref┘
 ```
 
 | Lớp | Vị trí | Trạng thái |
@@ -48,12 +49,10 @@ Style/Brand/Ref┘        └──── transforms ─────────
 | Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có; toàn repo 417 test pass (2026-10-16) |
 | IR | `lib/flow/compiled-job.ts` (`CompiledJob`, `estimateAiCalls`) | Có |
 | Adapter legacy | `lib/flow/legacy/to-legacy-config.ts`, `from-legacy-config.ts` (legacy = `GenerationRequest`) | Có (T1.2–T1.4) |
-| Text layer + renderer | `lib/flow/text/` (model) + `lib/flow-ui/compose-render.ts` | Đủ (T4.4): 5 font tiếng Việt, measurer + vẽ dùng chung layout/preview/export, UI typography |
-| Compose | `lib/flow/compose/` (plan, pure) + `lib/flow-ui/compose-render.ts` (Canvas 2D) | Có (T4.3) |
-| Layout engine | `lib/flow/layout/` | Đầy đủ (T4.1): 2 variant/class, co sản phẩm → co chữ → variant kế, báo no-fit; đo chữ bằng measurer Canvas 2D (T4.4) |
+| Text layer | `lib/flow/text/text-style.ts` | Model + mặc định theo vai trò, danh sách font cho Brand kit. Renderer, layout engine, compose: đã gỡ (mục 3) |
+| Gỡ composed | `lib/flow/persistence.ts` (`convertComposedDoc`) | Project/nháp cũ → Tạo banner |
 | Node ảnh | `lib/flow/image-nodes.ts` | Thêm/đổi loại/xoá ảnh + tự nối dây (Simple view), xoá tất cả ảnh |
 | Giới hạn ảnh | `lib/flow/asset-limits.ts` | Ảnh tham chiếu ≤ 4MB |
-| Chữ tự động | `lib/flow/text/auto-style.ts` | Font/cỡ theo Phong cách + Brand kit, màu theo nền thật (5.10) |
 | Undo/redo | `store/flow-history.ts` | Lịch sử `graph`, gộp thay đổi liên tiếp |
 | Nháp trên máy | `lib/flow-ui/flow-draft.ts`, `components/flow/use-flow-draft.ts` | localStorage + IndexedDB (Q14) |
 | Executor engine | `lib/flow/executor.ts` + `cache-keys.ts` | Run all / chạy lại từ node, cache theo request, stale (T4.7) |
@@ -62,7 +61,7 @@ Style/Brand/Ref┘        └──── transforms ─────────
 | UI | `components/flow/` | Layout 3 cột + header, Tailwind + token flow (T3.1) |
 | Route | `app/(studio)/flow/page.tsx` (hoặc `src/app/...`) | Có, sau flag |
 
-Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, brief, text-layer, brand-kit, ratio, style, auto-layout, generate-background, generate-flat (legacy, đã gồm harmony pass server-side: 2 AI call/ratio), compose, export. Node `harmony-pass` bị bỏ (Q4).
+Node registry (`lib/flow/node-definitions.ts`): product-asset (nhãn "Ảnh sản phẩm"), reference-image, brief, text-layer, brand-kit, ratio, style, generate-flat (nhãn "Tạo banner", legacy, đã gồm harmony pass server-side: 2 AI call/ratio), export (chỉ nhận `raster`). Node `harmony-pass` bị bỏ (Q4); auto-layout, generate-background, compose bị gỡ 2026-10-20.
 
 ## 5. Spec chi tiết theo module
 
@@ -71,29 +70,8 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - `fromLegacyConfig(config)` → `CompiledJob` (dùng cho migration và để so sánh parity).
 - Bảng mapping field ghi vào đầu file dạng comment. Field không map được: liệt kê trong `docs/flow/QUESTIONS.md`, không bỏ im lặng.
 
-### 5.2 Layout engine (`lib/flow/layout/`)
-- Input: products (kèm kích thước + alpha bbox nếu có), textLayers (content, role, priority, minFontSizePx, typography), ratio, overrides.
-- Phân loại ratio: `landscape` (>1.2), `square` (0.8–1.2), `portrait` (<0.8), `ultra-wide` (>2.5). Mỗi loại có ≥2 layout variant gồm các slot: product, headline, subline, cta, logo.
-- Thuật toán khi không vừa, theo thứ tự: thu nhỏ product tới `minScale` → giảm font tới `minFontSizePx` (layer priority thấp co trước) → thử variant kế tiếp → trả `{ ok: false, reason }`.
-- Đo text bằng cùng text renderer Canvas 2D mới (Q2) dùng cho preview và export để khớp WYSIWYG.
-- Output `LayoutPlan`: `transforms[ratioId][elementId]`, `guide[ratioId]` (danh sách rect để vẽ layout guide image), `variantId`.
-- Override tay luôn thắng; sửa content chỉ tính lại ratio chưa bị override.
-- Pure function, deterministic, có unit test cho mỗi ratio class và trường hợp không vừa.
-
-### 5.3 Generate Background
-- Prompt gồm: brief + `marketingBrief`, style, brand, hướng sáng `lightDirectionDeg`, bố cục bằng lời (vùng chữ thoáng, vùng sản phẩm trống – `naturalPrompt`), negative "no text" khi `strictNoText`.
-- Ngoại lệ: text layer `role=headline, renderSource='ai'` → cho phép chữ **chỉ** trong slot headline, vùng khác vẫn cấm.
-- Mặc định `guideStyle: 'natural'`: không gửi ảnh guide (ảnh guide + toạ độ % làm model vẽ chữ/khung kiểu mockup, T4.2b). `'hatched'` còn trong code để so sánh. Không gửi pixel sản phẩm.
-- Mỗi ratio = 1 lần gọi. Hiển thị `estimateAiCalls()` trước khi Run.
-- Model mặc định Nano Banana 2.1 (slug `nano-banana-2` → `gemini-nano-banana-2.1`, Q15).
-- Ảnh tham chiếu style = banner mẫu: prompt yêu cầu dựng lại **nền** của mẫu (loại nền, màu, ánh sáng, hoạ tiết và vị trí của chúng), bỏ chữ/logo/nút/sản phẩm (`REFERENCE_BACKGROUND_RULES`). Bố cục chữ/sản phẩm vẫn do layout engine – muốn theo cả bố cục mẫu thì dùng template "Theo banner mẫu" (flat, Q13).
-
-### 5.4 Compose + auto shadow
-- Compose client-side **viết mới** bằng Canvas 2D (repo chưa có composed mode, Q3): nền + product alpha + contact shadow + text layer. Không thêm thư viện canvas (Konva/Fabric).
-- Auto shadow P1: contact shadow mềm dưới đáy alpha bbox, lệch theo `lightDirectionDeg`. Product không alpha → shadow tắt + warning `product-no-alpha` (đã có trong `validate.ts`).
-- Custom: opacity, blurPx, offsetX, offsetY chỉnh trong inspector.
-- Ảnh luôn đúng tỉ lệ gốc (`fitAspect`): khung layout/override lệch tỉ lệ thì ảnh thu vào giữa khung, không kéo giãn; không filter màu.
-- Chữ "tự động theo banner": trước khi vẽ, đo vùng nền đã vẽ dưới chữ rồi chọn màu chữ/bóng/màu nút (5.10).
+### 5.2–5.4 Layout engine, Generate Background, Compose
+Đã gỡ 2026-10-20 (mục 3). Nội dung spec cũ xem lịch sử git của file này.
 
 ### 5.5 Executor engine
 - Topological sort; mỗi node có `runState: idle | stale | queued | running | done | error`.
@@ -101,7 +79,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - Hỗ trợ "Run all" và "Run từ node này".
 - Chặn trước khi tốn lượt AI: ảnh thiếu dữ liệu, ảnh tham chiếu > 4MB, body vượt ngân sách 29MB.
 - Flat: luôn gửi `strictPreserveMode = true` (sản phẩm/logo không đổi tỉ lệ, màu, hình dạng), kể cả graph mở từ form có giá trị false.
-- Executor gọi API qua Route Handler: flat dùng `/api/generate` hiện có; composed dùng route mới `app/api/flow/generate-background/route.ts` (Q8A), tái sử dụng `requireUser`, `createRateLimiter`, `readJsonWithSizeLimit`, model profile trong `lib/gemini-server.ts` (chỉ import, không sửa). Nếu một lần chạy có thể vượt timeout serverless: ghi vào QUESTIONS.md đề xuất job queue (Inngest/QStash/Vercel Workflow), chưa tự thêm hạ tầng.
+- Executor gọi `/api/generate` hiện có qua Route Handler (route `/api/flow/generate-background` của composed đã gỡ). Nếu một lần chạy có thể vượt timeout serverless: ghi vào QUESTIONS.md đề xuất job queue (Inngest/QStash/Vercel Workflow), chưa tự thêm hạ tầng.
 
 ### 5.6 UI canvas
 - Layout 3 cột: Node library (trái, kéo thả) · Canvas · Inspector (phải, node đang chọn).
@@ -126,9 +104,8 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 - Simple view render form từ `exposed`; sửa ở đây ghi thẳng vào graph.
 - Nút "Mở canvas" chuyển sang Canvas view cùng graph.
 - Field ảnh (`ImageListField`): 1 ô kéo thả/chọn nhiều tệp + danh sách ảnh (thumbnail, tên, X, dropdown chức năng: sản phẩm, logo, trang trí, nền, tham chiếu style). Ảnh thêm tự nối dây như ảnh cùng loại; đổi giữa nhóm giữ pixel ↔ tham chiếu thì đổi type node.
-- Cột phải có tab "Xem trước bố cục | Kết quả": xem trước dùng đúng layout engine + hàm vẽ Compose trên nền xám tạm (không tốn lượt AI); template flat chỉ xem được sau khi chạy.
-- Mục "Kiểu chữ: Tự động theo banner | Chỉnh tay" đầu nhóm Phong cách, áp cho mọi text layer.
-- Template mặc định (`lib/flow/template/defaults.ts`): Sản phẩm nổi bật (mặc định), Theo banner mẫu (flat, Q13), Khuyến mãi đa kích thước, Bài đăng mạng xã hội, Sự kiện theo thương hiệu.
+- Cột phải chỉ có Kết quả (tab "Xem trước bố cục" và mục "Kiểu chữ" đã gỡ cùng Ghép layer). Field kiểu chữ của text layer không hiện.
+- Template mặc định (`lib/flow/template/defaults.ts`, đều Tạo banner): Sản phẩm nổi bật (mặc định), Theo banner mẫu (Q13), Khuyến mãi đa kích thước, Bài đăng mạng xã hội, Sự kiện theo thương hiệu.
 
 ### 5.8 Persistence + migration
 - Bảng/cột lưu `StoredFlowDoc` (JSONB). Migration DB theo cách repo đang làm (tìm helper `pool`).
@@ -140,10 +117,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset, reference-image, 
 Type trong `lib/analytics-events.ts`; ghi qua `/api/flow/track` vào bảng `flow_events` (props JSONB, Q12). Event mới: `flow_opened`, `flow_run_started` (aiCalls), `flow_run_completed` (durationMs, renderMode), `flow_run_failed` (code), `flow_view_switched` (simple/canvas), `flow_template_used`.
 
 ### 5.10 Chữ tự động theo banner
-- Text layer có `autoStyle` (thiếu = false: project cũ giữ style tay). Mặc định bật cho text mới và mọi template.
-- `autoTypography` (chạy trong compiler và validate, trước layout): font = font Brand kit > `FONT_FOR_STYLE[fontStyle]` (chữ viết tay chỉ cho tiêu đề); cỡ tiêu đề theo phong cách (bold 104, playful 92, luxury/corporate 80, minimalist 76 – px tại cạnh ngắn 1080), phụ 0.42×, CTA/khác 0.36×; IN HOA + giãn chữ khi bold/energetic; nút CTA bo góc theo phong cách; giữ căn lề của layer.
-- `autoTextColors` (lúc ghép, đo màu trung bình + độ rối của vùng nền dưới chữ): tiêu đề ưu tiên màu thương hiệu đủ tương phản (≥ 3.5), không thì trắng/đen; chữ nhỏ trắng/đen ≥ 4.5; nền rối hoặc tương phản sát ngưỡng → bóng mềm ngược màu; CTA: nút màu thương hiệu nổi trên nền (≥ 3), chữ trên nút trắng/đen.
-- Tắt trong Inspector (chỉnh tay bắt đầu từ đúng kiểu đang tự động) hoặc mục "Kiểu chữ" ở Simple view.
+Đã gỡ 2026-10-20 cùng Ghép layer: AI vẽ chữ theo nội dung + vai trò; font/màu theo Phong cách và Brand kit (font thương hiệu, vị trí logo gửi vào prompt).
 
 ## 6. Quy tắc làm việc cho Claude Code
 
@@ -207,6 +181,9 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 - [x] **T6.3** Analytics events mục 5.9
 - [x] **T6.4** Flag theo % user (thay allowlist)
 - [ ] **T6.5** Chỉ khi Nghiệp duyệt số liệu: chuyển entry chính sang `/flow`, gỡ form
+
+### Đổi hướng
+- [x] **T7.1** Gỡ chế độ Ghép layer, chỉ giữ Tạo banner (Nghiệp quyết 2026-10-20, mục 3)
 
 ### Ngoài phạm vi P1
 Branching/so sánh variant, outpaint dùng chung background cho nhiều ratio, suy luận hướng sáng, AI relight, agent tự dựng graph, cộng tác realtime.
@@ -294,3 +271,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 - **2026-10-19** – Nền không tự thêm bục / hoa lá (Nghiệp: nền nào cũng có bục nâng sản phẩm + hoa lá dù prompt không yêu cầu). Nguyên nhân ở chính prompt nền: 4 dòng "If you show a pedestal, podium… put it…" (model gần như luôn vẽ bục) và "decorative elements (plants, furniture, …)". Sửa: `lib/flow/background/scene-wants.ts` – đọc mô tả bối cảnh nền (tiếng Việt có dấu / tiếng Anh, ranh giới chữ Unicode để "hoà/hoá/lạ/standing" không khớp) xem có nhắc bục (bục, bệ, kệ, đế, podium, pedestal, plinth…) / hoa lá (lá, hoa, cây, cành, cọ, mai, đào, nhiệt đới, plant, palm, floral…). Không nhắc → prompt cấm hẳn ("No pedestal, podium, plinth, stand or display box: the product stands directly on the floor", "No plants, leaves, palm fronds, branches or flowers"), trang trí "suit the brief and style" thay danh sách có "plants"; có nhắc → giữ hướng dẫn đặt bục đúng chỗ. Có banner mẫu / ảnh nền tham chiếu → không cấm (ảnh mẫu quyết định). Áp cho cả prompt natural và hatched. Chạy thật 1 lần (Khuyến mãi đa kích thước, 5:3 + 3:1, 2 lượt): không còn bục và lá cọ, nền theo brief (ánh sáng sân khấu, confetti, mảng chéo bold), chai đứng trên sàn. 474 test pass, tsc + eslint pass.
 - **2026-10-19** – Chữ, nút, logo có chiều sâu + tỉ lệ theo banner (Nghiệp: phối màu logo/chữ/nút đơn giản như ghép đè layer; muốn rõ tỉ lệ, dễ đọc, có ánh sáng/viền). Chỉ áp cho chữ "Tự động theo banner", tính lúc ghép, không lưu vào graph (chỉnh tay giữ nguyên). (1) Tỉ lệ: layout chỉ co chữ chứ không phóng → banner dẹt chữ nhỏ. `engine.ts` thêm bước phóng cả cụm chữ tự động cùng 1 hệ số (≤ `GROW_MAX` 1.5×, giữ tỉ lệ tiêu đề/mô tả/CTA) tới khi vừa khung, KHÔNG đổi cách ngắt dòng (lỗi đã gặp: "GIẢM ĐẾN / 50%" thành "GIẢM / ĐẾN 50%"). (2) `lib/flow/text/treatment.ts` (thuần): tiêu đề theo phong cách – nổi bật/năng động: gradient sáng + bóng khối màu nhấn đậm + glow; vui tươi: viền sticker + bóng khối; sang trọng: gradient champagne + glow ấm; tối giản/doanh nghiệp: sạch. Nút CTA: gradient cùng họ màu, bóng mềm, dải sáng (sang trọng thêm viền, năng động thêm glow, tối giản phẳng). Vầng làm rõ (`scrimFor`): nền rối hoặc tương phản < 6.5 → vầng elip tối/sáng mềm sau cụm chữ, bỏ bóng từng chữ. Logo (`logoHalo`): tương phản < 2.2 với nền → quầng ngược màu. (3) Renderer: đo nền dưới mọi chữ trước khi vẽ chữ nào; `drawText` vẽ glow → bóng khối (4 bước) → viền → tô (gradient); `drawPlate` gradient + glow + bóng + dải sáng + viền; `plan.ts` truyền `look` (style, mood). Kiểm: tạo nền thật 1 lần (2 lượt AI) rồi dùng lại file nền để thử 4 phong cách + logo tối màu, 0 lượt AI thêm. Ảnh `docs/flow/text-treatment-before-after.jpg` (mẫu Vui tươi chụp trước khi sửa ngắt dòng). 481 test pass, tsc + eslint pass.
 - **2026-10-20** – Thêm 6 font Google (Nghiệp yêu cầu, nhiều lựa chọn hơn): Playfair Display, Barlow, Merriweather, Prompt, Philosopher, Paytone One – đều OFL, có subset tiếng Việt → `FLOW_FONTS` 11 font. Philosopher chỉ có 400/700, Paytone One chỉ 400: `nearestFontWeight` snap độ đậm trong `autoTypography` (Inspector đã tự snap khi đổi font); Paytone One như Dancing Script – chỉ dùng cho tiêu đề, chữ nhỏ/nút dùng Be Vietnam Pro. **Lỗi bắt được khi chạy:** Merriweather weight tĩnh bị Google trả URL `font?kit=…`, Turbopack báo "Module not found" làm hỏng /flow (tsc không thấy) → tải bản variable (bỏ `weight`). Kiểm trình duyệt qua trang tạm (đã xoá): 11 font hiện đúng tiếng Việt có dấu ở 400 và 700. 487 test pass, tsc pass.
+- **2026-10-20** – T7.1 (Nghiệp quyết sau khi dùng thử: ghép layer cho banner chất lượng thấp hơn flat). Gỡ node Auto layout, Tạo nền, Ghép layer cùng layout engine, compose/renderer Canvas 2D, prompt nền, chữ tự động, bảng màu ảnh, font next/font của canvas, route `/api/flow/generate-background`; `CompiledJob.renderMode` chỉ còn `flat`; Xuất ảnh chỉ nhận `raster`. Template mặc định chuyển sang Tạo banner (bỏ field màu chữ/nút). UI: Simple view bỏ tab Xem trước bố cục + mục Kiểu chữ; Inspector Text chỉ còn Nội dung + Vai trò; node "Tạo banner (flat)" → "Tạo banner", "Asset (giữ pixel)" → "Ảnh sản phẩm"; trang `/flow/guide` còn 1 flow 3 bước. Project/nháp cũ: `convertComposedDoc` tự đổi sang Tạo banner khi mở (có test). Test: 307 pass, tsc + eslint + `next build` pass. Chưa chạy Gemini thật sau thay đổi.

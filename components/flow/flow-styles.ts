@@ -18,9 +18,6 @@ export const PORT_HANDLE: Record<PortType, string> = {
   brand: 'flow-port-brand',
   ratio: 'flow-port-ratio',
   style: 'flow-port-style',
-  layout: 'flow-port-layout',
-  background: 'flow-port-background',
-  composition: 'flow-port-composition',
   raster: 'flow-port-raster',
 };
 
@@ -33,9 +30,6 @@ export const EDGE_CLASS: Record<PortType, string> = {
   brand: 'flow-edge-brand',
   ratio: 'flow-edge-ratio',
   style: 'flow-edge-style',
-  layout: 'flow-edge-layout',
-  background: 'flow-edge-background',
-  composition: 'flow-edge-composition',
   raster: 'flow-edge-raster',
 };
 
@@ -43,7 +37,6 @@ export const EDGE_CLASS: Record<PortType, string> = {
 export const KIND_CHIP: Record<NodeKind, string> = {
   input: 'bg-node-input/12 text-node-input',
   config: 'bg-node-config/12 text-node-config',
-  layout: 'bg-node-layout/12 text-node-layout',
   executor: 'bg-node-executor/12 text-node-executor',
   output: 'bg-node-output/12 text-node-output',
 };
@@ -51,7 +44,6 @@ export const KIND_CHIP: Record<NodeKind, string> = {
 export const KIND_LABELS: Record<NodeKind, string> = {
   input: 'Đầu vào',
   config: 'Cấu hình',
-  layout: 'Layout',
   executor: 'Tạo ảnh (AI)',
   output: 'Đầu ra',
 };

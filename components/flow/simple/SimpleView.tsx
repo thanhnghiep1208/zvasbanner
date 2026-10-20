@@ -5,21 +5,16 @@ import { CircleAlert, Workflow } from 'lucide-react';
 import type { NodeParamsMap } from '@/lib/flow/schema';
 import { resolveExposed, type ExposedParam } from '@/lib/flow/template/template';
 import { validateGraph } from '@/lib/flow/validate';
-import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import { useFlowStore } from '@/store/flow-store';
 import { RunResults } from '../inspector/RunResults';
 import { CampaignBriefFields } from '../inspector/CampaignBriefFields';
 import { ExposedField } from './ExposedField';
 import { ImageListField } from './ImageListField';
-import { LayoutPreview } from './LayoutPreview';
-import { TextStyleModeField } from './TextStyleModeField';
 import { StepSection } from './StepSection';
 import { BRIEF_STEP, missingCount, orderSteps, stepSummary } from '@/lib/flow-ui/simple-steps';
 import { isImageNode } from '@/lib/flow/image-nodes';
 
 const DEFAULT_GROUP = 'Thiết lập';
-/** Nhóm template đặt field màu/kiểu (defaults.ts `G.look`) – đặt lựa chọn Kiểu chữ ở đầu nhóm này. */
-const LOOK_GROUP = 'Phong cách';
 
 /**
  * Simple view (T5.2, SPEC 5.7): form sinh từ `exposed` của template, ghi thẳng vào graph.
@@ -47,7 +42,6 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
       const g = f.nodeId === briefNodeId ? BRIEF_STEP : f.group ?? DEFAULT_GROUP;
       map.set(g, [...(map.get(g) ?? []), f]);
     }
-    if (!map.has(LOOK_GROUP)) map.set(LOOK_GROUP, []); // luôn có chỗ cho "Kiểu chữ"
     return map;
   }, [fields, briefNodeId]);
   const steps = orderSteps([...stepFields.keys()]);
@@ -68,7 +62,7 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   };
 
   // Lỗi/cảnh báo theo node → hiện dưới field của node đó; lỗi node không lộ ra → khối chung.
-  const issues = useMemo(() => validateGraph(graph, { measurer: canvasMeasurer }), [graph]);
+  const issues = useMemo(() => validateGraph(graph), [graph]);
   const hasImageList = fields.some((f) => f.control === 'asset');
   const shownNodes = new Set([
     ...fields.map((f) => f.nodeId),
@@ -85,11 +79,6 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   for (const f of fields) if (!firstFieldOfNode.has(f.nodeId)) firstFieldOfNode.set(f.nodeId, f.id);
 
   const exportNode = graph.nodes.find((n) => n.type === 'export');
-  const results = useFlowStore((s) => s.results);
-  // Tab user chọn chỉ giữ cho lần chạy hiện tại; chạy xong lần mới → tự về Kết quả. Chưa có kết quả → xem trước.
-  const [picked, setPicked] = useState<{ tab: 'preview' | 'results'; results: typeof results } | null>(null);
-  const shownTab = picked?.results === results ? picked.tab : results.length ? 'results' : 'preview';
-  const setTab = (tab: 'preview' | 'results') => setPicked({ tab, results });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:overflow-hidden">
@@ -111,11 +100,10 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
               >
                 {isBrief && briefNodeId && (
                   <>
-                    <p className="-mt-1 text-xs text-muted-foreground">Banner nói gì, với ai. AI dựa vào đây để chọn không khí nền và gợi ý chữ.</p>
+                    <p className="-mt-1 text-xs text-muted-foreground">Banner nói gì, với ai. AI dựa vào đây để vẽ banner và gợi ý chữ.</p>
                     <CampaignBriefFields nodeId={briefNodeId} />
                   </>
                 )}
-                {step === LOOK_GROUP && <TextStyleModeField />}
                 {items.map((f) => (
                   <div key={f.id} className="flex flex-col gap-1.5">
                     {f.control === 'asset'
@@ -153,21 +141,7 @@ export function SimpleView({ onOpenCanvas }: { onOpenCanvas: () => void }) {
 
       <section className="flex shrink-0 flex-col bg-muted/40 lg:min-h-0 lg:shrink lg:overflow-y-auto" aria-label="Kết quả">
         <div className="flex flex-col gap-3 p-4">
-          <div className="inline-flex w-fit rounded-lg border bg-muted p-0.5 text-xs" role="tablist" aria-label="Xem">
-            {([['preview', 'Xem trước bố cục'], ['results', 'Kết quả']] as const).map(([v, label]) => (
-              <button
-                key={v}
-                type="button"
-                role="tab"
-                aria-selected={shownTab === v}
-                onClick={() => setTab(v)}
-                className="rounded-md px-2.5 py-1 font-medium text-muted-foreground transition-colors aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-xs focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {shownTab === 'preview' ? <LayoutPreview /> : exportNode
+          {exportNode
             ? <RunResults exportParams={exportNode.params as NodeParamsMap['export']} />
             : <p className="text-xs text-muted-foreground">Template chưa có node Xuất ảnh.</p>}
         </div>

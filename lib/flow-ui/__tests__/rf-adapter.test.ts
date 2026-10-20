@@ -3,13 +3,13 @@ import type { Edge, Node } from '@xyflow/react';
 import { decompileJob } from '@/lib/flow/decompiler';
 import { canConnect } from '@/lib/flow/connection-rules';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
-import { composedFull, flatLegacy } from '@/lib/flow/__tests__/fixtures';
+import { flatFull, flatLegacy } from '@/lib/flow/__tests__/fixtures';
 import {
   attemptToEdge, fromRFEdge, fromRFNode, graphToRF, rfToGraph, toConnectionAttempt, toRFEdge, toRFNode,
 } from '../rf-adapter';
 
 describe('rf-adapter', () => {
-  for (const [name, job] of Object.entries({ composedFull, flatLegacy })) {
+  for (const [name, job] of Object.entries({ flatFull, flatLegacy })) {
     it(`round-trip graph → RF → graph (${name})`, () => {
       const graph = decompileJob(job);
       const { nodes, edges } = graphToRF(graph);

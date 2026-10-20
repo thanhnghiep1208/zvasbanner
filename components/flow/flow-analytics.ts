@@ -36,12 +36,12 @@ type GenerationMeta = {
 };
 
 /**
- * Mỗi lượt AI thật của flow (flat: /api/generate, composed: /api/flow/generate-background) → 1 `generate_banner`
+ * Mỗi lượt AI thật của flow (/api/generate) → 1 `generate_banner`
  * trong banner_events, để dashboard đếm số ảnh, model, token và chi phí giống form. Ảnh lấy từ cache không gọi hàm này.
  */
 export function trackFlowGeneration(args: {
   bannerId?: string; source: 'gemini' | 'placeholder'; meta?: GenerationMeta; hasAsset: boolean;
-  context: 'flow_flat' | 'flow_background';
+  context: 'flow_flat';
 }): void {
   const { meta } = args;
   void track('generate_banner', {

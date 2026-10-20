@@ -1,16 +1,16 @@
 /**
- * Template mặc định (T5.3). Mọi template đi qua Compose (SPEC 3 #4), trừ "Theo banner mẫu" (Nghiệp duyệt 2026-10-16):
- * làm lại giống banner mẫu cần AI vẽ cả banner (flat) – bố cục chữ/sản phẩm theo mẫu, không theo layout engine.
+ * Template mặc định (T5.3). Mọi template dùng Tạo banner: AI vẽ cả banner – nền, sản phẩm (giữ nguyên chủ thể),
+ * chữ. Chế độ Ghép layer đã gỡ 2026-10-20 vì chất lượng banner thấp hơn flat.
  *
  * Mỗi template dựng từ một CompiledJob rồi `decompileJob` → id node xác định (n-product-0, n-text-<layerId>,
- * n-brief, n-ratio, n-style, n-brand, n-generate, n-compose, n-export), nên `exposed` trỏ thẳng id đó.
+ * n-brief, n-ratio, n-style, n-brand, n-generate-flat, n-export), nên `exposed` trỏ thẳng id đó.
  * Ảnh sản phẩm để trống – user tải lên ở Simple view (field bắt buộc).
  */
 import type { CompiledJob } from '../compiled-job';
 import { decompileJob } from '../decompiler';
 import type { FlowAsset, PixelAssetRole, RatioSpec, ReferenceAssetRole, TextRole } from '../schema';
-import { DEFAULT_SHADOW, DEFAULT_STYLE } from '../schema';
-import { defaultTextStyle, TEXT_ROLE_DEFAULTS, type TextStyle } from '../text/text-style';
+import { DEFAULT_STYLE } from '../schema';
+import { defaultTextStyle, TEXT_ROLE_DEFAULTS } from '../text/text-style';
 import type { ExposedOption, ExposedParam, FlowTemplate } from './template';
 
 /* ── Mảnh dựng chung ─────────────────────────────────────────── */
@@ -38,26 +38,23 @@ const R = {
   story: ratio('custom-1080x1920', 'Custom', 1080, 1920, 'Custom'),
 };
 
-function text(
-  layerId: string, role: TextRole, content: string, priority: number, style: Partial<TextStyle> = {},
-): CompiledJob['textLayers'][number] {
+/** Flat: AI vẽ mọi chữ theo nội dung + role; style chỉ là giá trị mặc định của schema. */
+function text(layerId: string, role: TextRole, content: string, priority: number): CompiledJob['textLayers'][number] {
   return {
     layerId, role, content, renderSource: 'layer', priority,
     minFontSizePx: TEXT_ROLE_DEFAULTS[role].minFontSizePx,
-    style: { ...defaultTextStyle(role), ...style },
-    // Mặc định chữ tự động theo banner; style ở trên là điểm bắt đầu khi user chuyển sang chỉnh tay.
-    autoStyle: true,
+    style: defaultTextStyle(role),
   };
 }
 
 function job(over: Partial<CompiledJob> & Pick<CompiledJob, 'brief' | 'ratios' | 'textLayers'>): CompiledJob {
   return {
     schemaVersion: 1,
-    renderMode: 'composed',
+    renderMode: 'flat',
     references: [],
     model: 'nano-banana-2',
     products: [emptyProduct()],
-    composed: { lightDirectionDeg: 315, strictNoText: true, layoutOverrides: {}, shadow: DEFAULT_SHADOW },
+    flat: { strictPreserveMode: true },
     export: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' },
     ...over,
   };
@@ -77,17 +74,14 @@ const G = { image: 'Hình ảnh', content: 'Nội dung', look: 'Phong cách', si
 
 const fProduct: ExposedParam = {
   id: 'product', nodeId: 'n-product-0', path: [], label: 'Ảnh sản phẩm', control: 'asset', required: true, group: G.image,
-  hint: 'Nên dùng PNG nền trong suốt để có bóng đổ tự nhiên.',
+  hint: 'Nên dùng PNG nền trong suốt. AI giữ nguyên hình dạng và màu sản phẩm.',
 };
 const fText = (layerId: string, label: string, required = false): ExposedParam => ({
   id: layerId, nodeId: `n-text-${layerId}`, path: ['content'], label, control: 'text', required, group: G.content,
 });
-const fTextColor = (layerId: string, label: string): ExposedParam => ({
-  id: `${layerId}-color`, nodeId: `n-text-${layerId}`, path: ['style', 'fill', 'color'], label, control: 'color', group: G.look,
-});
 const fBrief = (placeholder: string): ExposedParam => ({
-  id: 'brief', nodeId: 'n-brief', path: ['prompt'], label: 'Bối cảnh nền mong muốn (tuỳ chọn)', control: 'textarea', group: G.content,
-  placeholder, hint: 'Để trống: AI tự chọn nền theo Brief. Chỉ tả nền và không khí; sản phẩm và chữ không do AI vẽ.',
+  id: 'brief', nodeId: 'n-brief', path: ['prompt'], label: 'Mô tả banner (tuỳ chọn)', control: 'textarea', group: G.content,
+  placeholder, hint: 'Tả nền, không khí, bố cục mong muốn. Chữ trên banner lấy từ các ô ở trên.',
 });
 const fIntents: ExposedParam = {
   id: 'intents', nodeId: 'n-brief', path: ['marketingBrief', 'campaignIntents'], label: 'Mục tiêu chiến dịch',
@@ -112,7 +106,7 @@ const productHero: FlowTemplate = {
     ratios: [R.zaloOa],
     textLayers: [
       text('headline', 'headline', 'Tên sản phẩm của bạn', 1),
-      text('sub', 'subheadline', 'Một câu nói lên điểm khác biệt', 2, { fill: { kind: 'solid', color: '#444444' } }),
+      text('sub', 'subheadline', 'Một câu nói lên điểm khác biệt', 2),
     ],
   })),
   exposed: [
@@ -120,8 +114,7 @@ const productHero: FlowTemplate = {
     fText('headline', 'Tiêu đề chính', true),
     fText('sub', 'Mô tả ngắn'),
     fBrief('VD: mặt bàn gỗ sồi, cây xanh mờ phía sau, nắng sớm'),
-    fTextColor('headline', 'Màu tiêu đề'),
-    { id: 'style', nodeId: 'n-style', path: ['style'], label: 'Phong cách nền', control: 'select', group: G.look,
+    { id: 'style', nodeId: 'n-style', path: ['style'], label: 'Phong cách', control: 'select', group: G.look,
       options: [
         { value: 'minimalist', label: 'Tối giản' }, { value: 'luxury', label: 'Sang trọng' },
         { value: 'playful', label: 'Vui tươi' }, { value: 'corporate', label: 'Doanh nghiệp' },
@@ -134,7 +127,7 @@ const productHero: FlowTemplate = {
 const saleMultiRatio: FlowTemplate = {
   id: 'sale-multi-ratio',
   name: 'Khuyến mãi đa kích thước',
-  description: 'Banner sale có nút CTA, xuất cùng lúc cho Zalo, MP3 và Báo Mới. Mỗi kích thước tự xếp lại bố cục.',
+  description: 'Banner sale có nút CTA, xuất cùng lúc cho Zalo, MP3 và Báo Mới. Kích thước sau AI dựng lại theo banner đầu.',
   graph: decompileJob(job({
     brief: {
       prompt: 'Nền đỏ cam rực rỡ, ánh sáng sân khấu, hiệu ứng confetti nhẹ phía xa, cảm giác khẩn trương',
@@ -143,17 +136,9 @@ const saleMultiRatio: FlowTemplate = {
     style: { ...DEFAULT_STYLE, style: 'bold', mood: 'energetic', colorPalette: 'warm', fontStyle: 'display' },
     ratios: [R.zaloOa, R.zaloFeed, R.mp3Home, R.baomoiRect],
     textLayers: [
-      text('headline', 'headline', 'GIẢM ĐẾN 50%', 1, {
-        fontFamily: 'montserrat', textTransform: 'uppercase', fill: { kind: 'solid', color: '#FFFFFF' },
-        shadow: { color: '#00000066', blurPx: 12, offsetX: 0, offsetY: 4 },
-      }),
-      text('sub', 'subheadline', 'Chỉ 3 ngày cuối tuần', 2, {
-        fontFamily: 'montserrat', fill: { kind: 'solid', color: '#FFF4E0' },
-      }),
-      text('cta', 'cta', 'Mua ngay', 3, {
-        fontFamily: 'montserrat', fill: { kind: 'solid', color: '#C1121F' },
-        plate: { color: '#FFD60A', paddingX: 36, paddingY: 16, radiusPx: 999 },
-      }),
+      text('headline', 'headline', 'GIẢM ĐẾN 50%', 1),
+      text('sub', 'subheadline', 'Chỉ 3 ngày cuối tuần', 2),
+      text('cta', 'cta', 'Mua ngay', 3),
     ],
   })),
   exposed: [
@@ -163,9 +148,7 @@ const saleMultiRatio: FlowTemplate = {
     fText('cta', 'Nút kêu gọi'),
     fBrief('VD: nền đỏ cam, confetti, ánh đèn sân khấu'),
     fIntents,
-    fTextColor('headline', 'Màu tiêu đề'),
-    { id: 'cta-plate', nodeId: 'n-text-cta', path: ['style', 'plate', 'color'], label: 'Màu nút', control: 'color', group: G.look },
-    fRatios('Mỗi kích thước tốn 1 lượt AI để tạo nền.'),
+    fRatios('Mỗi kích thước tốn 2 lượt AI (tạo + chỉnh hài hoà).'),
   ],
 };
 
@@ -181,10 +164,8 @@ const socialPost: FlowTemplate = {
     style: { ...DEFAULT_STYLE, style: 'playful', mood: 'energetic', colorPalette: 'auto', fontStyle: 'sans' },
     ratios: [R.square, R.portrait],
     textLayers: [
-      text('headline', 'headline', 'Ngày mới thêm vui', 1, { fontFamily: 'be-vietnam-pro', fontSizePx: 84 }),
-      text('cta', 'cta', 'Khám phá ngay', 2, {
-        fontFamily: 'be-vietnam-pro', plate: { color: '#111111', paddingX: 32, paddingY: 16, radiusPx: 999 },
-      }),
+      text('headline', 'headline', 'Ngày mới thêm vui', 1),
+      text('cta', 'cta', 'Khám phá ngay', 2),
     ],
   })),
   exposed: [
@@ -193,7 +174,6 @@ const socialPost: FlowTemplate = {
     fText('cta', 'Nút kêu gọi'),
     fBrief('VD: góc bàn cà phê sáng sớm, màu pastel'),
     fIntents,
-    fTextColor('headline', 'Màu tiêu đề'),
     fRatios('Có thể thêm 1080×1920 cho story.'),
   ],
 };
@@ -201,7 +181,7 @@ const socialPost: FlowTemplate = {
 const eventBrand: FlowTemplate = {
   id: 'event-brand',
   name: 'Sự kiện theo thương hiệu',
-  description: 'Banner lễ/sự kiện dùng màu thương hiệu, chữ có chân sang trọng. Zalo OA + Miniapp.',
+  description: 'Banner lễ/sự kiện dùng màu thương hiệu, phong cách sang trọng. Zalo OA + Miniapp.',
   graph: decompileJob(job({
     brief: {
       prompt: 'Không khí lễ hội sang trọng, ánh đèn bokeh vàng ấm, chất liệu nhung và kim loại',
@@ -211,13 +191,8 @@ const eventBrand: FlowTemplate = {
     brandKit: { colors: ['#7A0019', '#E9C46A'] },
     ratios: [R.zaloOa, R.zaloMiniapp],
     textLayers: [
-      text('headline', 'headline', 'Mừng Xuân Sum Vầy', 1, {
-        fontFamily: 'noto-serif', fill: { kind: 'solid', color: '#E9C46A' },
-        shadow: { color: '#00000080', blurPx: 10, offsetX: 0, offsetY: 3 },
-      }),
-      text('sub', 'subheadline', 'Quà tặng cao cấp từ 499K', 2, {
-        fontFamily: 'noto-serif', fill: { kind: 'solid', color: '#FFFFFF' },
-      }),
+      text('headline', 'headline', 'Mừng Xuân Sum Vầy', 1),
+      text('sub', 'subheadline', 'Quà tặng cao cấp từ 499K', 2),
     ],
   })),
   exposed: [
@@ -225,8 +200,6 @@ const eventBrand: FlowTemplate = {
     fText('headline', 'Tên sự kiện', true),
     fText('sub', 'Thông điệp phụ'),
     fBrief('VD: đèn lồng đỏ, hoa mai, ánh vàng ấm'),
-    fTextColor('headline', 'Màu tiêu đề'),
-    fTextColor('sub', 'Màu thông điệp phụ'),
     fRatios(),
   ],
 };
@@ -240,9 +213,6 @@ const referenceBanner: FlowTemplate = {
   name: 'Theo banner mẫu',
   description: 'Tải 1 banner mẫu: AI làm lại giống mẫu theo kích thước mới, thay bằng chữ và sản phẩm của bạn.',
   graph: decompileJob(job({
-    renderMode: 'flat',
-    composed: undefined,
-    flat: { strictPreserveMode: true },
     references: [emptyReference()],
     products: [],
     brief: {

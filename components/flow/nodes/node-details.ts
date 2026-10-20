@@ -6,7 +6,6 @@ import { BRIEF_TONE_LABELS } from '@/lib/flow/brief';
 import { INTENT_OPTIONS } from '@/components/prompt/MarketingBriefChips';
 import { asLogoPosition, LOGO_POSITION_LABELS } from '@/lib/flow/brand';
 import type { FlowNode, NodeParamsMap } from '@/lib/flow/schema';
-import { FLOW_FONTS } from '@/lib/flow/text/text-style';
 import { PALETTE_OPTIONS } from '@/lib/style-options';
 
 export interface DetailChip {
@@ -37,17 +36,8 @@ function capped(chips: DetailChip[]): DetailChip[] {
 }
 
 function textLayer(p: NodeParamsMap['text-layer']): NodeDetails {
-  // Vai trò đã ở header. Tự động: font/cỡ/màu do app chọn lúc chạy → không có chip.
-  if (p.renderSource === 'ai') return { text: p.content, chips: [{ label: 'AI vẽ chữ' }] };
-  if (p.autoStyle) return { text: p.content, chips: [] };
-  const s = p.style;
-  return {
-    text: p.content,
-    chips: [
-      { label: `${FLOW_FONTS[s.fontFamily]?.label ?? s.fontFamily} ${s.fontSizePx}px` },
-      { label: s.fill.color, swatch: s.fill.color },
-    ],
-  };
+  // Vai trò đã ở header; font/màu do AI chọn theo Phong cách + Brand kit → không có chip.
+  return { text: p.content, chips: [] };
 }
 
 function brief(p: NodeParamsMap['brief']): NodeDetails {

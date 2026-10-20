@@ -5,10 +5,9 @@ import { NODE_DEFINITIONS, PORT_TYPE_LABELS } from '@/lib/flow/node-definitions'
 import type { NodeType, PortType } from '@/lib/flow/schema';
 import { cn } from '@/lib/utils';
 import { NodeIconChip } from '../nodes/FlowNodeCard';
-import { COMMON_ISSUES, NEED, NEED_LABELS, RECIPES, TIPS, type Need, type Recipe } from './guide-content';
+import { COMMON_ISSUES, NEED, NEED_LABELS, RECIPE, TIPS, type Need } from './guide-content';
 
 const TYPES = Object.keys(NODE_DEFINITIONS) as NodeType[];
-const [COMPOSED, FLAT] = RECIPES;
 
 /** Chấm màu theo kiểu port – cùng token với handle trên canvas. Chuỗi tĩnh để Tailwind quét được. */
 const PORT_DOT: Record<PortType, string> = {
@@ -19,9 +18,6 @@ const PORT_DOT: Record<PortType, string> = {
   brand: 'bg-port-brand',
   ratio: 'bg-port-ratio',
   style: 'bg-port-style',
-  layout: 'bg-port-layout',
-  background: 'bg-port-background',
-  composition: 'bg-port-composition',
   raster: 'bg-port-raster',
 };
 
@@ -30,14 +26,12 @@ const NEED_CHIP: Record<Need, string> = {
   required: 'border-border bg-card font-medium',
   recommended: 'border-border bg-card',
   optional: 'border-dashed border-border text-muted-foreground',
-  none: 'hidden',
 };
 
 const NEED_DOT: Record<Need, string> = {
   required: 'bg-foreground',
   recommended: 'bg-run-done',
   optional: 'border border-muted-foreground bg-transparent',
-  none: 'hidden',
 };
 
 const label = (t: NodeType) => NODE_DEFINITIONS[t].label;
@@ -82,10 +76,10 @@ function Disclosure({ summary, children }: { summary: string; children: ReactNod
   );
 }
 
-function EdgeList({ recipe }: { recipe: Recipe }) {
+function EdgeList() {
   return (
     <ul className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
-      {recipe.edges.map((e) => {
+      {RECIPE.edges.map((e) => {
         const type = NODE_DEFINITIONS[e.to].inputs.find((p) => p.id === e.port)!.type;
         return (
           <li key={`${e.from}-${e.to}-${e.port}`} className="flex items-center gap-2">
@@ -102,10 +96,10 @@ function EdgeList({ recipe }: { recipe: Recipe }) {
 }
 
 /** Sơ đồ các bước: ngang trên màn rộng, dọc trên điện thoại. */
-function StageFlow({ recipe }: { recipe: Recipe }) {
+function StageFlow() {
   return (
     <ol className="flex flex-col gap-2 lg:flex-row lg:items-stretch">
-      {recipe.stages.map((s, i) => (
+      {RECIPE.stages.map((s, i) => (
         <li key={s.title} className="contents">
           {i > 0 && (
             <span className="flex justify-center text-muted-foreground lg:items-center" aria-hidden>
@@ -120,7 +114,7 @@ function StageFlow({ recipe }: { recipe: Recipe }) {
             </p>
             <p className="mt-0.5 mb-2.5 pl-7 text-xs text-muted-foreground">{s.hint}</p>
             <div className="flex flex-wrap gap-1.5">
-              {s.nodes.map((t) => <NodeChip key={t} type={t} need={NEED[t][recipe.id]} />)}
+              {s.nodes.map((t) => <NodeChip key={t} type={t} need={NEED[t]} />)}
             </div>
           </div>
         </li>
@@ -129,13 +123,13 @@ function StageFlow({ recipe }: { recipe: Recipe }) {
   );
 }
 
-function TemplateLink({ recipe }: { recipe: Recipe }) {
+function TemplateLink() {
   return (
     <Link
-      href={`/flow?template=${recipe.templateId}`}
+      href={`/flow?template=${RECIPE.templateId}`}
       className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline"
     >
-      Mở mẫu “{recipe.templateName}”
+      Mở mẫu “{RECIPE.templateName}”
       <ArrowRight className="size-3.5" aria-hidden />
     </Link>
   );
@@ -144,15 +138,14 @@ function TemplateLink({ recipe }: { recipe: Recipe }) {
 function NodeCard({ type }: { type: NodeType }) {
   const def = NODE_DEFINITIONS[type];
   const { connect, tips } = TIPS[type];
-  const flatOnly = NEED[type].composed === 'none';
-  const need = NEED[type].composed;
+  const need = NEED[type];
   return (
     <article id={`node-${type}`} className="scroll-mt-20 rounded-xl border bg-card p-4">
       <div className="flex items-center gap-2.5">
         <NodeIconChip type={type} />
         <h3 className="min-w-0 flex-1 font-semibold">{def.label}</h3>
         <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-          {flatOnly ? 'Chỉ cho Flat' : <><NeedDot need={need} />{NEED_LABELS[need]}</>}
+          <NeedDot need={need} />{NEED_LABELS[need]}
         </span>
       </div>
       <p className="mt-2 text-sm text-muted-foreground">{def.description}</p>
@@ -177,12 +170,12 @@ const QUICK_STEPS: { icon: LucideIcon; title: string; body: ReactNode }[] = [
   {
     icon: ImagePlus,
     title: 'Điền ảnh và chữ',
-    body: <>Ở chế độ <b className="font-medium text-foreground">Đơn giản</b>: tải ảnh sản phẩm, sửa tiêu đề. Tab <b className="font-medium text-foreground">Xem trước bố cục</b> hiện ngay, không tốn lượt AI.</>,
+    body: <>Ở chế độ <b className="font-medium text-foreground">Đơn giản</b>: tải ảnh sản phẩm, sửa tiêu đề và mô tả banner.</>,
   },
   {
     icon: Play,
     title: 'Bấm Chạy',
-    body: <>Bấm <b className="font-medium text-foreground">Chạy tất cả</b> ở góc trên phải. Xong thì bấm <b className="font-medium text-foreground">Tải tất cả</b> ở tab Kết quả.</>,
+    body: <>Bấm <b className="font-medium text-foreground">Chạy tất cả</b> ở góc trên phải. Xong thì bấm <b className="font-medium text-foreground">Tải tất cả</b> ở cột Kết quả.</>,
   },
 ];
 
@@ -205,10 +198,10 @@ function QuickStart() {
         ))}
       </ol>
       <Link
-        href={`/flow?template=${COMPOSED.templateId}`}
+        href={`/flow?template=${RECIPE.templateId}`}
         className="mt-4 inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
       >
-        Thử ngay với mẫu “{COMPOSED.templateName}”
+        Thử ngay với mẫu “{RECIPE.templateName}”
         <ArrowRight className="size-4" aria-hidden />
       </Link>
     </section>
@@ -236,39 +229,24 @@ export function FlowGuide() {
         <section aria-labelledby="flow" className="border-t pt-10">
           <h2 id="flow" className="text-lg font-semibold">Muốn chỉnh sâu: flow trên canvas</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Bấm <b className="font-medium text-foreground">Canvas</b> trên header để thấy toàn bộ node. Một flow nối từ trái sang phải theo 4 bước. Muốn tự dựng từ đầu: chọn <b className="font-medium text-foreground">Canvas trống</b> trong menu template.
+            Bấm <b className="font-medium text-foreground">Canvas</b> trên header để thấy toàn bộ node. Một flow nối từ trái sang phải theo 3 bước. Muốn tự dựng từ đầu: chọn <b className="font-medium text-foreground">Canvas trống</b> trong menu template.
           </p>
 
           <div className="mt-6 rounded-2xl border bg-card p-4 sm:p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <p className="text-sm">
-                <span className="font-semibold">{COMPOSED.title}</span>
-                <span className="text-muted-foreground"> · mặc định · {COMPOSED.aiCalls}</span>
+                <span className="font-semibold">{RECIPE.title}</span>
+                <span className="text-muted-foreground"> · {RECIPE.aiCalls}</span>
               </p>
               <Legend />
             </div>
-            <StageFlow recipe={COMPOSED} />
+            <StageFlow />
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm text-muted-foreground">{COMPOSED.summary}</p>
-              <TemplateLink recipe={COMPOSED} />
+              <p className="text-sm text-muted-foreground">{RECIPE.summary}</p>
+              <TemplateLink />
             </div>
             <Disclosure summary="Xem các dây cần nối">
-              <EdgeList recipe={COMPOSED} />
-            </Disclosure>
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-dashed p-4 sm:p-5">
-            <p className="text-sm">
-              <span className="font-semibold">Cách khác: {FLAT.title}</span>
-              <span className="text-muted-foreground"> · {FLAT.aiCalls}</span>
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {FLAT.summary} Thay 3 node Auto layout, Tạo nền, Ghép layer bằng 1 node{' '}
-              <span className="font-medium text-foreground">{label('generate-flat')}</span>.
-            </p>
-            <div className="mt-2"><TemplateLink recipe={FLAT} /></div>
-            <Disclosure summary="Xem các dây cần nối">
-              <EdgeList recipe={FLAT} />
+              <EdgeList />
             </Disclosure>
           </div>
         </section>

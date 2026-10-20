@@ -11,7 +11,7 @@ import { NodeIconChip } from './nodes/FlowNodeCard';
 /** MIME riêng cho kéo thả node từ thư viện vào canvas. */
 export const NODE_DRAG_MIME = 'application/x-zvas-flow-node';
 
-const KINDS: NodeKind[] = ['input', 'config', 'layout', 'executor', 'output'];
+const KINDS: NodeKind[] = ['input', 'config', 'executor', 'output'];
 const TYPES = Object.keys(NODE_DEFINITIONS) as NodeType[];
 
 /** Bỏ dấu tiếng Việt để tìm "sinh nen" vẫn ra "Sinh nền". */

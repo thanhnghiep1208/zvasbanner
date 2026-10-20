@@ -1,22 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildBackgroundPrompt } from '../background/prompt';
-import { parseBackgroundRequestShape, toBackgroundRequests } from '../background/request';
-import { campaignLegacyLines, campaignPromptLines, hasCampaign, parseCampaign, type CampaignBrief } from '../brief';
+import { campaignLegacyLines, hasCampaign, parseCampaign, type CampaignBrief } from '../brief';
 import { buildCopyPrompt, canSuggestCopy, clip, COPY_LIMITS, parseCopyResponse } from '../copy-suggest';
-import { planLayoutForJob } from '../layout/engine';
 import { toLegacyConfig } from '../legacy/to-legacy-config';
 import type { FlowGraph, NodeParamsMap } from '../schema';
 import { getTemplate, instantiateTemplate } from '../template';
 import { applyCopy, newTextLayerParams } from '../text-nodes';
 import { validateGraph } from '../validate';
 import { compileGraph } from '../compiler';
-import { composedMinimal, flatLegacy } from './fixtures';
-
-const plan = (job: typeof composedMinimal) => {
-  const r = planLayoutForJob(job);
-  if (!r.ok) throw new Error(r.message);
-  return r.plan;
-};
+import { flatLegacy } from './fixtures';
 
 const campaign: CampaignBrief = {
   audience: 'Nữ 25–35, dân văn phòng', message: 'Da sáng mịn sau 7 ngày', offer: 'Giảm 30% + freeship', tone: 'premium',
@@ -31,31 +22,6 @@ describe('brief marketing (campaign)', () => {
     expect(parseCampaign({ ...campaign, tone: 'angry' })).toBeNull();
     expect(parseCampaign({ ...campaign, audience: 'x'.repeat(301) })).toBeNull();
     expect(parseCampaign({ audience: 1, message: '', offer: '' })).toBeNull();
-  });
-
-  it('prompt nền: có khối CAMPAIGN, dặn không vẽ thành chữ; không có campaign thì prompt như cũ', () => {
-    const job = { ...composedMinimal, brief: { ...composedMinimal.brief, campaign } };
-    const r = toBackgroundRequests(job, plan(job), { dataUrls: {} });
-    expect(r.ok).toBe(true);
-    const req = r.ok ? r.drafts[0]!.request : undefined;
-    expect(req?.campaign).toEqual(campaign);
-    const prompt = buildBackgroundPrompt({ ...req!, guideStyle: 'natural' });
-    expect(prompt).toContain('never write any of it as text');
-    expect(prompt).toContain('Target audience: Nữ 25–35, dân văn phòng');
-    expect(prompt).toContain('Tone: premium, elegant and refined');
-    expect(buildBackgroundPrompt({ ...req!, guideStyle: 'hatched' })).toContain('=== CAMPAIGN ===');
-
-    const plain = toBackgroundRequests(composedMinimal, plan(composedMinimal), { dataUrls: {} });
-    expect(plain.ok && 'campaign' in plain.drafts[0]!.request).toBe(false);
-    expect(campaignPromptLines(undefined)).toEqual([]);
-  });
-
-  it('server kiểm campaign trong body', () => {
-    const job = { ...composedMinimal, brief: { ...composedMinimal.brief, campaign } };
-    const r = toBackgroundRequests(job, plan(job), { dataUrls: {} });
-    const body = { ...(r.ok ? r.drafts[0]!.request : {}), guideStyle: 'natural' };
-    expect(parseBackgroundRequestShape(body)).not.toBeNull();
-    expect(parseBackgroundRequestShape({ ...body, campaign: { ...campaign, tone: 'x' } })).toBeNull();
   });
 
   it('flat: brief thành các dòng tiếng Việt trước mô tả nền trong userPrompt', () => {
@@ -103,7 +69,7 @@ describe('gợi ý chữ từ brief', () => {
     expect((text('headline')[0]!.params as NodeParamsMap['text-layer']).content).toBe('Da sáng sau 7 ngày');
     expect((text('subheadline')[0]!.params as NodeParamsMap['text-layer']).content).toBe('Thành phần thiên nhiên');
     const cta = text('cta')[0]!;
-    expect(cta.params).toMatchObject({ content: 'Mua ngay', autoStyle: true, layerId: cta.id });
+    expect(cta.params).toMatchObject({ content: 'Mua ngay', layerId: cta.id });
     const outs = (g: FlowGraph, id: string) => g.edges.filter((e) => e.source === id).map((e) => `${e.target}.${e.targetPort}`).sort();
     expect(outs(graph, cta.id)).toEqual(outs(graph, text('headline')[0]!.id));
     expect(validateGraph(graph).filter((i) => i.severity === 'error')).toEqual([]);
@@ -111,10 +77,9 @@ describe('gợi ý chữ từ brief', () => {
     expect(job.ok && job.job.textLayers.map((l) => l.role).sort()).toEqual(['cta', 'headline', 'subheadline']);
   });
 
-  it('applyCopy: vai trò để trống không đụng; Text mới lấy font Brand kit', () => {
+  it('applyCopy: vai trò để trống không đụng; Text mới mang vai trò + thứ tự đúng', () => {
     const t = instantiateTemplate(getTemplate('product-hero')!);
     expect(applyCopy(t.graph, { headline: '', cta: '' }).graph).toBe(t.graph);
-    const withBrand: FlowGraph = { ...t.graph, nodes: [...t.graph.nodes, { id: 'n-brand', type: 'brand-kit', position: { x: 0, y: 0 }, params: { colors: [], fontPreference: 'Montserrat' } }] };
-    expect(newTextLayerParams(withBrand, 'x', 'cta').style.fontFamily).toBe('montserrat');
+    expect(newTextLayerParams(t.graph, 'x', 'cta')).toMatchObject({ layerId: 'x', role: 'cta', priority: 3, renderSource: 'layer' });
   });
 });

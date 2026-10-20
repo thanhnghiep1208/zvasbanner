@@ -2,7 +2,7 @@
  * Brief marketing (Nghiệp yêu cầu 2026-10-19): ngoài mục tiêu chiến dịch (marketingBrief, dùng chung form) và mô tả
  * bối cảnh nền (prompt), Brief có đối tượng, thông điệp/giá trị, ưu đãi, tone giọng.
  *
- * Dùng cho: (1) prompt tạo nền / flat – định hướng không khí, màu, mức năng lượng (KHÔNG vẽ thành chữ);
+ * Dùng cho: (1) prompt Tạo banner – định hướng không khí, màu, mức năng lượng (KHÔNG vẽ thành chữ);
  * (2) gợi ý chữ (headline/sub/CTA) bằng AI văn bản (copy-suggest.ts).
  * `campaign` là field tuỳ chọn trên params node Brief: project/template cũ không có vẫn chạy như trước.
  */
@@ -16,15 +16,6 @@ export const BRIEF_TONE_LABELS: Record<BriefTone, string> = {
   trustworthy: 'Tin cậy, chuyên nghiệp',
   playful: 'Vui nhộn, gần gũi',
   urgent: 'Gấp, kích thích mua ngay',
-};
-
-/** Cách nói với model (tiếng Anh, giống phần còn lại của prompt). */
-const TONE_PROMPT: Record<BriefTone, string> = {
-  youthful: 'youthful and energetic',
-  premium: 'premium, elegant and refined',
-  trustworthy: 'trustworthy, clean and professional',
-  playful: 'playful, friendly and warm',
-  urgent: 'urgent, high-energy, made to drive immediate action',
 };
 
 export interface CampaignBrief {
@@ -61,21 +52,7 @@ export function parseCampaign(v: unknown): CampaignBrief | null {
 
 const clean = (s: string) => s.replace(/\s+/g, ' ').replace(/"/g, "'").trim();
 
-/**
- * Dòng prompt (tiếng Anh) cho model ảnh. Chỉ để định hướng không khí: nói rõ không vẽ chữ của brief
- * (ưu đãi "giảm 50%" dễ bị model vẽ thành chữ).
- */
-export function campaignPromptLines(c: CampaignBrief | undefined): string[] {
-  if (!hasCampaign(c)) return [];
-  const lines = ['Campaign context (use it to set mood, colour energy and props; never write any of it as text in the image):'];
-  if (c.audience.trim()) lines.push(`- Target audience: ${clean(c.audience)}`);
-  if (c.message.trim()) lines.push(`- Key message / value: ${clean(c.message)}`);
-  if (c.offer.trim()) lines.push(`- Offer: ${clean(c.offer)}`);
-  if (c.tone) lines.push(`- Tone: ${TONE_PROMPT[c.tone]}`);
-  return lines;
-}
-
-/** Bản tiếng Việt cho prompt flat (form cũ nhận prompt tiếng Việt tự do). */
+/** Các dòng tiếng Việt thêm vào prompt Tạo banner (form cũ nhận prompt tiếng Việt tự do). */
 export function campaignLegacyLines(c: CampaignBrief | undefined): string[] {
   if (!hasCampaign(c)) return [];
   const lines: string[] = [];

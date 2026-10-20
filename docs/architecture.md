@@ -35,7 +35,7 @@ Google Gemini API (generate / enhance / edit / harmony pass)
 - **`components/`** — UI theo vùng: `canvas/`, `layout/`, `prompt/`, `dashboard/`, `account/`, `auth/`, `assets/`, `results/`, `ui/`.
 - **`lib/`** — Logic dùng chung: `gemini-server.ts`, `prompt-builder.ts`, `client-generation.ts`, `analytics.ts`, `authz.ts`, `require-user.ts`, `request-limits.ts`, `clerk-sessions.ts`, `dashboard*.ts`, `db.ts`, `validate-generation.ts`, presets canvas.
 - **`store/`** — Zustand: canvas config, assets, prompt/style, ảnh đã tạo, `currentBannerId` (analytics). Flow canvas: `flow-store.ts` (graph), `flow-history.ts` (undo/redo).
-- **`lib/flow/`** — domain Flow canvas thuần (schema graph, validate, compiler, layout engine, compose plan, executor, template, chữ tự động); **`lib/flow-ui/`** — phần cần trình duyệt (Canvas 2D render, nháp IndexedDB); **`lib/flow-server/`** — DB/Gemini phía server; **`components/flow/`** — UI `/flow`.
+- **`lib/flow/`** — domain Flow canvas thuần (schema graph, validate, compiler, executor, template, brief, brand kit); **`lib/flow-ui/`** — phần cần trình duyệt (adapter React Flow, nháp IndexedDB, cache ảnh); **`lib/flow-server/`** — DB/Gemini phía server; **`components/flow/`** — UI `/flow`.
 - **`proxy.ts`** — export `clerkMiddleware()` (Next.js 16 dùng tên file `proxy.ts` thay cho `middleware.ts`).
 - **`docs/`** — tài liệu dự án (file này + frontend/backend/api/deploy/workflow).
 
@@ -55,8 +55,7 @@ Chi tiết từng bước, component, và endpoint: xem [Frontend](./frontend.md
 
 Trình tạo banner dạng node, nằm sau cờ `FLOW_CANVAS` (`lib/flags.ts`). Graph (node + dây) là nguồn dữ liệu duy nhất; có 2 cách xem: **Đơn giản** (form sinh từ template) và **Canvas** (đầy đủ node).
 
-- **Chế độ ghép layer (composed, mặc định của template)**: layout engine xếp sản phẩm + chữ cho từng kích thước → AI chỉ tạo **nền** (`POST /api/flow/generate-background`) → client ghép sản phẩm (giữ nguyên pixel, đúng tỉ lệ), bóng đổ và chữ bằng Canvas 2D. Chữ "tự động theo banner" chọn font/cỡ theo phong cách và màu theo nền thật.
-- **Chế độ flat**: AI vẽ cả banner qua `POST /api/generate` như form (template "Theo banner mẫu", project mở từ form).
+- **Tạo banner (flat, chế độ duy nhất)**: AI vẽ cả banner (nền, sản phẩm giữ nguyên chủ thể, chữ) qua `POST /api/generate` như form, kèm harmony pass; kích thước sau dựng lại theo ảnh kích thước đầu. Chế độ ghép layer (AI tạo nền + ghép trên client) đã gỡ 2026-10-20 vì chất lượng thấp hơn; project cũ tự chuyển sang Tạo banner khi mở.
 - Lưu project: `/api/flow/docs` → bảng `flow_docs` (không lưu ảnh); nháp tự động trên máy (localStorage + IndexedDB). Analytics: `/api/flow/track` → `flow_events`.
 - Spec chi tiết, quyết định và nhật ký: [docs/flow/SPEC.md](./flow/SPEC.md).
 

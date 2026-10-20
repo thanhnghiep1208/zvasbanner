@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { decompileJob } from '@/lib/flow/decompiler';
-import { composedMinimal } from '@/lib/flow/__tests__/fixtures';
+import { flatMinimal } from '@/lib/flow/__tests__/fixtures';
 import { markFlowOpenSource, runErrorCode, takeFlowOpenSource } from '../flow-analytics';
 
-const graph = decompileJob(composedMinimal);
+const graph = decompileJob(flatMinimal);
 
 describe('runErrorCode (T6.3)', () => {
   it.each([

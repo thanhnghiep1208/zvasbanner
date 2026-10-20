@@ -1,31 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { decompileJob } from '@/lib/flow/decompiler';
-import { composedFull } from '@/lib/flow/__tests__/fixtures';
+import { flatFull } from '@/lib/flow/__tests__/fixtures';
 import type { FlowNode } from '@/lib/flow/schema';
 import { MAX_CHIPS, nodeDetails } from '../nodes/node-details';
 
-const g = decompileJob(composedFull);
+const g = decompileJob(flatFull);
 const node = (id: string) => g.nodes.find((n) => n.id === id)! as FlowNode;
 const labels = (id: string) => nodeDetails(node(id))!.chips.map((c) => c.label);
 
 describe('nodeDetails – chi tiết trên node card', () => {
-  it('text: nội dung + chỉ chip chính (AI vẽ chữ thay mọi style)', () => {
+  it('text: nội dung, không chip (font/màu do AI chọn theo Phong cách + Brand kit)', () => {
     const d = nodeDetails(node('n-text-headline'))!;
     expect(d.text).toBe('Tết Sum Vầy');
-    expect(labels('n-text-headline')).toEqual(['AI vẽ chữ']);
-  });
-
-  it('text chỉnh tay: font + cỡ, màu (có ô màu); không liệt kê viền/bóng/nền nút', () => {
-    const n = node('n-text-cta');
-    const d = nodeDetails({ ...n, params: { ...n.params, autoStyle: false, renderSource: 'layer' } } as FlowNode)!;
-    expect(d.chips).toHaveLength(2);
-    expect(d.chips[1]!.swatch).toBe(d.chips[1]!.label);
-    expect(d.chips.map((c) => c.label)).not.toContain('Nền nút');
-  });
-
-  it('text tự động: không có chip', () => {
-    const n = node('n-text-cta');
-    expect(nodeDetails({ ...n, params: { ...n.params, autoStyle: true, renderSource: 'layer' } } as FlowNode)!.chips).toEqual([]);
+    expect(labels('n-text-headline')).toEqual([]);
   });
 
   it('text dài không bị cắt', () => {
@@ -58,6 +45,6 @@ describe('nodeDetails – chi tiết trên node card', () => {
   });
 
   it('node khác: không có chi tiết', () => {
-    expect(nodeDetails(node('n-generate'))).toBeNull();
+    expect(nodeDetails(node('n-generate-flat'))).toBeNull();
   });
 });

@@ -4,7 +4,6 @@ import { useContext, useMemo } from 'react';
 import { CircleAlert, MousePointerClick, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FlowNodeActionsContext, NodeIconChip } from '../nodes/FlowNodeCard';
-import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
@@ -26,7 +25,7 @@ import { BriefGuide } from './BriefGuide';
 import { CampaignBriefFields } from './CampaignBriefFields';
 import { aspectLabel, RatioShape } from '../RatioShape';
 import {
-  CheckboxField, CollapsibleSection, NumberField, SelectField, TextAreaField, ToggleGroupField,
+  CollapsibleSection, NumberField, SelectField, TextAreaField, ToggleGroupField,
 } from './fields';
 
 /** Nhãn đã chọn, nối "·", bỏ emoji đầu nhãn; rỗng → undefined (mục gập không có tóm tắt). */
@@ -58,9 +57,9 @@ function NodeEditor({ node }: { node: FlowNode }) {
           {/* Tuỳ chọn: mở sẵn khi đã có mô tả nền để thấy ngay đang dùng gì. */}
           <CollapsibleSection title="Bối cảnh nền" defaultOpen={Boolean(p.prompt.trim())}
             summary={p.prompt.trim() ? truncate(p.prompt) : 'AI tự chọn theo brief'}>
-            <TextAreaField label="Mô tả bối cảnh nền" value={p.prompt} rows={3}
+            <TextAreaField label="Mô tả banner" value={p.prompt} rows={3}
               placeholder="VD: mặt bàn gỗ sồi, cây xanh mờ phía sau, nắng sớm, tông kem"
-              hint="Để trống: AI tự chọn nền theo brief ở trên."
+              hint="Tả nền, không khí, bố cục. Để trống: AI tự chọn theo brief ở trên."
               onChange={(prompt) => set<'brief'>({ prompt })} />
             <BriefGuide
               empty={false}
@@ -92,30 +91,7 @@ function NodeEditor({ node }: { node: FlowNode }) {
             <SelectField label="Bảng màu" value={p.colorPalette} options={PALETTE_OPTIONS}
               onChange={(colorPalette) => set<'style'>({ colorPalette })} />
             <SelectField label="Kiểu chữ" value={p.fontStyle} options={FONT_STYLE_OPTIONS}
-              hint="Chữ tự động theo banner chọn font theo mục này."
               onChange={(fontStyle) => set<'style'>({ fontStyle })} />
-          </CollapsibleSection>
-        </>
-      );
-    }
-    case 'auto-layout': {
-      const p = node.params as NodeParamsMap['auto-layout'];
-      const n = Object.keys(p.overrides).length;
-      return <p className="text-xs text-muted-foreground">
-        {n ? `Có chỉnh tay ở ${n} kích thước.` : 'Tự động. Chỉnh tay vị trí từng phần tử được thêm ở bước 4.'}
-      </p>;
-    }
-    case 'generate-background': {
-      const p = node.params as NodeParamsMap['generate-background'];
-      return (
-        <>
-          <SelectField label="Model" value={p.model} options={MODEL_OPTIONS} onChange={(model) => set<'generate-background'>({ model })} />
-          <CollapsibleSection summary={`Sáng ${p.lightDirectionDeg}°${p.strictNoText ? ' · Cấm chữ' : ''}`}>
-            <NumberField label="Hướng sáng (độ)" value={p.lightDirectionDeg} min={0} max={359}
-              hint="315 = trên-trái. Bóng tự động của sản phẩm đổ theo hướng này."
-              onChange={(lightDirectionDeg) => set<'generate-background'>({ lightDirectionDeg })} />
-            <CheckboxField label="Cấm chữ trên nền" checked={p.strictNoText}
-              onChange={(strictNoText) => set<'generate-background'>({ strictNoText })} />
           </CollapsibleSection>
         </>
       );
@@ -126,31 +102,8 @@ function NodeEditor({ node }: { node: FlowNode }) {
         <>
           <SelectField label="Model" value={p.model} options={MODEL_OPTIONS} onChange={(model) => set<'generate-flat'>({ model })} />
           <p className="text-xs text-muted-foreground">
-            AI vẽ cả banner nên sản phẩm/logo có thể lệch nhẹ. Cần giữ đúng từng pixel: dùng Tạo nền + Ghép layer.
+            AI vẽ cả banner: nền, sản phẩm, chữ. Sản phẩm/logo luôn ở chế độ giữ nguyên chủ thể nhưng có thể lệch nhẹ.
           </p>
-        </>
-      );
-    }
-    case 'compose': {
-      const p = node.params as NodeParamsMap['compose'];
-      const s = p.shadow;
-      return (
-        <>
-          <SelectField label="Bóng sản phẩm" value={s.mode}
-            options={[{ value: 'auto', label: 'Tự động' }, { value: 'custom', label: 'Tuỳ chỉnh' }, { value: 'off', label: 'Tắt' }]}
-            onChange={(mode) => set<'compose'>({ shadow: { ...s, mode } })} />
-          {s.mode === 'custom' && (
-            <>
-              <NumberField label="Độ đậm (0–1)" value={s.opacity} min={0} max={1} step={0.05}
-                onChange={(opacity) => set<'compose'>({ shadow: { ...s, opacity } })} />
-              <NumberField label="Độ nhoè (px)" value={s.blurPx} min={0} max={200}
-                onChange={(blurPx) => set<'compose'>({ shadow: { ...s, blurPx } })} />
-              <NumberField label="Lệch ngang (px)" value={s.offsetX} min={-500} max={500}
-                onChange={(offsetX) => set<'compose'>({ shadow: { ...s, offsetX } })} />
-              <NumberField label="Lệch dọc (px)" value={s.offsetY} min={-500} max={500}
-                onChange={(offsetY) => set<'compose'>({ shadow: { ...s, offsetY } })} />
-            </>
-          )}
         </>
       );
     }
@@ -241,7 +194,7 @@ export function Inspector({ node }: { node: FlowNode | null }) {
   const graph = useFlowStore((s) => s.graph);
   const actions = useContext(FlowNodeActionsContext);
   const issues = useMemo(
-    () => (node ? validateGraph(graph, { measurer: canvasMeasurer }).filter((i) => i.nodeId === node.id) : []),
+    () => (node ? validateGraph(graph).filter((i) => i.nodeId === node.id) : []),
     [graph, node],
   );
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { decompileJob } from '@/lib/flow/decompiler';
 import { NODE_DEFINITIONS } from '@/lib/flow/node-definitions';
 import type { FlowNode, NodeType } from '@/lib/flow/schema';
-import { composedFull, flatLegacy } from '@/lib/flow/__tests__/fixtures';
+import { flatFull, flatLegacy } from '@/lib/flow/__tests__/fixtures';
 import { selectRFNodes } from '@/store/flow-store';
 import { summarizeNode, truncate } from '../node-summary';
 
@@ -17,7 +17,7 @@ describe('summarizeNode', () => {
   });
 
   it('ratio: 1 kích thước → tên + cỡ; nhiều → số lượng (card liệt kê đủ)', () => {
-    expect(summarizeNode(decompileJob(composedFull).nodes.find((n) => n.type === 'ratio')!)).toBe('3 kích thước');
+    expect(summarizeNode(decompileJob(flatFull).nodes.find((n) => n.type === 'ratio')!)).toBe('3 kích thước');
     expect(summarizeNode(decompileJob(flatLegacy).nodes.find((n) => n.type === 'ratio')!)).toMatch(/^.+ \d+×\d+$/);
   });
 
@@ -48,7 +48,7 @@ describe('selectRFNodes', () => {
     const g = decompileJob(flatLegacy);
     const rf = selectRFNodes(g, {}, { 'n-generate-flat': { state: 'error', message: 'Hết quota' } });
     const gen = rf.find((n) => n.id === 'n-generate-flat')!;
-    expect(gen.ariaLabel).toBe('Tạo banner (flat): Nano Banana 2.1');
+    expect(gen.ariaLabel).toBe('Tạo banner: Nano Banana 2.1');
     expect(gen.data.run).toEqual({ state: 'error', message: 'Hết quota' });
     expect(rf.find((n) => n.id === 'n-brief')!.data).not.toHaveProperty('run');
   });

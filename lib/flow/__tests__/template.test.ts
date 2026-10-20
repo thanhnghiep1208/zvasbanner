@@ -5,7 +5,7 @@ import {
   getExposedValue, instantiateTemplate, resolveExposed, setExposedValue, validateTemplate,
   type ExposedParam, type FlowTemplate,
 } from '../template';
-import { composedMinimal } from './fixtures';
+import { flatMinimal } from './fixtures';
 
 const INTENTS = [
   { value: 'flash-sale', label: 'Flash sale' }, { value: 'product-launch', label: 'Ra mắt sản phẩm' },
@@ -21,10 +21,9 @@ function sample(): FlowTemplate {
     { id: 'headline', nodeId: 'n-text-headline', path: ['content'], label: 'Tiêu đề chính', control: 'text' },
     { id: 'headline-color', nodeId: 'n-text-headline', path: ['style', 'fill', 'color'], label: 'Màu tiêu đề', control: 'color' },
     { id: 'size', nodeId: 'n-ratio', path: ['ratios'], label: 'Kích thước', control: 'ratios' },
-    { id: 'shadow', nodeId: 'n-compose', path: ['shadow', 'opacity'], label: 'Độ đậm bóng', control: 'number' },
-    { id: 'no-text', nodeId: 'n-generate', path: ['strictNoText'], label: 'Cấm chữ trên nền', control: 'checkbox' },
+    { id: 'preserve', nodeId: 'n-generate-flat', path: ['strictPreserveMode'], label: 'Giữ nguyên chủ thể', control: 'checkbox' },
   ];
-  return { id: 'sample', name: 'Mẫu', description: 'Template mẫu cho test', graph: decompileJob(composedMinimal), exposed };
+  return { id: 'sample', name: 'Mẫu', description: 'Template mẫu cho test', graph: decompileJob(flatMinimal), exposed };
 }
 
 describe('validateTemplate', () => {

@@ -17,8 +17,6 @@ const TEXT_ROLE_LABELS: Record<TextRole, string> = {
   custom: 'Text',
 };
 
-const SHADOW_LABELS = { auto: 'Bóng tự động', custom: 'Bóng tuỳ chỉnh', off: 'Không bóng' } as const;
-
 const MAX = 40;
 export function truncate(s: string, max = MAX): string {
   const t = s.replace(/\s+/g, ' ').trim();
@@ -41,13 +39,7 @@ const SUMMARIZERS: Summarizers = {
     return p.ratios.length > 1 ? `${p.ratios.length} kích thước` : `${first.name} ${first.width}×${first.height}`;
   },
   'style': (p) => `${STYLE_SELECT_ITEMS[p.style]} · ${MOOD_SELECT_ITEMS[p.mood]}`,
-  'auto-layout': (p) => {
-    const n = Object.keys(p.overrides).length;
-    return n ? `Chỉnh tay ${n} kích thước` : null;
-  },
-  'generate-background': (p) => MODEL_LABELS[p.model],
   'generate-flat': (p) => MODEL_LABELS[p.model],
-  'compose': (p) => SHADOW_LABELS[p.shadow.mode],
   'export': (p) => `${p.format.toUpperCase()} · ${p.scale}x`,
 };
 

@@ -1,6 +1,4 @@
-import type {
-  FlowStyle, ModelId, NodeParamsMap, RatioSpec, ShadowConfig, Transform,
-} from './schema';
+import type { FlowStyle, ModelId, NodeParamsMap, RatioSpec } from './schema';
 import type { BrandKit } from '@/lib/types';
 import { NODE_DEFINITIONS } from './node-definitions';
 
@@ -10,7 +8,8 @@ import { NODE_DEFINITIONS } from './node-definitions';
  */
 export interface CompiledJob {
   schemaVersion: 1;
-  renderMode: 'composed' | 'flat';
+  /** Chỉ còn flat: AI tạo cả banner (chế độ Ghép layer đã gỡ 2026-10-20). */
+  renderMode: 'flat';
   ratios: RatioSpec[];
   brief: NodeParamsMap['brief'];
   style?: FlowStyle;
@@ -19,13 +18,7 @@ export interface CompiledJob {
   model: ModelId;
   products: NodeParamsMap['product-asset'][];
   textLayers: NodeParamsMap['text-layer'][];
-  composed?: {
-    lightDirectionDeg: number;
-    strictNoText: boolean;
-    layoutOverrides: Record<string, Record<string, Transform>>;
-    shadow: ShadowConfig;
-  };
-  flat?: {
+  flat: {
     strictPreserveMode: boolean;
   };
   export: NodeParamsMap['export'];
@@ -40,8 +33,7 @@ export function exportedRatios(job: CompiledJob): RatioSpec[] {
   return ids === 'all' ? job.ratios : job.ratios.filter((r) => ids.includes(r.id));
 }
 
-/** Số lần gọi model AI = số kích thước được xuất × aiCallsPerRatio của executor tương ứng. */
+/** Số lần gọi model AI = số kích thước được xuất × aiCallsPerRatio của Tạo banner. */
 export function estimateAiCalls(job: CompiledJob): number {
-  const executor = job.renderMode === 'composed' ? 'generate-background' : 'generate-flat';
-  return exportedRatios(job).length * NODE_DEFINITIONS[executor].aiCallsPerRatio;
+  return exportedRatios(job).length * NODE_DEFINITIONS['generate-flat'].aiCallsPerRatio;
 }

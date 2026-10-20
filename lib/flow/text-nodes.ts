@@ -2,32 +2,22 @@
  * Thao tác node Text không qua kéo thả: tạo params mặc định (dùng chung với store.addNode) và điền chữ gợi ý
  * từ brief (copy-suggest.ts) vào đúng node theo vai trò – thiếu node thì tạo và nối dây như các Text khác.
  */
-import { fontIdFromLabel } from './brand';
 import type { CopyRole, CopyVariant } from './copy-suggest';
 import { NODE_DEFINITIONS } from './node-definitions';
 import { makeEdgeId, type FlowGraph, type FlowNode, type NodeParamsMap, type TextRole } from './schema';
-import { FONT_FOR_STYLE, TEXT_ROLE_DEFAULTS } from './text/text-style';
+import { TEXT_ROLE_DEFAULTS } from './text/text-style';
 
 type TextParams = NodeParamsMap['text-layer'];
 
 const PRIORITY: Record<TextRole, number> = { headline: 1, subheadline: 2, cta: 3, custom: 4 };
 
-/**
- * Params cho Text mới: chữ tự động theo banner; font = font Brand kit > kiểu chữ của node Phong cách (Q10B).
- * `role` khác headline lấy style/cỡ tối thiểu mặc định của vai trò đó.
- */
+/** Params cho Text mới theo vai trò (flat: AI vẽ chữ theo nội dung + vai trò). */
 export function newTextLayerParams(graph: FlowGraph, id: string, role: TextRole = 'headline', content = ''): TextParams {
   const params = structuredClone(NODE_DEFINITIONS['text-layer'].defaultParams);
   const d = TEXT_ROLE_DEFAULTS[role];
   Object.assign(params, {
-    layerId: id, role, content, autoStyle: true, priority: PRIORITY[role],
-    minFontSizePx: d.minFontSizePx, style: structuredClone(d.style),
+    layerId: id, role, content, priority: PRIORITY[role], minFontSizePx: d.minFontSizePx, style: structuredClone(d.style),
   });
-  const brand = graph.nodes.find((n) => n.type === 'brand-kit') as FlowNode<'brand-kit'> | undefined;
-  const style = graph.nodes.find((n) => n.type === 'style') as FlowNode<'style'> | undefined;
-  const brandFont = fontIdFromLabel(brand?.params.fontPreference);
-  if (brandFont) params.style.fontFamily = brandFont;
-  else if (style) params.style.fontFamily = FONT_FOR_STYLE[style.params.fontStyle];
   return params;
 }
 

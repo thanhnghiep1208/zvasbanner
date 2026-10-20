@@ -31,9 +31,9 @@ describe('template mặc định (T5.3)', () => {
       expect(validateGraph(t.graph)).toEqual([]);
     });
 
-    it.skipIf(t.id === REFERENCE_ID)('composed, ảnh sản phẩm là field bắt buộc đầu tiên', () => {
+    it.skipIf(t.id === REFERENCE_ID)('flat, ảnh sản phẩm là field bắt buộc đầu tiên', () => {
       const job = compileGraph(t.graph);
-      expect(job.ok && job.job.renderMode).toBe('composed');
+      expect(job.ok && job.job.renderMode).toBe('flat');
       const first = t.exposed[0]!;
       expect(first).toMatchObject({ control: 'asset', required: true });
       expect(t.graph.nodes.find((n) => n.id === first.nodeId)?.type).toBe('product-asset');
@@ -49,15 +49,16 @@ describe('template mặc định (T5.3)', () => {
       }
     });
 
-    it.skipIf(t.id === REFERENCE_ID)('upload ảnh qua exposed → compile được, số lượt AI = số kích thước', () => {
+    it.skipIf(t.id === REFERENCE_ID)('upload ảnh qua exposed → compile được, 2 lượt AI / kích thước', () => {
       const p = instantiateTemplate(t);
       const graph = setExposedValue(p.graph, p.exposed[0]!, uploaded);
       const res = compileGraph(graph);
       expect(res.ok).toBe(true);
       if (!res.ok) return;
       expect(res.job.products[0]!.assetId).toBe('a1');
-      expect(estimateAiCalls(res.job)).toBe(res.job.ratios.length);
-      expect(res.job.textLayers.every((l) => l.renderSource === 'layer')).toBe(true);
+      expect(estimateAiCalls(res.job)).toBe(res.job.ratios.length * 2);
+      expect(res.job.flat.strictPreserveMode).toBe(true);
+      expect(toLegacyConfig(res.job, { dataUrls: { a1: 'data:image/png;base64,P' } }).ok).toBe(true);
     });
   });
 });

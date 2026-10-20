@@ -6,7 +6,7 @@ import { runAll, type GenerateResult } from '../executor';
 import { fromLegacyConfig } from '../legacy/from-legacy-config';
 import { adaptationRetryPrompt } from '../legacy/to-legacy-config';
 import { validateGraph } from '../validate';
-import { composedFull } from './fixtures';
+import { flatFull } from './fixtures';
 import { LEGACY_FIXTURES } from './fixtures/legacy';
 
 const MINIAPP = { id: 'zalo-banner-miniapp', width: 1032, height: 810, platform: 'Zalo', name: 'Banner in Miniapp' };
@@ -30,9 +30,9 @@ function run(job: ReturnType<typeof flatJob>['job'], runtime: ReturnType<typeof 
 
 describe('exportedRatios', () => {
   it("'all' → mọi kích thước; tập con → giữ thứ tự của node Kích thước", () => {
-    expect(exportedRatios({ ...composedFull, export: { ...composedFull.export, ratioIds: 'all' } }).map((r) => r.id))
-      .toEqual(composedFull.ratios.map((r) => r.id));
-    expect(exportedRatios(composedFull).map((r) => r.id)).toEqual(['social-zalo-oa-img', 'custom-1080x1920']);
+    expect(exportedRatios({ ...flatFull, export: { ...flatFull.export, ratioIds: 'all' } }).map((r) => r.id))
+      .toEqual(flatFull.ratios.map((r) => r.id));
+    expect(exportedRatios(flatFull).map((r) => r.id)).toEqual(['social-zalo-oa-img', 'custom-1080x1920']);
   });
 });
 
@@ -88,16 +88,16 @@ describe('flat nhiều kích thước – parity với "Biến thể kích thư�
 
 describe('validateGraph – kích thước xuất', () => {
   it('tập rỗng → lỗi export-ratio-empty', () => {
-    const g = decompileJob({ ...composedFull, export: { ...composedFull.export, ratioIds: [] } });
+    const g = decompileJob({ ...flatFull, export: { ...flatFull.export, ratioIds: [] } });
     expect(validateGraph(g).map((i) => i.code)).toContain('export-ratio-empty');
   });
   it('kích thước đã xoá khỏi node Kích thước → lỗi export-ratio-unknown', () => {
-    const g = decompileJob({ ...composedFull, export: { ...composedFull.export, ratioIds: ['social-zalo-oa-img', 'da-xoa'] } });
+    const g = decompileJob({ ...flatFull, export: { ...flatFull.export, ratioIds: ['social-zalo-oa-img', 'da-xoa'] } });
     const issue = validateGraph(g).find((i) => i.code === 'export-ratio-unknown');
     expect(issue).toMatchObject({ severity: 'error', nodeId: 'n-export' });
     expect(issue!.message).toContain('da-xoa');
   });
-  it('fixture composedFull (tập con hợp lệ) không lỗi', () => {
-    expect(validateGraph(decompileJob(composedFull)).map((i) => i.code).filter((c) => c.startsWith('export-'))).toEqual([]);
+  it('fixture flatFull (tập con hợp lệ) không lỗi', () => {
+    expect(validateGraph(decompileJob(flatFull)).map((i) => i.code).filter((c) => c.startsWith('export-'))).toEqual([]);
   });
 });

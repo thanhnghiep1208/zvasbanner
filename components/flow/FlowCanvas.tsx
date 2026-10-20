@@ -38,13 +38,11 @@ import {
   checkConnection, nearestValidConnection, rejectMessageForConnectionEnd, type HandlePoint,
 } from '@/lib/flow-ui/connection-feedback';
 import { nodeKeys } from '@/lib/flow/cache-keys';
-import { canvasMeasurer } from '@/lib/flow-ui/compose-render';
 import {
   freePosition, selectRFEdges, selectRFNodes, selectSingleSelectedNode, useFlowStore,
 } from '@/store/flow-store';
 import { isTypingTarget, redo, undo, useFlowHistory } from '@/store/flow-history';
 import { EDGE_CLASS } from './flow-styles';
-import { FLOW_FONT_VARIABLES } from './flow-fonts';
 import { Inspector } from './inspector/Inspector';
 import { readAssetFile } from './inspector/read-asset-file';
 import { filledImageNodes, removeAllImages } from '@/lib/flow/image-nodes';
@@ -151,8 +149,7 @@ function FlowCanvasInner() {
   }, [graph, edgeUi]);
   const selected = useMemo(() => selectSingleSelectedNode(graph, nodeUi), [graph, nodeUi]);
   // Canvas trống: không báo lỗi "thiếu Export" – chưa có gì để kiểm.
-  // Cùng measurer Canvas với lúc chạy để báo "không vừa" khớp kết quả thật.
-  const issues = useMemo(() => (graph.nodes.length ? validateGraph(graph, { measurer: canvasMeasurer }) : []), [graph]);
+  const issues = useMemo(() => (graph.nodes.length ? validateGraph(graph) : []), [graph]);
   const errorCount = issues.filter((i) => i.severity === 'error').length;
   const warningCount = issues.length - errorCount;
   const isEmpty = nodes.length === 0;
@@ -310,8 +307,7 @@ function FlowCanvasInner() {
   return (
     <FlowNodeActionsContext.Provider value={nodeActions}>
     <div
-      data-flow-fonts
-      className={`flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground ${FLOW_FONT_VARIABLES}`}
+      className="flow-studio flex h-dvh min-h-0 flex-col bg-background text-foreground"
       style={{ '--flow-handle-boost': handleBoost } as CSSProperties}
     >
       <header className="relative flex shrink-0 flex-wrap items-center gap-2 border-b bg-background/80 px-3 py-2 backdrop-blur-md md:grid md:h-[52px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:py-0 lg:px-4">
@@ -481,7 +477,7 @@ function FlowCanvasInner() {
                 </span>
                 <p className="text-sm font-semibold">Canvas trống</p>
                 <p className="text-xs text-muted-foreground">
-                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Kích thước, Brief, Auto layout, Tạo nền, Ghép layer và Xuất ảnh.
+                  Kéo node từ thư viện (hoặc ảnh từ máy) vào đây, hoặc bấm vào node trong thư viện. Bắt đầu với Kích thước, Brief, Tạo banner và Xuất ảnh.
                 </p>
                 <div className="pointer-events-auto mt-1 flex flex-wrap justify-center gap-2">
                   <Link href="/flow/guide" target="_blank" className={buttonVariants({ variant: 'outline', size: 'sm' })}>

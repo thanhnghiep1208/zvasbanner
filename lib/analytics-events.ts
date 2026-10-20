@@ -51,7 +51,7 @@ export type AnalyticsEventPayloadMap = {
     output_tokens?: number;
     total_tokens?: number;
     /** `extra_size_preview` = layout-adapt variants shown under canvas before download. */
-    /** `flow_flat` / `flow_background` = Flow canvas (flat qua /api/generate, composed qua /api/flow/generate-background). */
+    /** `flow_flat` = Flow canvas qua /api/generate; `flow_background` = Tạo nền của Ghép layer (đã gỡ, chỉ còn trong dữ liệu cũ). */
     generation_context?: "editor" | "extra_size_download" | "extra_size_preview" | "flow_flat" | "flow_background";
     target_preset_id?: string;
     target_width?: number;
@@ -93,8 +93,8 @@ export type FlowAnalyticsEventName =
   | "flow_view_switched"
   | "flow_template_used";
 
-/** "mixed" = Xuất ảnh nối cả Ghép layer và Tạo banner (flat). */
-export type FlowRenderMode = "composed" | "flat" | "mixed";
+/** "composed" chỉ còn trong dữ liệu cũ (Ghép layer đã gỡ 2026-10-20). */
+export type FlowRenderMode = "composed" | "flat";
 
 /** Field chung: phiên mở trang /flow, project đang mở (nếu đã lưu), template của graph. */
 export type FlowAnalyticsBase = {

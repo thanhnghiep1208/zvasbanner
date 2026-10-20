@@ -17,12 +17,9 @@ export function ExportRatiosField({ nodeId, p }: { nodeId: string; p: NodeParams
     const n = s.graph.nodes.find((x) => x.type === 'ratio');
     return n ? (n.params as NodeParamsMap['ratio']).ratios : EMPTY;
   });
-  // Lượt AI / kích thước của executor đang nối vào Xuất ảnh (flat 2, composed 1).
-  const perRatio = useFlowStore((s) => {
-    const execTypes = ['generate-flat', 'generate-background'] as const;
-    const t = execTypes.find((type) => s.graph.nodes.some((n) => n.type === type));
-    return t ? NODE_DEFINITIONS[t].aiCallsPerRatio : 0;
-  });
+  // Lượt AI / kích thước của Tạo banner (tạo + chỉnh hài hoà).
+  const perRatio = useFlowStore((s) =>
+    (s.graph.nodes.some((n) => n.type === 'generate-flat') ? NODE_DEFINITIONS['generate-flat'].aiCallsPerRatio : 0));
   const allId = useId();
   const set = (ratioIds: NodeParamsMap['export']['ratioIds']) => update<'export'>(nodeId, { ratioIds });
 

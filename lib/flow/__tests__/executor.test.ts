@@ -4,8 +4,7 @@ import { runAll, type GenerateResult } from '../executor';
 import { fromLegacyConfig } from '../legacy/from-legacy-config';
 import { decompileJob } from '../decompiler';
 import type { NodeRunInfo } from '../run-state';
-import { composedFull, composedMinimal } from './fixtures';
-import type { BackgroundRequest } from '../background/request';
+import { flatFull } from './fixtures';
 import { LEGACY_FIXTURES } from './fixtures/legacy';
 import { REFERENCE_MAX_BYTES, referenceTooBigMessage } from '../asset-limits';
 
@@ -101,144 +100,18 @@ describe('runAll', () => {
     expect(calls).toHaveLength(1);
     expect(out.ok && out.warnings.map((w) => w.nodeId)).toContain('n-text-extra');
   });
-});
-
-describe('runAll – composed (T4.2)', () => {
-  const PRODUCT_PIXELS = 'data:image/png;base64,PRODUCTPIXELS';
-  const runtimeFor = (job: typeof composedFull) => ({
-    dataUrls: Object.fromEntries([
-      ...job.products.map((p) => [p.assetId, PRODUCT_PIXELS] as const),
-      ...job.references.map((r) => [r.assetId, 'data:image/png;base64,REF'] as const),
-    ]),
-  });
-
-  function setupBg(fail = false) {
-    const bgCalls: BackgroundRequest[] = [];
-    const guides: number[] = [];
-    const states: [string, NodeRunInfo][] = [];
-    const deps = {
-      sleep: async () => {},
-      generate: async () => { throw new Error('composed không được gọi /api/generate'); },
-      onRunInfo: (id: string, info: NodeRunInfo) => { states.push([id, info]); },
-      renderGuide: (_c: unknown, guide: unknown[]) => { guides.push(guide.length); return 'data:image/png;base64,GUIDE'; },
-      generateBackground: async (r: BackgroundRequest) => {
-        bgCalls.push(r);
-        return fail ? { ok: false as const, error: 'Gemini quá tải' } : { ok: true as const, image: `bg-${bgCalls.length}` };
-      },
-    };
-    return { deps, bgCalls, guides, last: (id: string) => states.filter(([n]) => n === id).at(-1)?.[1] };
-  }
-
-  it('mỗi ratio: vẽ guide + 1 lần sinh nền; KHÔNG có pixel sản phẩm trong request', async () => {
-    const { deps, bgCalls, guides, last } = setupBg();
-    const out = await runAll(decompileJob(composedFull), runtimeFor(composedFull), deps);
-    // Export chỉ chọn 2/3 kích thước → 2 lần sinh nền, theo thứ tự node Kích thước.
-    expect(out.ok && out.results.map((r) => r.ratioId)).toEqual(['social-zalo-oa-img', 'custom-1080x1920']);
-    expect(bgCalls).toHaveLength(2);
-    expect(guides.every((n) => n > 0)).toBe(true);
-    for (const r of bgCalls) {
-      expect(r.guideImage).toBe('data:image/png;base64,GUIDE');
-      expect(JSON.stringify(r)).not.toContain('PRODUCTPIXELS');
-      expect(r.references.map((x) => x.role)).toEqual(['style-reference', 'background']);
-      expect(r.guide.some((g) => g.kind === 'product')).toBe(true);
-    }
-    expect(last('n-layout')).toMatchObject({ state: 'done' });
-    expect(last('n-generate')).toMatchObject({ state: 'done', previewUrl: 'bg-1' });
-  });
-
-  it('headline AI → request có aiHeadline trỏ đúng vùng trong guide', async () => {
-    const { deps, bgCalls } = setupBg();
-    await runAll(decompileJob(composedFull), runtimeFor(composedFull), deps);
-    expect(bgCalls[0]!.aiHeadline).toEqual({ elementId: 'headline', content: 'Tết Sum Vầy' });
-    expect(bgCalls[0]!.guide.some((g) => g.elementId === 'headline')).toBe(true);
-  });
-
-  it('sinh nền lỗi → node Sinh nền error, dừng', async () => {
-    const { deps, bgCalls, last } = setupBg(true);
-    const out = await runAll(decompileJob(composedFull), runtimeFor(composedFull), deps);
-    expect(out.ok).toBe(false);
-    expect(bgCalls).toHaveLength(1);
-    expect(last('n-generate')).toMatchObject({ state: 'error', message: 'Kích thước 1/2: Gemini quá tải' });
-  });
-
-  it('ảnh tham chiếu thiếu dữ liệu → không gọi API, báo trên node ảnh tham chiếu', async () => {
-    const { deps, bgCalls, last } = setupBg();
-    const out = await runAll(decompileJob(composedFull), { dataUrls: {} }, deps);
-    expect(out.ok).toBe(false);
-    expect(bgCalls).toHaveLength(0);
-    expect(last('n-ref-0')).toEqual({ state: 'error', message: 'Cần tải lại ảnh trước khi chạy.' });
-  });
 
   it('ảnh tham chiếu quá 4MB → không gọi API, báo trên node ảnh tham chiếu đó', async () => {
-    const { deps, bgCalls, last } = setupBg();
-    const runtime: { dataUrls: Record<string, string> } = runtimeFor(composedFull);
-    const heavy = composedFull.references[0]!;
-    runtime.dataUrls[heavy.assetId] = `data:image/png;base64,${'A'.repeat(Math.ceil((REFERENCE_MAX_BYTES + 1) * 4 / 3) + 4)}`;
-    const out = await runAll(decompileJob(composedFull), runtime, deps);
+    const big = `data:image/png;base64,${'A'.repeat(Math.ceil(REFERENCE_MAX_BYTES * 4 / 3) + 16)}`;
+    const dataUrls = Object.fromEntries([
+      ...flatFull.products.map((p) => [p.assetId, 'data:image/png;base64,P'] as const),
+      ['ref-1', 'data:image/png;base64,R'], ['ref-bg', big],
+    ]);
+    const { calls, deps, last } = setup();
+    const out = await runAll(decompileJob(flatFull), { dataUrls }, deps);
     expect(out.ok).toBe(false);
-    expect(bgCalls).toHaveLength(0);
-    expect(last('n-ref-0')).toEqual({ state: 'error', message: referenceTooBigMessage(heavy.fileName) });
-    expect(last('n-ref-1')).toBeUndefined();
-  });
-
-  it('thiếu deps sinh nền → lỗi rõ trên node Sinh nền', async () => {
-    const { deps } = setup();
-    const states: [string, NodeRunInfo][] = [];
-    const out = await runAll(decompileJob(composedMinimal), { dataUrls: {} }, { ...deps, onRunInfo: (id, i) => states.push([id, i]) });
-    expect(out.ok).toBe(false);
-    expect(states.find(([id]) => id === 'n-generate')?.[1].state).toBe('error');
-  });
-
-  it('không có composeRatio → trả ảnh nền kèm cảnh báo trên node Ghép layer', async () => {
-    const { deps } = setupBg();
-    const out = await runAll(decompileJob(composedMinimal), runtimeFor(composedMinimal), deps);
-    expect(out.ok && out.warnings.map((w) => w.nodeId)).toContain('n-compose');
-  });
-
-  it('có composeRatio (T4.3): ghép từng ratio từ nền, kết quả là ảnh ghép, node Ghép layer → Xong', async () => {
-    const { deps, last } = setupBg();
-    const composed: { ratioId: string; background: string }[] = [];
-    const out = await runAll(decompileJob(composedFull), runtimeFor(composedFull), {
-      ...deps,
-      composeRatio: async ({ ratioId, background, dataUrls }) => {
-        expect(Object.values(dataUrls)).toContain(PRODUCT_PIXELS); // pixel sản phẩm chỉ dùng ở bước ghép
-        composed.push({ ratioId, background });
-        return `composed-${ratioId}`;
-      },
-    });
-    expect(composed.map((c) => c.background)).toEqual(['bg-1', 'bg-2']);
-    expect(out.ok && out.results.map((r) => r.image)).toEqual(['composed-social-zalo-oa-img', 'composed-custom-1080x1920']);
-    expect(out.ok && out.warnings.map((w) => w.nodeId)).not.toContain('n-compose');
-    expect(last('n-compose')).toMatchObject({ state: 'done' });
-    expect(last('n-generate')).toMatchObject({ state: 'done', previewUrl: 'bg-1' });
-  });
-
-  it('thiếu ảnh sản phẩm → chặn trước khi gọi AI, báo trên node sản phẩm', async () => {
-    const { deps, bgCalls, last } = setupBg();
-    const runtime = runtimeFor(composedFull);
-    delete runtime.dataUrls['asset-hop-qua'];
-    const out = await runAll(decompileJob(composedFull), runtime, { ...deps, composeRatio: async () => 'x' });
-    expect(out.ok).toBe(false);
-    expect(bgCalls).toHaveLength(0);
-    expect(last('n-product-0')).toEqual({ state: 'error', message: 'Cần tải lại ảnh trước khi chạy.' });
-  });
-
-  it('ghép lỗi → node Ghép layer error, nền vẫn giữ preview', async () => {
-    const { deps, last } = setupBg();
-    const out = await runAll(decompileJob(composedMinimal), runtimeFor(composedMinimal), {
-      ...deps, composeRatio: async () => { throw new Error('Không đọc được ảnh.'); },
-    });
-    expect(out.ok).toBe(false);
-    expect(last('n-compose')).toMatchObject({ state: 'error', message: 'Không đọc được ảnh.' });
-    expect(last('n-generate')).toMatchObject({ state: 'done', previewUrl: 'bg-1' });
-  });
-
-  it("guideStyle 'natural': không vẽ guide, request không có guideImage", async () => {
-    const { deps, bgCalls, guides } = setupBg();
-    const out = await runAll(decompileJob(composedMinimal), runtimeFor(composedMinimal), { ...deps, guideStyle: 'natural' });
-    expect(out.ok).toBe(true);
-    expect(guides).toHaveLength(0);
-    expect(bgCalls[0]).toMatchObject({ guideStyle: 'natural' });
-    expect(bgCalls[0]).not.toHaveProperty('guideImage');
+    expect(calls).toHaveLength(0);
+    expect(last('n-ref-1')).toEqual({ state: 'error', message: referenceTooBigMessage('ref-bg.png') });
+    expect(last('n-ref-0')).toBeUndefined();
   });
 });

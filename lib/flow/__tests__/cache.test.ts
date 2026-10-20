@@ -4,9 +4,7 @@ import { downstreamOf, hashString, nodeKeys, stableStringify } from '../cache-ke
 import { decompileJob } from '../decompiler';
 import { pendingAiCalls, runAll, type ImageCache } from '../executor';
 import { fromLegacyConfig } from '../legacy/from-legacy-config';
-import type { BackgroundRequest } from '../background/request';
 import type { FlowGraph } from '../schema';
-import { composedFull } from './fixtures';
 import { LEGACY_FIXTURES } from './fixtures/legacy';
 
 const MINIAPP = { id: 'zalo-banner-miniapp', width: 1032, height: 810, platform: 'Zalo', name: 'Banner in Miniapp' };
@@ -116,50 +114,6 @@ describe('executor cache (flat)', () => {
     const states: Record<string, { key?: string; state: string }> = {};
     await runAll(graph, runtime, { ...flatDeps().deps, onRunInfo: (id, info) => { states[id] = info; } });
     expect(states['n-generate-flat']).toMatchObject({ state: 'done', key: nodeKeys(graph)['n-generate-flat'] });
-  });
-});
-
-describe('executor cache (composed)', () => {
-  const runtime = { dataUrls: { 'ref-1': 'data:image/png;base64,R', 'ref-bg': 'data:image/png;base64,B' } };
-  const deps = (cache: ImageCache, calls: BackgroundRequest[]) => ({
-    sleep: async () => {},
-    cache,
-    guideStyle: 'natural' as const,
-    generate: async () => { throw new Error('không dùng'); },
-    generateBackground: async (r: BackgroundRequest) => { calls.push(r); return { ok: true as const, image: `bg-${calls.length}` }; },
-    onRunInfo: () => {},
-  });
-
-  it('nền đã có trong cache → không gọi lại', async () => {
-    const graph = decompileJob(composedFull);
-    const cache = memoryCache();
-    const calls: BackgroundRequest[] = [];
-    await runAll(graph, runtime, deps(cache, calls));
-    expect(calls).toHaveLength(2);
-    await runAll(graph, runtime, deps(cache, calls));
-    expect(calls).toHaveLength(2);
-    expect(pendingAiCalls(graph, runtime, cache, { guideStyle: 'natural' })).toEqual({ calls: 0, reused: 2 });
-  });
-
-  it('đổi MÀU chữ CTA (chỉ ảnh hưởng bước ghép) → vẫn trúng cache nền, 0 lượt AI', async () => {
-    const graph = decompileJob(composedFull);
-    const cache = memoryCache();
-    const calls: BackgroundRequest[] = [];
-    await runAll(graph, runtime, deps(cache, calls));
-    const cta = graph.nodes.find((n) => n.id === 'n-text-cta')!;
-    const recolored = setParam(graph, 'n-text-cta', { style: { ...(cta.params as { style: object }).style, fill: { kind: 'solid', color: '#00FF00' } } });
-    expect(pendingAiCalls(recolored, runtime, cache, { guideStyle: 'natural' })).toEqual({ calls: 0, reused: 2 });
-    await runAll(recolored, runtime, deps(cache, calls));
-    expect(calls).toHaveLength(2);
-  });
-
-  it('đổi NỘI DUNG chữ → vùng chữ trong layout đổi → sinh nền lại', async () => {
-    const graph = decompileJob(composedFull);
-    const cache = memoryCache();
-    const calls: BackgroundRequest[] = [];
-    await runAll(graph, runtime, deps(cache, calls));
-    await runAll(setParam(graph, 'n-text-sub', { content: 'Quà tặng cao cấp từ 499K cho cả gia đình ba thế hệ' }), runtime, deps(cache, calls));
-    expect(calls).toHaveLength(4);
   });
 });
 

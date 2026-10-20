@@ -489,15 +489,7 @@ Admin thu hồi phiên của user khác. Cần `CLERK_SECRET_KEY`.
 
 ---
 
-## 11) `POST /api/flow/generate-background`
-
-Tạo **nền** cho chế độ ghép layer của Flow canvas (1 kích thước/lần). Cần đăng nhập + quyền `generate_image` + cờ `FLOW_CANVAS`; dùng chung rate limit 20 request/giờ với `/api/generate`; body ≤ 30MB.
-
-- Body: `BackgroundRequest` (`lib/flow/background/request.ts`) – kích thước, brief, style/brand, hướng sáng, vùng giữ trống (`guide`), `guideStyle` (`natural` mặc định), ảnh tham chiếu (`references[]`, mỗi ảnh ≤ 4MB phía client), `model`, `aiHeadline` tuỳ chọn. Không có pixel sản phẩm.
-- `200`: `{ "image": "data:image/...", "meta": { "model", "elapsedMs", ... } }`.
-- Lỗi: `400` (dữ liệu sai), `401`/`403`, `404` (cờ tắt), `413`, `429` (rate limit / quota Gemini), `500` (thiếu key), `502`/`503`/`504` kèm `errorCode` (`GEMINI_HIGH_DEMAND_503`, `GEMINI_TIMEOUT`, `GEMINI_EMPTY_IMAGE`, …).
-
-## 12) `/api/flow/docs` — project Flow canvas
+## 11) `/api/flow/docs` — project Flow canvas
 
 Cần đăng nhập + cờ `FLOW_CANVAS` (tắt → 404). Mọi thao tác lọc theo user; project của user khác → 404.
 
@@ -507,7 +499,7 @@ Cần đăng nhập + cờ `FLOW_CANVAS` (tắt → 404). Mọi thao tác lọc 
 - `PUT /api/flow/docs/:id` body như POST → `{ "doc" }`. `DELETE /api/flow/docs/:id` → `204`.
 - Body ≤ 1MB; graph được kiểm cấu trúc (`parseStoredFlowDoc`) và luôn bỏ `url` ảnh (không lưu ảnh). Lỗi DB → `503`.
 
-## 13) `POST /api/flow/track`
+## 12) `POST /api/flow/track`
 
 Ghi 1 event Flow canvas vào `flow_events` (`flow_opened`, `flow_template_used`, `flow_view_switched`, `flow_run_started`, `flow_run_completed`, `flow_run_failed`). Cần đăng nhập + cờ; body ≤ 4KB; field sai/thừa → `400`; thành công `204`.
 

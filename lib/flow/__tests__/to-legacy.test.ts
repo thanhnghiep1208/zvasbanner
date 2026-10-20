@@ -6,7 +6,7 @@ import { fromLegacyConfig } from '../legacy/from-legacy-config';
 import { composeLegacyPrompt, toLegacyConfig } from '../legacy/to-legacy-config';
 import { decompileJob } from '../decompiler';
 import { compileGraph } from '../compiler';
-import { composedMinimal, flatLegacy } from './fixtures';
+import { flatLegacy } from './fixtures';
 
 const uploaded = (id: string, role: UploadedAsset['role'], hasAlpha = true): UploadedAsset => ({
   id, role, hasAlpha,
@@ -81,12 +81,6 @@ describe('toLegacyConfig', () => {
     if (!res.ok) throw new Error(res.error.message);
     expect(res.requests.map((r) => r.ratioId)).toEqual(['social-zalo-oa-img', 'custom-1080x1920']);
     expect(res.requests[1]!.request.canvasConfig).toEqual({ width: 1080, height: 1920, platform: 'Custom', name: 'Custom' });
-  });
-
-  it('composed → lỗi, không tự chuyển sang flat', () => {
-    const res = toLegacyConfig(composedMinimal);
-    expect(res.ok).toBe(false);
-    expect(!res.ok && res.error.code).toBe('composed-not-supported');
   });
 
   it('thiếu dataUrl → warning missing-asset-data, request vẫn hợp lệ', () => {

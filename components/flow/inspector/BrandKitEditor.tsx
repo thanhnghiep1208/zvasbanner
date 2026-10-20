@@ -64,11 +64,11 @@ export function BrandKitEditor({ nodeId, p }: { nodeId: string; p: BrandParams }
       </fieldset>
 
       <SelectField label="Font thương hiệu" value={p.fontPreference ?? NONE} options={fontOptions}
-        hint="Font mặc định cho Text mới thêm vào canvas."
+        hint="AI dùng font này (hoặc gần giống) khi vẽ chữ trên banner."
         onChange={(v) => set({ fontPreference: v === NONE ? undefined : v })} />
 
       <SelectField label="Vị trí logo" value={p.logoPosition ?? NONE} options={logoOptions}
-        hint="Composed: đặt logo vào góc này nếu không đè sản phẩm/chữ."
+        hint="AI đặt logo vào góc này trên banner."
         onChange={(v) => set({ logoPosition: v === NONE ? undefined : v })} />
     </>
   );

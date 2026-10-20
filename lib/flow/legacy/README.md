@@ -13,7 +13,7 @@ Mỗi request tạo **một** ảnh ở **một** kích thước, nên một `Co
 | `GenerationRequest` | Nguồn trong form | `CompiledJob` / graph | Ghi chú |
 |---|---|---|---|
 | `canvasConfig: {width, height, platform, name}` | `state.canvasConfig` (preset hoặc custom) | `ratios[i]` (`RatioSpec = CanvasConfig + id`) → node `ratio` | `id` = `configToPresetId()` (`lib/canvas-presets.ts`); custom → `custom-<w>x<h>`. 1 request ↔ 1 ratio |
-| `assets[]` role `image` / `logo` / `decoration` | `state.assets` | `products[]` → node `product-asset` (port `product`) | Asset giữ pixel. `id` → `assetId`. Composed: không gửi cho model |
+| `assets[]` role `image` / `logo` / `decoration` | `state.assets` | `products[]` → node `product-asset` (port `product`) | Ảnh sản phẩm/logo/trang trí, AI giữ nguyên chủ thể. `id` → `assetId` |
 | `assets[]` role `style-reference` / `background` | `state.assets` | `references[]` → node `reference-image` (port `image`) | Gửi cho model làm tham chiếu |
 | `assets[].dataUrl` | đọc file lúc upload | **không lưu** | Chỉ có lúc chạy. `toLegacyConfig` cần resolver `assetId → dataUrl` (T1.3) |
 | `assets[].url` | `blob:` URL | `FlowAsset.url` | `blob:` mất khi reload, xem Q7 |
@@ -47,12 +47,11 @@ CTA: …
 Các field này chỉ dùng trong canvas, `toLegacyConfig` bỏ qua:
 
 - `textLayers[].renderSource`, `priority`, `minFontSizePx`, `style` (TextStyle), `layerId`. Legacy: Gemini luôn vẽ chữ.
-- `composed.*` (`lightDirectionDeg`, `strictNoText`, `layoutOverrides`, `shadow`). Legacy chỉ có flat; composed cần route mới, xem Q8.
 - `export.*` (`format`, `quality`, `scale`, `ratioIds`). Không thuộc request; tương ứng tham số `exportBanner()` trong `lib/export.ts` và `ExportPopover` (mặc định quality 90%, scale 1).
 
 ## Phạm vi của `toLegacyConfig`
 
-Chỉ hợp lệ với `renderMode = 'flat'`. Với `composed` phải trả lỗi rõ ràng, không được âm thầm chuyển sang flat.
+`renderMode` chỉ còn `'flat'` (chế độ composed đã gỡ 2026-10-20, xem SPEC mục 3).
 
 Harmony pass không có node riêng (Q4). Server luôn chạy `runHarmonyPass` sau mỗi lần generate Gemini thành công, nên `generate-flat` được tính `aiCallsPerRatio = 2`.
 
@@ -66,7 +65,6 @@ Harmony pass không có node riêng (Q4). Server luôn chạy `runHarmonyPass` s
 - `to-legacy-config.ts` (T1.3): `toLegacyConfig(job, runtime) → { ok, requests: { ratioId, request }[], warnings }`.
   - Mỗi ratio cho ra 1 request. `runtime.layoutAdaptationFromBanner` gắn vào mọi request; khi chạy nhiều ratio, executor tự đặt theo từng lần gọi (T4.6).
   - `assets`: products trước rồi references. Thứ tự giữa hai nhóm khác request gốc, nhưng server tự tách theo role (`gemini-server.ts`, `prompt-builder.ts`) nên không ảnh hưởng kết quả. Test round-trip so sánh sau khi sắp xếp theo id.
-  - `composed` → lỗi `composed-not-supported` (Q8).
   - Warning `missing-asset-data`: asset không có `dataUrl` thì server bỏ qua ảnh mà không báo lỗi. Executor phải chặn Run hoặc yêu cầu tải lại ảnh.
   - Warning `unmapped-text`: layer role `custom` và layer trùng role không được gửi (Q9).
   - `composeLegacyPrompt()` là bản sao format của `composeUserPrompt()`. Không import bản gốc vì file đó kéo theo Zustand store. Có test so sánh với bản gốc.

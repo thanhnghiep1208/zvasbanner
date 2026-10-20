@@ -1,13 +1,13 @@
 import type { CompiledJob } from '../compiled-job';
 import type { FlowAsset, PixelAssetRole, ReferenceAssetRole } from '../schema';
-import { DEFAULT_RATIO, DEFAULT_SHADOW, DEFAULT_STYLE } from '../schema';
+import { DEFAULT_RATIO, DEFAULT_STYLE } from '../schema';
 import { fromLegacyConfig } from '../legacy/from-legacy-config';
 import { defaultTextStyle } from '../text/text-style';
 import { LEGACY_FIXTURES } from './fixtures/legacy';
 
 /**
- * Composed: chưa có pipeline thật (Q3, Q8) nên 2 fixture composed là mẫu tự dựng.
- * Flat: lấy từ payload thật của form, xem ./fixtures/legacy.
+ * flatMinimal / flatFull: mẫu tự dựng (trước là fixture của Ghép layer, đã gỡ 2026-10-20).
+ * flatLegacy: lấy từ payload thật của form, xem ./fixtures/legacy.
  */
 
 const asset = <R extends PixelAssetRole | ReferenceAssetRole>(
@@ -19,10 +19,10 @@ const asset = <R extends PixelAssetRole | ReferenceAssetRole>(
   originalDims: { width: 1024, height: 1024 },
 });
 
-/** Composed tối giản: 1 sản phẩm, 1 ratio, chỉ headline. */
-export const composedMinimal: CompiledJob = {
+/** Tối giản: 1 sản phẩm, 1 ratio, chỉ headline. */
+export const flatMinimal: CompiledJob = {
   schemaVersion: 1,
-  renderMode: 'composed',
+  renderMode: 'flat',
   ratios: [DEFAULT_RATIO],
   brief: { prompt: 'Nền bếp sáng, tông gỗ ấm', marketingBrief: { campaignIntents: ['product-launch'], focalSubjects: ['product'] } },
   references: [],
@@ -32,14 +32,14 @@ export const composedMinimal: CompiledJob = {
     layerId: 'headline', role: 'headline', content: 'Giảm 30% cuối tuần',
     renderSource: 'layer', priority: 1, minFontSizePx: 28, style: defaultTextStyle('headline'),
   }],
-  composed: { lightDirectionDeg: 315, strictNoText: true, layoutOverrides: {}, shadow: DEFAULT_SHADOW },
+  flat: { strictPreserveMode: true },
   export: { format: 'png', quality: 0.9, scale: 1, ratioIds: 'all' },
 };
 
-/** Composed đầy đủ: sản phẩm + logo, 3 ratio, override tay, shadow custom, headline AI, style + brand + ref. */
-export const composedFull: CompiledJob = {
+/** Đầy đủ: sản phẩm + logo, 3 ratio (xuất 2), style + brand + 2 ảnh tham chiếu, đủ 3 vai trò chữ. */
+export const flatFull: CompiledJob = {
   schemaVersion: 1,
-  renderMode: 'composed',
+  renderMode: 'flat',
   ratios: [
     { id: 'social-zalo-oa-img', width: 1075, height: 645, platform: 'Zalo', name: 'Zalo OA Img' },
     { id: 'custom-1080x1920', width: 1080, height: 1920, platform: 'Custom', name: 'Custom' },
@@ -55,25 +55,18 @@ export const composedFull: CompiledJob = {
     asset('asset-logo', 'logo', true),
   ],
   textLayers: [
-    { layerId: 'headline', role: 'headline', content: 'Tết Sum Vầy', renderSource: 'ai', priority: 1, minFontSizePx: 32,
+    { layerId: 'headline', role: 'headline', content: 'Tết Sum Vầy', renderSource: 'layer', priority: 1, minFontSizePx: 32,
       style: { ...defaultTextStyle('headline'), fontSizePx: 88, fill: { kind: 'solid', color: '#FFD700' },
         stroke: { color: '#7A0019', widthPx: 3 }, shadow: { color: '#00000080', blurPx: 12, offsetX: 0, offsetY: 4 } } },
     { layerId: 'sub', role: 'subheadline', content: 'Quà tặng cao cấp từ 499K', renderSource: 'layer', priority: 2, minFontSizePx: 16, style: defaultTextStyle('subheadline') },
     { layerId: 'cta', role: 'cta', content: 'Mua ngay', renderSource: 'layer', priority: 3, minFontSizePx: 14,
       style: { ...defaultTextStyle('cta'), plate: { color: '#C8102E', paddingX: 40, paddingY: 18, radiusPx: 999 } } },
   ],
-  composed: {
-    lightDirectionDeg: 45,
-    strictNoText: true,
-    layoutOverrides: {
-      'custom-1080x1920': { 'asset-hop-qua': { cx: 0.5, cy: 0.62, w: 0.7, h: 0.4, rotationDeg: 0 } },
-    },
-    shadow: { mode: 'custom', opacity: 0.5, blurPx: 32, offsetX: 6, offsetY: 12 },
-  },
+  flat: { strictPreserveMode: true },
   export: { format: 'jpg', quality: 0.8, scale: 2, ratioIds: ['custom-1080x1920', 'social-zalo-oa-img'] },
 };
 
 /** Flat legacy – job sinh từ payload thật của form (fixture logged-full-text-logo). */
 export const flatLegacy: CompiledJob = fromLegacyConfig(LEGACY_FIXTURES['logged-full-text-logo']!.request).job;
 
-export const ALL_FIXTURES = { composedMinimal, composedFull, flatLegacy };
+export const ALL_FIXTURES = { flatMinimal, flatFull, flatLegacy };

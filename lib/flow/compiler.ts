@@ -2,35 +2,12 @@ import type { FlowEdge, FlowGraph, FlowNode, NodeType } from './schema';
 import { FLOW_SCHEMA_VERSION } from './schema';
 import type { CompiledJob } from './compiled-job';
 import { validateGraph, type ValidationIssue } from './validate';
-import { autoTypography } from './text/auto-style';
-import { exportBranches } from './branches';
 
 export type CompileResult =
   | { ok: true; job: CompiledJob; warnings: ValidationIssue[] }
   | { ok: false; errors: ValidationIssue[] };
 
-export type CompileAllResult =
-  | { ok: true; branches: { graph: FlowGraph; job: CompiledJob }[]; warnings: ValidationIssue[] }
-  | { ok: false; errors: ValidationIssue[] };
-
-/**
- * Xuất ảnh có thể nhận 2 nguồn (Ghép layer + Tạo banner flat): validate cả graph, rồi compile từng nhánh
- * (exportBranches). 1 nguồn → 1 nhánh = chính graph.
- */
-export function compileAll(graph: FlowGraph): CompileAllResult {
-  const issues = validateGraph(graph);
-  const errors = issues.filter((i) => i.severity === 'error');
-  if (errors.length) return { ok: false, errors };
-  const branches: { graph: FlowGraph; job: CompiledJob }[] = [];
-  for (const sub of exportBranches(graph)) {
-    const res = compileGraph(sub);
-    if (!res.ok) return res;
-    branches.push({ graph: sub, job: res.job });
-  }
-  return { ok: true, branches, warnings: issues.filter((i) => i.severity === 'warning') };
-}
-
-/** Compile 1 nhánh (Xuất ảnh có đúng 1 nguồn). Graph 2 nguồn → dùng compileAll. */
+/** Graph → CompiledJob: Xuất ảnh ← Tạo banner (flat, harmony pass nằm trong generate-flat, Q4). */
 export function compileGraph(graph: FlowGraph): CompileResult {
   const issues = validateGraph(graph);
   const errors = issues.filter((i) => i.severity === 'error');
@@ -39,48 +16,7 @@ export function compileGraph(graph: FlowGraph): CompileResult {
 
   const g = new GraphReader(graph);
   const exportNode = graph.nodes.find((n) => n.type === 'export') as FlowNode<'export'>;
-  const exportEdge = g.incoming(exportNode.id)[0]!;
-
-  if (exportEdge.targetPort === 'composition') {
-    const compose = g.node(exportEdge.source, 'compose');
-    const gen = g.single(compose.id, 'background', 'generate-background');
-    const layout = g.single(compose.id, 'layout', 'auto-layout');
-    const ratio = g.single(layout.id, 'ratio', 'ratio');
-    const style = g.optional(gen.id, 'style', 'style')?.params;
-    const brandKit = g.optional(gen.id, 'brand', 'brand-kit')?.params;
-
-    return {
-      ok: true,
-      warnings,
-      job: {
-        schemaVersion: FLOW_SCHEMA_VERSION,
-        renderMode: 'composed',
-        ratios: ratio.params.ratios,
-        brief: g.single(gen.id, 'brief', 'brief').params,
-        style,
-        brandKit,
-        references: g.many(gen.id, 'image', 'reference-image').map((n) => n.params),
-        model: gen.params.model,
-        products: g.many(compose.id, 'product', 'product-asset').map((n) => n.params),
-        // Chữ "tự động theo banner": font/cỡ theo Phong cách + Brand kit, trước layout (màu chọn lúc ghép).
-        textLayers: g.many(compose.id, 'text', 'text-layer').map((n) => autoTypography(n.params, { style, brandKit })),
-        composed: {
-          lightDirectionDeg: gen.params.lightDirectionDeg,
-          strictNoText: gen.params.strictNoText,
-          layoutOverrides: layout.params.overrides,
-          shadow: compose.params.shadow,
-        },
-        export: exportNode.params,
-      },
-    };
-  }
-
-  // Flat (legacy): export ← generate-flat (harmony pass nằm trong generate-flat, Q4)
-  const flat = g.nodeAny(exportEdge.source) as FlowNode<'generate-flat'>;
-  if (flat.type !== 'generate-flat') {
-    return { ok: false, errors: [{ severity: 'error', code: 'flat-source',
-      message: 'Raster phải xuất phát từ Generate (flat).' }] };
-  }
+  const flat = g.node(g.incoming(exportNode.id)[0]!.source, 'generate-flat');
 
   return {
     ok: true,
@@ -111,13 +47,9 @@ class GraphReader {
   incoming(nodeId: string, port?: string): FlowEdge[] {
     return this.graph.edges.filter((e) => e.target === nodeId && (!port || e.targetPort === port));
   }
-  nodeAny(id: string): FlowNode {
+  node<T extends NodeType>(id: string, type: T): FlowNode<T> {
     const n = this.byId.get(id);
     if (!n) throw new Error(`Node ${id} không tồn tại`);
-    return n;
-  }
-  node<T extends NodeType>(id: string, type: T): FlowNode<T> {
-    const n = this.nodeAny(id);
     if (n.type !== type) throw new Error(`Node ${id} phải là ${type}, nhận ${n.type}`);
     return n as FlowNode<T>;
   }

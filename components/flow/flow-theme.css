@@ -125,9 +125,6 @@
 .flow-studio .flow-port-brand { --flow-handle-color: var(--flow-port-brand); }
 .flow-studio .flow-port-ratio { --flow-handle-color: var(--flow-port-ratio); }
 .flow-studio .flow-port-style { --flow-handle-color: var(--flow-port-style); }
-.flow-studio .flow-port-layout { --flow-handle-color: var(--flow-port-layout); }
-.flow-studio .flow-port-background { --flow-handle-color: var(--flow-port-background); }
-.flow-studio .flow-port-composition { --flow-handle-color: var(--flow-port-composition); }
 .flow-studio .flow-port-raster { --flow-handle-color: var(--flow-port-raster); }
 
 /* ── Edge: màu theo kiểu port nguồn (EDGE_CLASS trong flow-styles.ts) ── */
@@ -150,9 +147,6 @@
 .flow-studio .flow-edge-brand { --flow-edge-color: var(--flow-port-brand); }
 .flow-studio .flow-edge-ratio { --flow-edge-color: var(--flow-port-ratio); }
 .flow-studio .flow-edge-style { --flow-edge-color: var(--flow-port-style); }
-.flow-studio .flow-edge-layout { --flow-edge-color: var(--flow-port-layout); }
-.flow-studio .flow-edge-background { --flow-edge-color: var(--flow-port-background); }
-.flow-studio .flow-edge-composition { --flow-edge-color: var(--flow-port-composition); }
 .flow-studio .flow-edge-raster { --flow-edge-color: var(--flow-port-raster); }
 
 /* Shimmer khi node đang chạy (thanh mảnh trên đầu card). */

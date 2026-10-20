@@ -233,20 +233,3 @@ export function CollapsibleSection({ title = 'Nâng cao', summary, defaultOpen =
     </section>
   );
 }
-
-/** Nhóm field có tiêu đề + công tắc bật/tắt (viền, bóng chữ, nền chữ). */
-export function ToggleSection({ title, enabled, onToggle, children }: {
-  title: string; enabled: boolean; onToggle: (v: boolean) => void; children?: ReactNode;
-}) {
-  const id = useId();
-  return (
-    <fieldset className="m-0 flex min-w-0 flex-col gap-3 rounded-lg border p-3">
-      <legend className="sr-only">{title}</legend>
-      <label htmlFor={id} className="flex items-center justify-between gap-2 text-sm font-medium">
-        {title}
-        <input id={id} type="checkbox" checked={enabled} onChange={(e) => onToggle(e.target.checked)} />
-      </label>
-      {enabled && children}
-    </fieldset>
-  );
-}

@@ -38,7 +38,7 @@ export function resetFlowEventsSchemaForTest(): void {
 
 type Kind = 'count' | 'bool' | 'code' | { enum: readonly string[] } | { enumOrNull: readonly string[] };
 
-const RENDER_MODES = ['composed', 'flat', 'mixed'] as const;
+const RENDER_MODES = ['composed', 'flat'] as const;
 
 /** Field cho phép theo event. `count` = số nguyên ≥ 0; `code` = chuỗi ngắn [A-Za-z0-9_-:.]. */
 const EVENT_PROPS: Record<FlowAnalyticsEventName, Record<string, Kind>> = {

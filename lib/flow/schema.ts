@@ -22,17 +22,14 @@ export const FLOW_SCHEMA_VERSION = 1 as const;
 
 /* ── Port types ─────────────────────────────────────────────── */
 export type PortType =
-  | 'product'      // asset giữ nguyên pixel (sản phẩm, logo, trang trí) – KHÔNG bao giờ đi vào executor AI (trừ legacy flat)
+  | 'product'      // asset sản phẩm, logo, trang trí – Tạo banner giữ nguyên chủ thể (strictPreserveMode)
   | 'image'        // ảnh gửi cho model làm tham chiếu (style-reference, nền ảnh)
   | 'brief'
   | 'text'         // text layer
   | 'brand'
   | 'ratio'
   | 'style'
-  | 'layout'       // LayoutPlan: transform theo ratio + layout guide cho Gemini
-  | 'background'   // background plate đã sinh, theo ratio
-  | 'composition'  // ảnh đã compose theo ratio
-  | 'raster';      // ảnh flat (legacy)
+  | 'raster';      // banner AI tạo (flat)
 
 /* ── Shared value types ─────────────────────────────────────── */
 export type ModelId = ImageGenerationModel;
@@ -44,23 +41,6 @@ export type ModelId = ImageGenerationModel;
  */
 export interface RatioSpec extends CanvasConfig {
   id: string;
-}
-
-/** Toạ độ chuẩn hoá 0–1 theo canvas của từng ratio, neo tại tâm phần tử. */
-export interface Transform {
-  cx: number;
-  cy: number;
-  w: number;
-  h: number;
-  rotationDeg: number;
-}
-
-export interface ShadowConfig {
-  mode: 'auto' | 'custom' | 'off';
-  opacity: number;   // 0–1
-  blurPx: number;
-  offsetX: number;   // px tại 1080 base, scale theo ratio
-  offsetY: number;
 }
 
 /** Tên role theo field của form (`headline`, `subheadline`, `ctaText` trong store/editor.ts). */
@@ -79,7 +59,7 @@ export type FlowAsset<R extends AssetRole = AssetRole> =
   Omit<UploadedAsset, 'id' | 'dataUrl' | 'role'> & {
     assetId: string;
     role: R;
-    /** Màu chủ đạo (hex) đo lúc tải ảnh – bảng màu chung cho nền/chữ (palette.ts). Ảnh cũ không có. */
+    /** Màu chủ đạo (hex) từng đo cho Ghép layer (đã gỡ). Không còn dùng; giữ để đọc project cũ. */
     dominantColors?: string[];
   };
 
@@ -96,34 +76,21 @@ export interface NodeParamsMap {
     layerId: string;
     role: TextRole;
     content: string;
-    /** 'ai' chỉ hợp lệ với role = 'headline' */
+    /*
+     * Các field dưới đây từ chế độ Ghép layer (đã gỡ 2026-10-20). Flat để AI vẽ mọi chữ nên không dùng; giữ để project
+     * và template cũ vẫn đọc được.
+     */
     renderSource: 'layer' | 'ai';
-    /** Số nhỏ = ưu tiên cao. Auto Layout giữ đủ mọi layer, priority chỉ quyết định thứ tự co giãn. */
+    /** Số nhỏ = ưu tiên cao: thứ tự text trong graph. */
     priority: number;
     minFontSizePx: number;
-    /** Model text layer mới (Q2), xem lib/flow/text/text-style.ts. */
     style: TextStyle;
-    /**
-     * Tự chọn font/cỡ/màu theo phong cách banner và nền thật (lib/flow/text/auto-style.ts); `style` khi đó bị thay lúc
-     * compile/vẽ. Không có = false (project cũ giữ style chỉnh tay).
-     */
     autoStyle?: boolean;
   };
   'brand-kit': BrandKit;
   'ratio': { ratios: RatioSpec[] };
   'style': FlowStyle;
-  'auto-layout': {
-    /** overrides[ratioId][elementId] – elementId = assetId (product) | layerId (text). */
-    overrides: Record<string, Record<string, Transform>>;
-  };
-  'generate-background': {
-    model: ModelId;
-    /** Hướng sáng chỉ định trong prompt; Compose dùng lại để đặt auto shadow. 315 = trên-trái. */
-    lightDirectionDeg: number;
-    strictNoText: boolean;
-  };
   'generate-flat': { model: ModelId; strictPreserveMode: boolean };
-  'compose': { shadow: ShadowConfig };
   /** Theo `exportBanner()` trong lib/export.ts. `quality` chỉ áp dụng cho jpg. */
   'export': { format: 'png' | 'jpg'; quality: number; scale: 1 | 2; ratioIds: string[] | 'all' };
 }
@@ -154,15 +121,6 @@ export interface FlowGraph {
   nodes: FlowNode[];
   edges: FlowEdge[];
 }
-
-export const DEFAULT_SHADOW: ShadowConfig = {
-  mode: 'auto',
-  // 50%: 35% gần như không thấy trên nền tối (kiểm tra T4.3).
-  opacity: 0.5,
-  blurPx: 24,
-  offsetX: 0,
-  offsetY: 8,
-};
 
 /** Giống defaultStyleControls trong store/editor.ts (bỏ strictPreserveMode). */
 export const DEFAULT_STYLE: FlowStyle = {
