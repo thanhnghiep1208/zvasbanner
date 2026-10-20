@@ -69,7 +69,7 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
     issues.push({ severity: 'error', code: 'cycle', message: 'Graph có vòng lặp.' });
   }
 
-  // Export: đúng 1 node, đúng 1 nguồn
+  // Export: đúng 1 node, 1–2 nguồn (composition và/hoặc raster; mỗi port 1 dây → chạy từng nhánh, gộp kết quả)
   const exports = graph.nodes.filter((n) => n.type === 'export');
   if (exports.length !== 1) {
     issues.push({ severity: 'error', code: 'export-count',
@@ -77,9 +77,9 @@ export function validateGraph(graph: FlowGraph, options: ValidateOptions = {}): 
   }
   for (const ex of exports) {
     const sources = graph.edges.filter((e) => e.target === ex.id).length;
-    if (sources !== 1) {
+    if (sources === 0) {
       issues.push({ severity: 'error', code: 'export-source', nodeId: ex.id,
-        message: 'Export cần đúng 1 nguồn: composition hoặc raster.' });
+        message: 'Xuất ảnh cần ít nhất 1 nguồn: Ghép layer hoặc Tạo banner (flat).' });
     }
     // Kích thước xuất (T4.6): tập con phải khác rỗng và tồn tại trong node Kích thước.
     const { ratioIds } = (ex as FlowNode<'export'>).params;

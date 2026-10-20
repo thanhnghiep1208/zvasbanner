@@ -93,7 +93,8 @@ export type FlowAnalyticsEventName =
   | "flow_view_switched"
   | "flow_template_used";
 
-export type FlowRenderMode = "composed" | "flat";
+/** "mixed" = Xuất ảnh nối cả Ghép layer và Tạo banner (flat). */
+export type FlowRenderMode = "composed" | "flat" | "mixed";
 
 /** Field chung: phiên mở trang /flow, project đang mở (nếu đã lưu), template của graph. */
 export type FlowAnalyticsBase = {

@@ -6,7 +6,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/components/ui/popover';
 import { BLANK_TEMPLATE, DEFAULT_TEMPLATES, type FlowTemplate } from '@/lib/flow/template';
 import { estimateAiCalls } from '@/lib/flow/compiled-job';
-import { compileGraph } from '@/lib/flow/compiler';
+import { compileAll } from '@/lib/flow/compiler';
 import type { NodeParamsMap } from '@/lib/flow/schema';
 import { cn } from '@/lib/utils';
 import { useFlowStore } from '@/store/flow-store';
@@ -16,8 +16,9 @@ import { trackFlow } from './flow-analytics';
 function summary(t: FlowTemplate): string {
   const r = t.graph.nodes.find((n) => n.type === 'ratio');
   const sizes = r ? (r.params as NodeParamsMap['ratio']).ratios.length : 0;
-  const job = compileGraph(t.graph);
-  return job.ok ? `${sizes} kích thước · ${estimateAiCalls(job.job)} lượt AI` : `${sizes} kích thước`;
+  const compiled = compileAll(t.graph);
+  if (!compiled.ok) return `${sizes} kích thước`;
+  return `${sizes} kích thước · ${compiled.branches.reduce((sum, b) => sum + estimateAiCalls(b.job), 0)} lượt AI`;
 }
 const SUMMARIES = new Map(DEFAULT_TEMPLATES.map((t) => [t.id, summary(t)]));
 

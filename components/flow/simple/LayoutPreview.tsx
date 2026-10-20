@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { LoaderCircle } from 'lucide-react';
 import { exportedRatios, type CompiledJob } from '@/lib/flow/compiled-job';
-import { compileGraph } from '@/lib/flow/compiler';
+import { compileAll } from '@/lib/flow/compiler';
 import { planLayoutForJob } from '@/lib/flow/layout/engine';
 import type { GuideRect } from '@/lib/flow/layout/types';
 import { canvasMeasurer, composeRatio, ensureFonts } from '@/lib/flow-ui/compose-render';
@@ -80,17 +80,18 @@ export function LayoutPreview() {
   useEffect(() => {
     let cancelled = false;
     const timer = setTimeout(() => {
-      const compiled = compileGraph(graph);
+      const compiled = compileAll(graph);
       if (!compiled.ok) {
         setState({ kind: 'unavailable', message: 'Điền đủ các mục bắt buộc để xem trước bố cục.' });
         return;
       }
-      if (compiled.job.renderMode !== 'composed') {
+      const composed = compiled.branches.find((b) => b.job.renderMode === 'composed')?.job;
+      if (!composed) {
         setState({ kind: 'unavailable', message: 'Template này để AI vẽ cả banner nên chỉ xem được sau khi chạy.' });
         return;
       }
       setState((s) => (s.kind === 'ready' ? s : { kind: 'busy' }));
-      buildPreviews(compiled.job, assetData)
+      buildPreviews(composed, assetData)
         .then((next) => { if (!cancelled) setState(next); })
         .catch(() => { if (!cancelled) setState({ kind: 'unavailable', message: 'Không vẽ được bản xem trước.' }); });
     }, DEBOUNCE_MS);

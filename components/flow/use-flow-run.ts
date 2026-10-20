@@ -12,7 +12,7 @@ import { renderGuideImage } from '@/lib/flow-ui/guide-image';
 import { canvasMeasurer, composeRatio, ensureFonts } from '@/lib/flow-ui/compose-render';
 import type { NodeParamsMap } from '@/lib/flow/schema';
 import { exportedRatios } from '@/lib/flow/compiled-job';
-import { compileGraph } from '@/lib/flow/compiler';
+import { compileAll } from '@/lib/flow/compiler';
 import { runErrorCode, trackFlow, trackFlowGeneration } from './flow-analytics';
 import { useFlowStore } from '@/store/flow-store';
 
@@ -86,14 +86,15 @@ export function useFlowRun() {
     if (store.isRunning) return;
     const forceNodes = fromNodeId ? downstreamOf(store.graph, fromNodeId) : undefined;
     // Analytics (T6.3): graph lỗi compile → không có render mode, chỉ ghi flow_run_failed.
-    const compiled = compileGraph(store.graph);
-    const renderMode = compiled.ok ? compiled.job.renderMode : null;
+    const compiled = compileAll(store.graph);
+    const renderMode = !compiled.ok ? null
+      : compiled.branches.length > 1 ? 'mixed' as const : compiled.branches[0]!.job.renderMode;
     if (compiled.ok) {
       const p = pendingAiCalls(store.graph, { dataUrls: store.assetData }, imageCache,
         { guideStyle: GUIDE_STYLE, measurer: canvasMeasurer, forceNodes });
       trackFlow('flow_run_started', {
-        ai_calls: p?.calls ?? 0, reusable: p?.reused ?? 0, render_mode: compiled.job.renderMode,
-        ratio_count: exportedRatios(compiled.job).length, from_node: Boolean(fromNodeId),
+        ai_calls: p?.calls ?? 0, reusable: p?.reused ?? 0, render_mode: renderMode!,
+        ratio_count: compiled.branches.reduce((sum, b) => sum + exportedRatios(b.job).length, 0), from_node: Boolean(fromNodeId),
       });
     }
     const startedAt = performance.now();

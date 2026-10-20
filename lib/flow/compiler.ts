@@ -3,11 +3,34 @@ import { FLOW_SCHEMA_VERSION } from './schema';
 import type { CompiledJob } from './compiled-job';
 import { validateGraph, type ValidationIssue } from './validate';
 import { autoTypography } from './text/auto-style';
+import { exportBranches } from './branches';
 
 export type CompileResult =
   | { ok: true; job: CompiledJob; warnings: ValidationIssue[] }
   | { ok: false; errors: ValidationIssue[] };
 
+export type CompileAllResult =
+  | { ok: true; branches: { graph: FlowGraph; job: CompiledJob }[]; warnings: ValidationIssue[] }
+  | { ok: false; errors: ValidationIssue[] };
+
+/**
+ * Xuất ảnh có thể nhận 2 nguồn (Ghép layer + Tạo banner flat): validate cả graph, rồi compile từng nhánh
+ * (exportBranches). 1 nguồn → 1 nhánh = chính graph.
+ */
+export function compileAll(graph: FlowGraph): CompileAllResult {
+  const issues = validateGraph(graph);
+  const errors = issues.filter((i) => i.severity === 'error');
+  if (errors.length) return { ok: false, errors };
+  const branches: { graph: FlowGraph; job: CompiledJob }[] = [];
+  for (const sub of exportBranches(graph)) {
+    const res = compileGraph(sub);
+    if (!res.ok) return res;
+    branches.push({ graph: sub, job: res.job });
+  }
+  return { ok: true, branches, warnings: issues.filter((i) => i.severity === 'warning') };
+}
+
+/** Compile 1 nhánh (Xuất ảnh có đúng 1 nguồn). Graph 2 nguồn → dùng compileAll. */
 export function compileGraph(graph: FlowGraph): CompileResult {
   const issues = validateGraph(graph);
   const errors = issues.filter((i) => i.severity === 'error');

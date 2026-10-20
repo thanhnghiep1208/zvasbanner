@@ -87,7 +87,7 @@ export const TIPS: Record<NodeType, { connect: string; tips: string[] }> = {
 export const COMMON_ISSUES: { title: string; fix: string; severity: 'error' | 'warning' }[] = [
   { severity: 'error', title: 'Thiếu input bắt buộc', fix: 'Chọn node, xem port nào thiếu, kéo dây từ node cùng màu.' },
   { severity: 'error', title: 'Không đủ chỗ', fix: 'Rút ngắn chữ, giảm "Cỡ tối thiểu", bớt ảnh hoặc kích thước hẹp.' },
-  { severity: 'error', title: 'Lỗi ở Xuất ảnh', fix: 'Giữ đúng 1 node Xuất ảnh, nối từ đúng 1 nguồn.' },
+  { severity: 'error', title: 'Lỗi ở Xuất ảnh', fix: 'Giữ đúng 1 node Xuất ảnh, nối từ Ghép layer và/hoặc Tạo banner (flat).' },
   { severity: 'warning', title: 'Ảnh chưa nối', fix: 'Node viền vàng: nối ảnh vào Auto layout + Ghép layer.' },
   { severity: 'warning', title: 'Ảnh chưa tách nền', fix: 'Dùng PNG nền trong suốt để có bóng đổ.' },
   { severity: 'warning', title: 'Cần tải lại ảnh', fix: 'Project đã lưu không giữ ảnh – tải lại trước khi chạy.' },

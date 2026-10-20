@@ -12,7 +12,7 @@
  */
 import type { CanvasConfig, GenerationRequest } from '@/lib/types';
 import type { CompiledJob } from './compiled-job';
-import { compileGraph } from './compiler';
+import { compileAll } from './compiler';
 import { toBackgroundRequests, type BackgroundRequest, type BackgroundRequestDraft, type GuideStyle } from './background/request';
 import { planLayoutForJob } from './layout/engine';
 import type { TextMeasurer } from './layout/measure';
@@ -108,6 +108,8 @@ function adaptRequest(request: GenerationRequest, firstImage: string): Generatio
 
 export interface RatioResult {
   ratioId: string;
+  /** Xuất ảnh nối cả 2 nhánh: kết quả thuộc nhánh nào (tên file, nhãn). 1 nhánh → không có. */
+  branch?: CompiledJob['renderMode'];
   canvasConfig: CanvasConfig;
   image: string;
 }
@@ -123,7 +125,7 @@ export type RunOutcome =
   | { ok: false; errors: RunIssue[]; results: RatioResult[] };
 
 export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: ExecutorDeps): Promise<RunOutcome> {
-  const compiled = compileGraph(graph);
+  const compiled = compileAll(graph);
   if (!compiled.ok) {
     return fail(deps, compiled.errors.map((e) => ({ message: e.message, nodeId: e.nodeId })));
   }
@@ -137,14 +139,38 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
     return fail(deps, heavyRefs.map((n) => ({ nodeId: n.id, message: referenceTooBigMessage((n.params as FlowAsset).fileName) })));
   }
 
-  if (compiled.job.renderMode === 'composed') {
-    return runComposed(graph, compiled.job, runtime, deps, compiled.warnings.map((w) => ({ message: w.message, nodeId: w.nodeId })));
+  // Key theo graph đầy đủ: node Xuất ảnh trong nhánh có ít input hơn → key khác, sẽ luôn hiện "Cần chạy lại".
+  const keys = nodeKeys(graph);
+  const warnings: RunIssue[] = compiled.warnings.map((w) => ({ message: w.message, nodeId: w.nodeId }));
+  const { branches } = compiled;
+  if (branches.length === 1) return runBranch(branches[0]!.graph, branches[0]!.job, warnings, runtime, deps, keys);
+
+  // 2 nhánh: chạy lần lượt, nhánh lỗi không chặn nhánh còn lại; gộp kết quả.
+  const results: RatioResult[] = [];
+  const errors: RunIssue[] = [];
+  const allWarnings = [...warnings];
+  let reused = 0;
+  for (const [i, b] of branches.entries()) {
+    if (i > 0) await pause(deps);
+    const out = await runBranch(b.graph, b.job, [], runtime, deps, keys);
+    results.push(...out.results.map((r) => ({ ...r, branch: b.job.renderMode })));
+    if (out.ok) { reused += out.reused; allWarnings.push(...out.warnings); } else errors.push(...out.errors);
   }
+  const exportNode = graph.nodes.find((n) => n.type === 'export')!;
+  if (results.length) deps.onRunInfo(exportNode.id, { state: 'done', previewUrl: results[0]!.image, key: errors.length ? undefined : keys[exportNode.id] });
+  return errors.length ? { ok: false, errors, results } : { ok: true, results, warnings: allWarnings, reused };
+}
+
+async function runBranch(
+  graph: FlowGraph, job: CompiledJob, compiledWarnings: RunIssue[], runtime: LegacyRuntime, deps: ExecutorDeps,
+  keys: Record<string, string>,
+): Promise<RunOutcome> {
+  if (job.renderMode === 'composed') return runComposed(graph, job, runtime, deps, compiledWarnings, keys);
 
   const exportNode = graph.nodes.find((n) => n.type === 'export')!;
   const execNode = graph.nodes.find((n) => n.id === graph.edges.find((e) => e.target === exportNode.id)!.source)!;
 
-  const legacy = toLegacyConfig(compiled.job, runtime);
+  const legacy = toLegacyConfig(job, runtime);
   if (!legacy.ok) {
     return fail(deps, [{ message: composedMessage(legacy.error), nodeId: execNode.id }]);
   }
@@ -162,7 +188,7 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
   }
 
   // Chỉ sinh kích thước được xuất (T4.6), giữ thứ tự node Kích thước.
-  const exported = new Set(exportedRatios(compiled.job).map((r) => r.id));
+  const exported = new Set(exportedRatios(job).map((r) => r.id));
   const requests = legacy.requests.filter((r) => exported.has(r.ratioId)).map((r) => ({ ...r, request: lockAssets(r.request) }));
 
   // Body quá giới hạn server → 413 sau khi đã chờ; chặn sớm, báo trên các node ảnh.
@@ -171,19 +197,18 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
 
   // Q9A: text không map được → vẫn chạy, chỉ cảnh báo.
   const warnings: RunIssue[] = [
-    ...compiled.warnings.map((w) => ({ message: w.message, nodeId: w.nodeId })),
+    ...compiledWarnings,
     ...legacy.warnings.filter((w) => w.code === 'unmapped-text').flatMap((w) => textWarnings(graph, w)),
   ];
 
   deps.onRunInfo(execNode.id, { state: 'running' });
   deps.onRunInfo(exportNode.id, { state: 'queued' });
 
-  const keys = nodeKeys(graph);
   const force = deps.forceNodes?.has(execNode.id) ?? false;
   let reused = 0;
   let called = 0;
   const results: RatioResult[] = [];
-  const retryPrompt = adaptationRetryPrompt(compiled.job);
+  const retryPrompt = adaptationRetryPrompt(job);
   for (const [i, { ratioId, request }] of requests.entries()) {
     const first = results[0];
     const adapted = first ? adaptRequest(request, first.image) : undefined;
@@ -228,6 +253,7 @@ export async function runAll(graph: FlowGraph, runtime: LegacyRuntime, deps: Exe
 
 async function runComposed(
   graph: FlowGraph, job: CompiledJob, runtime: LegacyRuntime, deps: ExecutorDeps, warnings: RunIssue[],
+  keys: Record<string, string>,
 ): Promise<RunOutcome> {
   const byType = (t: string) => graph.nodes.find((n) => n.type === t)!;
   const layoutNode = byType('auto-layout');
@@ -240,7 +266,6 @@ async function runComposed(
     return fail(deps, [{ nodeId: genNode.id, message: 'Môi trường hiện tại chưa hỗ trợ tạo nền.' }]);
   }
 
-  const keys = nodeKeys(graph);
   const layout = planLayoutForJob(job, { measurer: deps.measurer });
   if (!layout.ok) return fail(deps, [{ nodeId: layoutNode.id, message: layout.message }]);
   deps.onRunInfo(layoutNode.id, { state: 'done', key: keys[layoutNode.id] });
@@ -336,9 +361,22 @@ export function pendingAiCalls(
   cache: Pick<ImageCache, 'get'> | undefined,
   opts: { guideStyle?: GuideStyle; forceNodes?: ReadonlySet<string>; measurer?: TextMeasurer } = {},
 ): { calls: number; reused: number } | null {
-  const compiled = compileGraph(graph);
+  const compiled = compileAll(graph);
   if (!compiled.ok) return null;
-  const job = compiled.job;
+  let calls = 0;
+  let reused = 0;
+  for (const b of compiled.branches) {
+    const p = branchPendingAiCalls(b.graph, b.job, runtime, cache, opts);
+    calls += p.calls;
+    reused += p.reused;
+  }
+  return { calls, reused };
+}
+
+function branchPendingAiCalls(
+  graph: FlowGraph, job: CompiledJob, runtime: LegacyRuntime, cache: Pick<ImageCache, 'get'> | undefined,
+  opts: { guideStyle?: GuideStyle; forceNodes?: ReadonlySet<string>; measurer?: TextMeasurer },
+): { calls: number; reused: number } {
   const exported = exportedRatios(job);
   const forced = (type: string) => graph.nodes.some((n) => n.type === type && opts.forceNodes?.has(n.id));
 

@@ -6,12 +6,15 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { exportBanner } from '@/lib/export';
 import type { NodeParamsMap } from '@/lib/flow/schema';
+import type { RatioResult } from '@/lib/flow/executor';
 import { useFlowStore } from '@/store/flow-store';
+
+const BRANCH_LABELS: Record<NonNullable<RatioResult['branch']>, string> = { composed: 'Ghép layer', flat: 'Flat' };
 
 /** Kết quả lần chạy gần nhất + tải về theo cấu hình node Xuất ảnh (dùng exportBanner của form). */
 export function RunResults({ exportParams }: { exportParams: NodeParamsMap['export'] }) {
   const results = useFlowStore((s) => s.results);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
 
   if (!results.length) {
     return <p className="text-xs text-muted-foreground">Chưa có kết quả. Bấm &quot;Chạy tất cả&quot;.</p>;
@@ -21,9 +24,8 @@ export function RunResults({ exportParams }: { exportParams: NodeParamsMap['expo
     ? results
     : results.filter((r) => (exportParams.ratioIds as string[]).includes(r.ratioId));
 
-  const download = async (ratioId: string) => {
-    const r = results.find((x) => x.ratioId === ratioId)!;
-    setBusy(ratioId);
+  const download = async (r: RatioResult, index: number) => {
+    setBusy(index);
     try {
       await exportBanner({
         imageUrl: r.image,
@@ -31,7 +33,7 @@ export function RunResults({ exportParams }: { exportParams: NodeParamsMap['expo
         format: exportParams.format,
         quality: exportParams.quality,
         scale: exportParams.scale,
-        filenameStamp: ratioId,
+        filenameStamp: r.branch ? `${r.ratioId}-${r.branch}` : r.ratioId,
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Xuất ảnh thất bại.');
@@ -42,8 +44,8 @@ export function RunResults({ exportParams }: { exportParams: NodeParamsMap['expo
 
   /** Tải lần lượt (mỗi file 1 lượt tải của trình duyệt); exportBanner đặt tên theo ratio nên không trùng. */
   const downloadAll = async () => {
-    for (const r of visible) {
-      await download(r.ratioId);
+    for (const [i, r] of visible.entries()) {
+      await download(r, i);
       await new Promise((res) => setTimeout(res, 250)); // tránh trình duyệt gộp/chặn tải liên tiếp
     }
   };
@@ -60,13 +62,13 @@ export function RunResults({ exportParams }: { exportParams: NodeParamsMap['expo
         )}
       </div>
       <ul className="m-0 flex list-none flex-col gap-1 p-0">
-        {visible.map((r) => (
-          <li key={r.ratioId} className="flex flex-col gap-2 border-b pb-3 last:border-b-0">
+        {visible.map((r, i) => (
+          <li key={`${r.ratioId}-${r.branch ?? ''}`} className="flex flex-col gap-2 border-b pb-3 last:border-b-0">
             {/* eslint-disable-next-line @next/next/no-img-element -- data URL do API trả về */}
             <img src={r.image} alt={`Banner ${r.canvasConfig.name}`} className="block max-h-40 w-full rounded-lg border bg-muted object-contain" />
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span>{r.canvasConfig.name} <span className="text-xs text-muted-foreground">{r.canvasConfig.width}×{r.canvasConfig.height}</span></span>
-              <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => void download(r.ratioId)}>
+              <span>{r.canvasConfig.name}{r.branch && ` · ${BRANCH_LABELS[r.branch]}`} <span className="text-xs text-muted-foreground">{r.canvasConfig.width}×{r.canvasConfig.height}</span></span>
+              <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => void download(r, i)}>
                 <Download className="size-4" aria-hidden />
                 {exportParams.format.toUpperCase()}
               </Button>
