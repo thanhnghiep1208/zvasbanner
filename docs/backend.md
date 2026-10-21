@@ -57,7 +57,7 @@ Next.js 16 dùng file `proxy.ts` (thay `middleware.ts`) cho request interception
 - `POST /api/track` insert một dòng; `user_id` **luôn** lấy từ session Clerk server-side, field `user_id` trong body bị bỏ qua.
 - `GET /api/dashboard` — aggregate theo `range` (`today`/`7d`/`30d`), cache kết quả **30 phút** (`DASHBOARD_AGGREGATE_CACHE_MS`), bypass bằng `?refresh=1`.
 - `GET /api/dashboard/users` — phân trang **15 user/trang** (`DASHBOARD_USERS_PAGE_SIZE`), enrich tên/email/role/blocked từ Clerk.
-- Bảng `app_settings` (`db/app_settings.sql`, tự tạo ở lần đọc/ghi đầu): cài đặt key→JSONB do admin sửa. Hiện chỉ có `contact_info` (email / Zalo cấp tài khoản, `lib/contact-settings.ts`): đọc cache 60s, chưa có bản ghi hoặc DB lỗi thì lấy `CONTACT_EMAIL` / `CONTACT_PHONE`. Admin sửa ở `/dashboard` → Cài đặt qua `GET`/`PUT /api/settings/contact`.
+- Bảng `app_settings` (`db/app_settings.sql`, tự tạo ở lần đọc/ghi đầu): cài đặt key→JSONB do admin sửa. Hiện chỉ có `contact_info` (email / Zalo cấp tài khoản, `lib/contact-settings.ts`): đọc thẳng DB mỗi request (không cache, để lưu xong hiện ngay), chưa có bản ghi hoặc DB lỗi thì lấy `CONTACT_EMAIL` / `CONTACT_PHONE`. Admin sửa ở `/dashboard` → Cài đặt qua `GET`/`PUT /api/settings/contact`.
 - Hành động admin (đổi role, block, xóa user, thu hồi phiên, đổi cài đặt) ghi audit qua `lib/dashboard-audit.ts` → `banner_events` với `event_name = admin_audit` (không được ghi từ client track trực tiếp).
 
 ## Bảo mật

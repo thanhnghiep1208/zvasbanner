@@ -8,12 +8,10 @@ import {
 import { getDbPool } from "@/lib/db";
 
 const CONTACT_KEY = "contact_info";
-const CACHE_MS = 60_000;
 
 export type ContactInfoSource = "db" | "env";
 
 let tableReady: Promise<void> | null = null;
-let cache: { expiresAt: number; value: ContactInfo; source: ContactInfoSource } | null = null;
 
 function hasDatabase(): boolean {
   return Boolean(process.env.DATABASE_URL?.trim());
@@ -41,14 +39,10 @@ async function ensureAppSettingsTable(): Promise<void> {
 
 /**
  * Thông tin liên hệ admin đã lưu trong DB; chưa lưu (hoặc DB lỗi) thì dùng
- * CONTACT_EMAIL / CONTACT_PHONE. Cache 60s mỗi instance.
+ * CONTACT_EMAIL / CONTACT_PHONE. Không cache trong bộ nhớ: trang editor và
+ * route PUT có thể chạy ở instance khác nhau, cache sẽ hiện giá trị cũ sau khi lưu.
  */
 export async function getContactInfo(): Promise<{ value: ContactInfo; source: ContactInfoSource }> {
-  const now = Date.now();
-  if (cache && cache.expiresAt > now) {
-    return { value: cache.value, source: cache.source };
-  }
-
   let value = contactInfoFromEnv(process.env);
   let source: ContactInfoSource = "env";
   if (hasDatabase()) {
@@ -68,7 +62,6 @@ export async function getContactInfo(): Promise<{ value: ContactInfo; source: Co
     }
   }
 
-  cache = { expiresAt: now + CACHE_MS, value, source };
   return { value, source };
 }
 
@@ -86,5 +79,4 @@ export async function saveContactInfo(value: ContactInfo, actorUserId: string): 
     `,
     [CONTACT_KEY, JSON.stringify(value), actorUserId]
   );
-  cache = null;
 }
