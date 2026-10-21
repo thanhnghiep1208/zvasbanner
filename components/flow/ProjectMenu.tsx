@@ -86,7 +86,7 @@ export function ProjectMenu() {
     <div className="flex min-w-0 items-center gap-1">
       <Popover open={menuOpen} onOpenChange={onOpenChange}>
         <PopoverTrigger
-          aria-label={`Project: ${title}, ${status}. Mở danh sách project`}
+          aria-label={`Dự án: ${title}, ${status}. Mở danh sách dự án`}
           className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), 'min-w-0 gap-1.5 px-2')}
         >
           <FolderOpen className="text-muted-foreground" aria-hidden />
@@ -100,13 +100,13 @@ export function ProjectMenu() {
           <ChevronDown className="text-muted-foreground" aria-hidden />
         </PopoverTrigger>
         <PopoverContent align="end" sideOffset={8} className="w-[min(22rem,calc(100vw-2rem))] gap-3 p-3">
-          <PopoverTitle className="sr-only">Project</PopoverTitle>
+          <PopoverTitle className="sr-only">Dự án</PopoverTitle>
           <form
             className="flex items-end gap-2"
             onSubmit={(e) => { e.preventDefault(); void save().then((ok) => { if (ok) void refresh(); }); }}
           >
             <label className="flex min-w-0 flex-1 flex-col gap-1.5 text-xs font-medium">
-              Tên project
+              Tên dự án
               <Input value={title} maxLength={FLOW_DOC_LIMITS.maxTitleLength} onChange={(e) => setTitle(e.target.value)} />
             </label>
             <Button type="submit" size="sm" disabled={saving}>
@@ -114,20 +114,20 @@ export function ProjectMenu() {
               Lưu
             </Button>
           </form>
-          <p className="text-xs text-muted-foreground">Ảnh không được lưu – mở lại project cần tải lại ảnh.</p>
+          <p className="text-xs text-muted-foreground">Ảnh không được lưu – mở lại dự án cần tải lại ảnh.</p>
 
           <div className="flex flex-col gap-1 border-t pt-2">
-            <p className="px-1 text-xs font-medium text-muted-foreground">Project đã lưu</p>
+            <p className="px-1 text-xs font-medium text-muted-foreground">Dự án đã lưu</p>
             {confirm && (
               <div className="flex flex-col gap-2 rounded-md bg-muted/60 p-2.5 text-sm" role="alertdialog"
-                aria-label={confirm.kind === 'open' ? 'Xác nhận mở project' : 'Xác nhận xoá project'}>
+                aria-label={confirm.kind === 'open' ? 'Xác nhận mở dự án' : 'Xác nhận xoá dự án'}>
                 {confirm.kind === 'open'
                   ? <p>Mở <span className="font-medium">“{confirm.doc.title}”</span> sẽ bỏ thay đổi chưa lưu.</p>
                   : <p>Xoá vĩnh viễn <span className="font-medium">“{confirm.doc.title}”</span>? Không hoàn tác được.</p>}
                 <div className="flex justify-end gap-2">
                   <Button type="button" size="sm" variant="ghost" onClick={() => setConfirm(null)}>Huỷ</Button>
                   {confirm.kind === 'open'
-                    ? <Button type="button" size="sm" onClick={() => void openDoc(confirm.doc, true)}>Mở project</Button>
+                    ? <Button type="button" size="sm" onClick={() => void openDoc(confirm.doc, true)}>Mở dự án</Button>
                     : <Button type="button" size="sm" variant="destructive" onClick={() => void remove(confirm.doc)}>Xoá</Button>}
                 </div>
               </div>
@@ -137,7 +137,7 @@ export function ProjectMenu() {
             ) : docs === null ? (
               <p className="px-1 text-xs text-muted-foreground">Đang tải…</p>
             ) : docs.length === 0 ? (
-              <p className="px-1 text-xs text-muted-foreground">Chưa có project nào.</p>
+              <p className="px-1 text-xs text-muted-foreground">Chưa có dự án nào.</p>
             ) : (
               <ul className="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
                 {docs.map((d) => (

@@ -215,7 +215,7 @@ export function FlowGuide() {
         <div className="mx-auto flex h-[52px] max-w-5xl items-center gap-3 px-4">
           <Link href="/flow" className="inline-flex items-center gap-1.5 text-sm font-medium hover:opacity-80">
             <ArrowLeft className="size-4" aria-hidden />
-            Về Flow canvas
+            Về chế độ nâng cao
           </Link>
           <span className="h-5 w-px bg-border" aria-hidden />
           <span className="truncate text-sm text-muted-foreground">Hướng dẫn</span>

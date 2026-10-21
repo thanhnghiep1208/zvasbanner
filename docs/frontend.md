@@ -58,7 +58,7 @@ State không persist (reload mất draft) — không có middleware `persist` tr
 
 ## Flow canvas (`/flow`)
 
-Chỉ hiện khi cờ `FLOW_CANVAS` bật cho user (form có thêm nút **Mở trong canvas**). Code: `components/flow/`, state `store/flow-store.ts`.
+Chỉ hiện khi cờ `FLOW_CANVAS` bật cho user (form có thêm nút **Chế độ nâng cao** – tên hiển thị cho user của Flow canvas; lần đầu tự mở popover giới thiệu). Code: `components/flow/`, state `store/flow-store.ts`.
 
 - **Header**: chọn template, chuyển **Đơn giản / Canvas**, Hoàn tác / Làm lại (⌘/Ctrl+Z, ⇧⌘Z), menu project (Lưu ⌘/Ctrl+S, mở, xoá), **Chạy tất cả** kèm số lượt AI.
 - **Một luồng duy nhất – Tạo banner**: Ảnh sản phẩm, Brief, Text, Kích thước, Phong cách, Brand kit, Ảnh tham chiếu → **Tạo banner** (AI vẽ cả banner, 2 lượt AI / kích thước) → **Xuất ảnh**. Chế độ ghép layer đã gỡ 2026-10-20; project cũ tự chuyển khi mở.

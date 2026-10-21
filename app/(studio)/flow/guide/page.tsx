@@ -4,7 +4,7 @@ import { isFlowCanvasEnabled } from '@/lib/flags';
 import { FlowGuide } from '@/components/flow/guide/FlowGuide';
 
 export const metadata = {
-  title: 'Hướng dẫn Flow canvas – zVas Banner AI',
+  title: 'Hướng dẫn chế độ nâng cao – zVas Banner AI',
   robots: { index: false },
 };
 

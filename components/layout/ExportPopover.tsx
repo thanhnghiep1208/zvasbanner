@@ -6,7 +6,7 @@
 
 import * as React from "react";
 import { useAuth } from "@clerk/nextjs";
-import { Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -99,7 +99,8 @@ export function ExportPopover() {
           aria-label="Xuất banner"
           className="pointer-events-none border-0 bg-zinc-100/90 text-zinc-600 shadow-sm ring-1 ring-zinc-900/[0.06]"
         >
-          Download Image
+          <Download className="size-4 sm:hidden" aria-hidden />
+          <span className="hidden sm:inline">Download Image</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">
@@ -121,7 +122,8 @@ export function ExportPopover() {
           "border-0 shadow-sm ring-1 ring-zinc-900/[0.06]"
         )}
       >
-        Download Image
+        <Download className="size-4 sm:hidden" aria-hidden />
+        <span className="hidden sm:inline">Download Image</span>
       </PopoverTrigger>
       <PopoverContent
         align="end"

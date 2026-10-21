@@ -34,8 +34,8 @@ export function useFlowDocs() {
       setDocUrl(saved.id);
       const hasImage = graph.nodes.some((n) => (n.type === 'product-asset' || n.type === 'reference-image')
         && (n.params as { fileName?: string }).fileName);
-      toast.success('Đã lưu project.', {
-        description: firstSave && hasImage ? 'Ảnh không được lưu – mở lại project cần tải lại ảnh.' : undefined,
+      toast.success('Đã lưu dự án.', {
+        description: firstSave && hasImage ? 'Ảnh không được lưu – mở lại dự án cần tải lại ảnh.' : undefined,
       });
       return true;
     } catch (e) {
@@ -53,7 +53,7 @@ export function useFlowDocs() {
       setDocUrl(rec.id);
       return true;
     } catch (e) {
-      toast.error(`Không mở được project: ${(e as Error).message}`);
+      toast.error(`Không mở được dự án: ${(e as Error).message}`);
       return false;
     }
   }, []);

@@ -34,7 +34,7 @@ export function EditorToolbar({
   return (
     <header
       className={cn(
-        "relative grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 bg-white/75 px-3 shadow-sm shadow-zinc-900/[0.04] backdrop-blur-md supports-[backdrop-filter]:bg-white/60 lg:px-4",
+        "relative flex h-[52px] shrink-0 items-center gap-2 bg-white/75 px-3 shadow-sm shadow-zinc-900/[0.04] backdrop-blur-md supports-[backdrop-filter]:bg-white/60 lg:px-4",
         className
       )}
     >
@@ -54,7 +54,7 @@ export function EditorToolbar({
           />
         </div>
       ) : null}
-      <div className="flex min-w-0 items-center gap-2 justify-self-start">
+      <div className="flex flex-1 basis-0 items-center gap-2">
         <Button
           type="button"
           variant="outline"
@@ -70,7 +70,9 @@ export function EditorToolbar({
         </span>
       </div>
 
-      <div className="max-w-[min(100vw-10rem,24rem)] min-w-0 justify-self-center px-1">
+      {/* Hai bên flex-1 basis-0 → badge đúng giữa khi đủ chỗ; thiếu chỗ thì badge co + cắt chữ, không đè logo/nút
+          (flex item không co dưới nội dung). Mobile: ẩn (kích thước đã có trong bảng Canvas). */}
+      <div className="hidden min-w-0 justify-center px-1 sm:flex">
         <Badge
           variant="secondary"
           className="max-w-full truncate bg-zinc-100/90 px-3 py-1 text-xs font-medium text-zinc-800 shadow-inner ring-0"
@@ -82,7 +84,7 @@ export function EditorToolbar({
         </Badge>
       </div>
 
-      <div className="flex items-center justify-end gap-2 justify-self-end">
+      <div className="flex flex-1 basis-0 items-center justify-end gap-2">
         {flowCanvasEnabled ? <OpenInCanvasButton /> : null}
         <ExportPopover />
         <Show when="signed-out">

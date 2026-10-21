@@ -73,7 +73,7 @@ export const COMMON_ISSUES: { title: string; fix: string; severity: 'error' | 'w
   { severity: 'error', title: 'Lỗi ở Xuất ảnh', fix: 'Giữ đúng 1 node Xuất ảnh, nối từ Tạo banner.' },
   { severity: 'warning', title: 'Node viền vàng nét đứt', fix: '"Chưa có thông tin": điền nội dung hoặc tải ảnh. "Chưa nối": kéo dây từ ô bên phải vào Tạo banner.' },
   { severity: 'warning', title: 'Text không được gửi', fix: 'Mỗi loại tiêu đề chính, tiêu đề phụ, CTA chỉ dùng 1 node Text.' },
-  { severity: 'warning', title: 'Cần tải lại ảnh', fix: 'Project đã lưu không giữ ảnh – tải lại trước khi chạy.' },
+  { severity: 'warning', title: 'Cần tải lại ảnh', fix: 'Dự án đã lưu không giữ ảnh – tải lại trước khi chạy.' },
 ];
 
 /** Dây của 1 flow đầy đủ. `required` = thiếu dây này thì flow báo lỗi. */

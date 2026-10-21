@@ -348,9 +348,9 @@ function FlowCanvasInner() {
           <Button type="button" variant="ghost" size="icon-sm" className={view === 'canvas' ? 'lg:hidden' : 'hidden'} aria-label="Mở thư viện node" onClick={() => setLibraryOpen(true)}>
             <PanelLeft />
           </Button>
-          <Link href="/" className="truncate font-semibold tracking-tight hover:opacity-80">BannerAI</Link>
+          <Link href="/" title="Về chế độ cơ bản" className="truncate font-semibold tracking-tight hover:opacity-80">BannerAI</Link>
           <span className="hidden text-muted-foreground/60 xl:inline" aria-hidden>/</span>
-          <span className="hidden truncate text-sm font-medium xl:inline">Flow canvas</span>
+          <span className="hidden truncate text-sm font-medium xl:inline">Chế độ nâng cao</span>
           <Badge variant="secondary" className="hidden xl:inline-flex">Beta</Badge>
           <span className="mx-1 hidden h-5 w-px bg-border sm:block" aria-hidden />
           <TemplatePicker />
@@ -461,7 +461,7 @@ function FlowCanvasInner() {
           <NodeLibrary onAdd={onAddFromLibrary} />
         </aside>
 
-        <section ref={paneRef} className="relative min-h-0 min-w-0" aria-label="Flow canvas" onDragLeave={onDragLeave}>
+        <section ref={paneRef} className="relative min-h-0 min-w-0" aria-label="Sơ đồ chế độ nâng cao" onDragLeave={onDragLeave}>
             <ReactFlow
               nodes={nodes}
               edges={edges}
