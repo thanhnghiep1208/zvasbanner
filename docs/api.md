@@ -519,6 +519,13 @@ Gợi ý Brand kit từ website thương hiệu, **không gọi AI** (đọc HTM
 
 Ghi 1 event Flow canvas vào `flow_events` (`flow_opened`, `flow_template_used`, `flow_view_switched`, `flow_run_started`, `flow_run_completed`, `flow_run_failed`). Cần đăng nhập + cờ; body ≤ 4KB; field sai/thừa → `400`; thành công `204`.
 
+## 15) `GET` / `PUT` — `/api/settings/contact`
+
+Thông tin liên hệ cấp tài khoản (hiện ở trang tạo banner khi chưa đăng nhập). Yêu cầu permission **`manage_settings`** (chỉ `admin`; `401` / `403`).
+
+- `GET` → `{ contact: { email, phone }, source: "db" | "env" }` (`env` = chưa lưu DB, đang dùng `CONTACT_EMAIL` / `CONTACT_PHONE`).
+- `PUT` body `{ email: string, phone: string }` (chuỗi rỗng = ẩn mục đó) → `{ contact, source: "db" }`. Sai định dạng → `400`; thiếu `DATABASE_URL` / lỗi DB → `503`. Ghi audit `settings_change`.
+
 ## Liên kết
 
 - [Backend](./backend.md) — RBAC, bảo mật, tích hợp Gemini.

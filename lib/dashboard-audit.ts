@@ -4,7 +4,8 @@ export type DashboardAuditAction =
   | "role_change"
   | "block_toggle"
   | "delete_user"
-  | "session_revoke";
+  | "session_revoke"
+  | "settings_change";
 
 export async function logDashboardAuditEvent(params: {
   actorUserId: string;

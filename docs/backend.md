@@ -25,7 +25,7 @@ Chi tiết request/response từng route: [API Reference](./api.md).
 - Role: `admin` | `mod` | `editor` (mặc định `editor` nếu Clerk metadata không set).
 - Role đọc từ `privateMetadata.role` (ưu tiên) hoặc `publicMetadata.role`; `blocked` từ `privateMetadata.blocked`/`publicMetadata.blocked`.
 - **Admin override qua env**: nếu set `ADMIN_EMAIL` (server-only), user có **primary email** khớp (case-insensitive) luôn được coi là `admin`, bất kể metadata Clerk — dùng cho tài khoản chủ dự án khi chưa set metadata thủ công. Không hardcode email trong code (xem `.env.local.example`).
-- Permission: `view_dashboard`, `manage_roles`, `block_user`, `delete_user`, `generate_image` — ma trận role→permission trong `ROLE_PERMISSIONS` (`lib/authz.ts`).
+- Permission: `view_dashboard`, `manage_roles`, `block_user`, `delete_user`, `manage_settings` (chỉ admin), `generate_image` — ma trận role→permission trong `ROLE_PERMISSIONS` (`lib/authz.ts`).
 - Gate dùng trong route: `requireUserJson()` (chỉ cần đăng nhập) và `requirePermissionJson()` (đăng nhập + permission + không bị block) — trả `401`/`403` JSON nếu fail, ngược lại trả `{ userId, role }`.
 - Cache role/block lookup Clerk **60s** (`USER_ACCESS_CACHE_MS`, `lib/dashboard.ts`), xoá cache khi đổi role/block/xóa user (`invalidateUserAccessCache`).
 - **Mod không được đổi role thành `admin`**, và **không được sửa role của user hiện đang là `admin`** (không thể promote lẫn demote một admin) — chặn ở `PATCH /api/dashboard/users` (`app/api/dashboard/users/route.ts`).
@@ -57,7 +57,8 @@ Next.js 16 dùng file `proxy.ts` (thay `middleware.ts`) cho request interception
 - `POST /api/track` insert một dòng; `user_id` **luôn** lấy từ session Clerk server-side, field `user_id` trong body bị bỏ qua.
 - `GET /api/dashboard` — aggregate theo `range` (`today`/`7d`/`30d`), cache kết quả **30 phút** (`DASHBOARD_AGGREGATE_CACHE_MS`), bypass bằng `?refresh=1`.
 - `GET /api/dashboard/users` — phân trang **15 user/trang** (`DASHBOARD_USERS_PAGE_SIZE`), enrich tên/email/role/blocked từ Clerk.
-- Hành động admin (đổi role, block, xóa user, thu hồi phiên) ghi audit qua `lib/dashboard-audit.ts` → `banner_events` với `event_name = admin_audit` (không được ghi từ client track trực tiếp).
+- Bảng `app_settings` (`db/app_settings.sql`, tự tạo ở lần đọc/ghi đầu): cài đặt key→JSONB do admin sửa. Hiện chỉ có `contact_info` (email / Zalo cấp tài khoản, `lib/contact-settings.ts`): đọc cache 60s, chưa có bản ghi hoặc DB lỗi thì lấy `CONTACT_EMAIL` / `CONTACT_PHONE`. Admin sửa ở `/dashboard` → Cài đặt qua `GET`/`PUT /api/settings/contact`.
+- Hành động admin (đổi role, block, xóa user, thu hồi phiên, đổi cài đặt) ghi audit qua `lib/dashboard-audit.ts` → `banner_events` với `event_name = admin_audit` (không được ghi từ client track trực tiếp).
 
 ## Bảo mật
 

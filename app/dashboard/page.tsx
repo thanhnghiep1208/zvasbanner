@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
   TimeRangeFilter,
 } from "@/components/dashboard/TimeRangeFilter";
+import { ContactSettingsCard } from "@/components/dashboard/ContactSettingsCard";
 import { UserAnalyticsTable } from "@/components/dashboard/UserAnalyticsTable";
 import { HomeBackHeader } from "@/components/layout/HomeBackHeader";
 import {
@@ -527,6 +528,15 @@ export default function DashboardPage() {
             prefetchedKey={lastUpdatedAt}
           />
         </section>
+
+        {usersPage1?.requesterRole === "admin" ? (
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">
+              Cài đặt
+            </h2>
+            <ContactSettingsCard />
+          </section>
+        ) : null}
 
         <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-600">

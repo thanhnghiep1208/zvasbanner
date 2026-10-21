@@ -8,6 +8,7 @@ export type Permission =
   | "manage_roles"
   | "delete_user"
   | "block_user"
+  | "manage_settings"
   | "generate_image";
 
 /** Override admin by primary email — set via ADMIN_EMAIL env var, never hardcode. */
@@ -19,6 +20,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "manage_roles",
     "delete_user",
     "block_user",
+    "manage_settings",
     "generate_image",
   ],
   mod: ["view_dashboard", "manage_roles", "generate_image"],

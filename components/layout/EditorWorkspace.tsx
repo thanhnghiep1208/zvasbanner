@@ -11,6 +11,7 @@ import { CanvasSizeSelector } from "@/components/canvas/CanvasSizeSelector";
 import { EditorToolbar } from "@/components/layout/Toolbar";
 import { PromptInput } from "@/components/prompt/PromptInput";
 import { StyleControls } from "@/components/prompt/StyleControls";
+import { phoneTelHref, type ContactInfo } from "@/lib/contact-info";
 import {
   Sheet,
   SheetContent,
@@ -37,7 +38,13 @@ function RightSidebarBody() {
   );
 }
 
-export function EditorWorkspace({ flowCanvasEnabled = false }: { flowCanvasEnabled?: boolean }) {
+export function EditorWorkspace({
+  flowCanvasEnabled = false,
+  contact,
+}: {
+  flowCanvasEnabled?: boolean;
+  contact?: ContactInfo;
+}) {
   const [leftOpen, setLeftOpen] = React.useState(false);
   const [rightOpen, setRightOpen] = React.useState(false);
   const { isSignedIn } = useAuth();
@@ -85,23 +92,31 @@ export function EditorWorkspace({ flowCanvasEnabled = false }: { flowCanvasEnabl
                         Vui lòng sign in để bắt đầu và mở toàn bộ tính năng tạo
                         ảnh.
                       </p>
-                      <p className="text-sm text-amber-800/90">
-                        Để được cấp tài khoản vui lòng liên hệ:{" "}
-                        <a
-                          href="mailto:Nghiepnt@vng.com.vn"
-                          className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950"
-                        >
-                          Nghiepnt@vng.com.vn
-                        </a>
-                        {" "}
-                        — Zalo:{" "}
-                        <a
-                          href="tel:+84933312887"
-                          className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950"
-                        >
-                          0933312887
-                        </a>
-                      </p>
+                      {contact?.email || contact?.phone ? (
+                        <p className="text-sm text-amber-800/90">
+                          Để được cấp tài khoản vui lòng liên hệ:{" "}
+                          {contact.email ? (
+                            <a
+                              href={`mailto:${contact.email}`}
+                              className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950"
+                            >
+                              {contact.email}
+                            </a>
+                          ) : null}
+                          {contact.email && contact.phone ? " — " : null}
+                          {contact.phone ? (
+                            <>
+                              Zalo:{" "}
+                              <a
+                                href={phoneTelHref(contact.phone)}
+                                className="font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950"
+                              >
+                                {contact.phone}
+                              </a>
+                            </>
+                          ) : null}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 )}

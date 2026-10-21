@@ -35,6 +35,7 @@ Cùng một repo Next.js, nhưng **biến môi trường và ranh giới thực 
 - **`CLERK_SECRET_KEY`**: chỉ server; xác thực session / gọi Clerk Backend API (ví dụ enrich user trên dashboard).
 - **`DATABASE_URL`**: chỉ server; `pg` pool cho analytics.
 - **`ADMIN_EMAIL`** (tùy chọn): chỉ server; email primary luôn được coi là `admin` (xem [Backend § RBAC](./backend.md#rbac-libauthzts-librequire-userts)). Ưu tiên set role qua Clerk Dashboard metadata; chỉ dùng biến này khi cần override nhanh.
+- **`CONTACT_EMAIL`**, **`CONTACT_PHONE`** (tùy chọn): chỉ server; email / Zalo liên hệ cấp tài khoản mặc định ở màn hình chưa đăng nhập. Admin ghi đè trong `/dashboard` → Cài đặt (lưu DB). Không hardcode thông tin liên hệ trong code.
 - **`proxy.ts`**: export `clerkMiddleware()` — bảo vệ / đồng bộ auth theo khuyến nghị Clerk cho App Router.
 
 ## Cấu hình file `.env.local`
