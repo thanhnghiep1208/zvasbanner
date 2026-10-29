@@ -59,7 +59,7 @@ Sau khi có URL production (Vercel hoặc domain riêng), cấu hình trong Cler
   ```
    Hoặc dán nội dung `db/banner_events.sql` vào SQL editor của nhà cung cấp.
 4. Kiểm tra: `SELECT COUNT(*) FROM banner_events;` (có thể là `0` — chỉ cần bảng tồn tại).
-5. Flow canvas: bảng `flow_docs` và `flow_events` **tự tạo** ở lần lưu project / ghi event đầu tiên (không cần chạy SQL tay; mẫu ở `db/flow_docs.sql`, `db/flow_events.sql`).
+5. Các bảng còn lại **tự tạo** ở lần dùng đầu (không cần chạy SQL tay): `flow_docs`, `flow_events` (Flow canvas, mẫu ở `db/flow_docs.sql`, `db/flow_events.sql`) và `app_settings` (cài đặt liên hệ, `db/app_settings.sql`). Riêng `banner_events` **bắt buộc** chạy tay: code (`lib/db.ts`) chỉ `ALTER TABLE` thêm cột/index nên sẽ lỗi nếu bảng chưa có.
 
 ---
 
@@ -101,6 +101,8 @@ Thêm trong **Settings → Environment Variables** (scope **Production**; có th
 | `CLERK_SECRET_KEY`                  | Production | `sk_live_...`                                                |
 | `DATABASE_URL`                      | Production | Postgres production; nhớ `sslmode=require` nếu host yêu cầu. |
 | `FLOW_CANVAS` (+ `FLOW_CANVAS_ALLOWLIST`, `FLOW_CANVAS_PERCENT`, `FLOW_CANVAS_SALT`, `FLOW_CANVAS_DENYLIST`) | Production (tùy chọn) | Bật Flow canvas `/flow`. Mặc định `off` → `/flow` trả 404. Nên mở dần: `allowlist` (Clerk userId của team) → `rollout` + `FLOW_CANVAS_PERCENT` → `on`. Đổi biến phải **redeploy**. |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | Production | `/sign-in` và `/` (Clerk SDK đọc; giống local). |
+| `CONTACT_EMAIL`, `CONTACT_PHONE`    | Production (tùy chọn) | Liên hệ cấp tài khoản mặc định ở màn hình chưa đăng nhập; admin ghi đè ở `/dashboard` → Cài đặt (lưu `app_settings`). Để trống = ẩn. |
 | `ADMIN_EMAIL`                       | Production (tùy chọn) | Email primary luôn được coi là `admin` bất kể metadata Clerk. Ưu tiên set role qua Clerk Dashboard (`privateMetadata.role`); chỉ dùng biến này cho tài khoản chủ dự án lúc chưa set metadata. |
 
 
@@ -121,11 +123,12 @@ Thêm trong **Settings → Environment Variables** (scope **Production**; có th
 Thực hiện trên URL production (domain hoặc `*.vercel.app`):
 
 - Mở trang chủ, không lỗi 500.
-- **Sign in / Sign up** hoạt động (không loop redirect, không chặn CORS).
+- **Sign in** hoạt động (không loop redirect, không chặn CORS). App không có trang sign-up (khuyến nghị tắt sign-up, mục 1.0).
+- Màn hình chưa đăng nhập hiện đúng email / Zalo liên hệ (nếu đã cấu hình).
 - Sau đăng nhập: thấy canvas / có thể **tạo banner** (gọi Gemini thành công).
 - **Export** ảnh tải xuống được.
 - Mở `/dashboard` (nếu không chặn): dữ liệu aggregate không 500; sau vài hành động, số liệu thay đổi (cần DB + event `track`).
-- Nếu bật Flow canvas: đăng nhập bằng tài khoản được bật cờ → mở `/flow`, chạy 1 template (1 lượt AI/kích thước), lưu project và mở lại; thử thêm 1 ảnh tham chiếu 3–4MB (giới hạn body của hosting có thể nhỏ hơn giới hạn 30MB của route).
+- Nếu bật Flow canvas: đăng nhập bằng tài khoản được bật cờ → form có nút **Chế độ nâng cao** → mở `/flow`, chạy 1 template (2 lượt AI / kích thước: tạo + harmony pass), lưu dự án và mở lại; thử thêm 1 ảnh tham chiếu gần 4MB (client chặn ảnh tham chiếu > 4MB; giới hạn body của hosting có thể nhỏ hơn 30MB của route).
 - Mở DevTools → Console khi tải trang: **không** có lỗi `Content-Security-Policy` (nếu có, thường do domain Clerk trong CSP không khớp — xem mục CSP ở bước 4.1). Kiểm tra header nhanh: `curl -sI https://<domain> | grep -i content-security-policy`.
 
 ---
@@ -145,7 +148,7 @@ Thực hiện trên URL production (domain hoặc `*.vercel.app`):
 | Clerk báo development keys trên production | Đổi sang `pk_live_` / `sk_live_` và redeploy.                                                          |
 | Đăng nhập xong redirect sai / 404          | Kiểm tra **redirect URLs** và **allowed origins** trong Clerk khớp URL thật (`https`, đúng subdomain). |
 | `DATABASE_URL` lỗi SSL                     | Thêm `?sslmode=require` (hoặc theo doc nhà cung cấp).                                                  |
-| Dashboard 500, track lỗi                   | Chạy migration `banner_events.sql`; kiểm tra `DATABASE_URL` trên Vercel.                               |
+| Dashboard 500, track lỗi                   | Chạy migration `banner_events.sql` (bảng này không tự tạo); kiểm tra `DATABASE_URL` trên Vercel.        |
 | Generate ảnh 500 / placeholder             | Kiểm tra `GEMINI_API_KEY`, quota API, log function Vercel.                                             |
 | Console báo lỗi `Content-Security-Policy` / Clerk script không load | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` thiếu hoặc sai lúc build (CSP decode domain Clerk từ key này) → set đúng key rồi **redeploy** (không chỉ restart). Nếu app gọi thêm domain ngoài mới, phải thêm vào `next.config.mjs` (`csp` trong hàm `headers()`). |
 

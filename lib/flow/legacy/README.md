@@ -22,8 +22,8 @@ Mỗi request tạo **một** ảnh ở **một** kích thước, nên một `Co
 | `userPrompt` | `composeUserPrompt({userPrompt, headline, subheadline, ctaText})` | `brief.prompt` + `textLayers[]` | **Lossy**, xem mục Text |
 | `styleControls.{style, mood, colorPalette, fontStyle, backgroundConfig}` | `state.styleControls` | `style?` (`FlowStyle`) → node `style` | Thiếu node → `DEFAULT_STYLE` (giống `defaultStyleControls` trong store) |
 | `styleControls.strictPreserveMode` | `state.styleControls` | `flat.strictPreserveMode` → param của `generate-flat` | Hành vi executor, không phải style |
-| `imageModel: 'nano-banana-pro' \| 'nano-banana-2'` | `state.imageModel` | `model` (`ModelId = ImageGenerationModel`) | Server mặc định `nano-banana-pro` |
-| `marketingBrief?: {campaignIntents, focalSubjects}` | `state.marketingBrief` | `brief.marketingBrief` | `from`: thiếu → mảng rỗng |
+| `imageModel: 'nano-banana-pro' \| 'nano-banana-2'` | `state.imageModel` | `model` (`ModelId = ImageGenerationModel`) | Server mặc định `nano-banana-2` (Nano Banana 2.1, `lib/validate-generation.ts`); node Tạo banner mặc định cũng `nano-banana-2` |
+| `marketingBrief?: {campaignIntents, focalSubjects}` | `state.marketingBrief` | `brief.marketingBrief` | `from`: thiếu → mảng rỗng. `brief.campaign` (audience/message/offer/tone) không có field riêng: `to` ghép thành các dòng tiếng Việt trong `userPrompt` |
 | `layoutAdaptationFromBanner?` | ảnh đã duyệt (`AdditionalCanvasSizesPanel`) | **không lưu** | Runtime của executor: ratio thứ 2 trở đi thích nghi từ ảnh ratio đầu (T4.6) |
 
 ### Text (lossy)

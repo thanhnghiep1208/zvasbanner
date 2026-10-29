@@ -1,54 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [create-next-app](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# zVas Banner AI
 
-## Getting Started
+Công cụ nội bộ tạo banner quảng cáo bằng AI (Next.js 16 + React 19, Google Gemini, Clerk, PostgreSQL). Package: `ai-banner-generator`.
 
-First, run the development server:
+Tính năng chính: tạo banner AI (Gemini Nano Banana 2.1 mặc định, cohesion prompt + harmony pass ngầm), **làm theo banner mẫu** (ảnh tham chiếu style), chỉnh sửa ảnh, **biến thể kích thước**, export PNG/JPG, analytics Postgres, dashboard admin (role, block, phiên, cài đặt liên hệ), **quản lý phiên đăng nhập** tại `/account/sessions`, **Chế độ nâng cao** — Flow canvas `/flow` (template + chế độ Đơn giản, node Tạo banner, lưu dự án, hướng dẫn `/flow/guide`, sau cờ `FLOW_CANVAS`).
+
+## Bắt đầu nhanh
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.local.example .env.local   # điền GEMINI_API_KEY, key Clerk, DATABASE_URL — xem docs/workflow.md
+psql "$DATABASE_URL" -f db/banner_events.sql
+npm run dev                        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Kiểm tra trước khi commit:
 
-## Documentation
+```bash
+npx vitest run
+npx tsc --noEmit
+npm run lint
+```
+
+Yêu cầu Node ≥ 20.9.0.
+
+## Tài liệu
+
+**Người mới: đọc [docs/onboarding.md](docs/onboarding.md) trước** — lộ trình đọc, bản đồ code, sơ đồ luồng chính.
 
 - [Architecture](docs/architecture.md) — tổng quan hệ thống, tech stack, luồng tạo ảnh
 - [Frontend](docs/frontend.md) — cấu trúc UI, state (Zustand), luồng tương tác
 - [Backend](docs/backend.md) — Route Handlers, RBAC, tích hợp Gemini, **bảo mật** (CSP, rate limit, SSRF, …)
-- [API Reference](docs/api.md) — contract từng endpoint (`/api/generate`, `/api/sessions`, dashboard, …)
-- [Workflow](docs/workflow.md) — cài đặt `.env.local`, RBAC, checklist thử nghiệm
+- [API Reference](docs/api.md) — contract từng endpoint
+- [Workflow](docs/workflow.md) — cài đặt `.env.local`, Clerk, Postgres, checklist thử nghiệm
 - [Deploy](docs/deploy.md) — Vercel + Clerk + domain + Postgres
-- [Flow Canvas](docs/flow/SPEC.md) — trình tạo banner dạng node (`/flow`, sau cờ `FLOW_CANVAS`): spec, quyết định ([QUESTIONS](docs/flow/QUESTIONS.md)), nhật ký
-- [Roadmap](docs/roadmap/) — đề xuất tính năng chưa triển khai (ví dụ Canva Connect)
+- [Flow Canvas](docs/flow/SPEC.md) — spec, quyết định ([QUESTIONS](docs/flow/QUESTIONS.md)), nhật ký
+- [Roadmap](docs/roadmap/) — đề xuất chưa triển khai (ví dụ Canva Connect)
+- `openspec/specs/` — spec hành vi marketing brief
 
-Tính năng chính: tạo banner AI (Gemini Nano Banana 2.1 mặc định, cohesion prompt + harmony pass ngầm), **làm theo banner mẫu** (ảnh tham chiếu style), chỉnh sửa ảnh, **biến thể kích thước** (preset có icon tỉ lệ), export, analytics Postgres, dashboard admin, **quản lý phiên đăng nhập** tại `/account/sessions`, **Flow Canvas** `/flow` (template + chế độ Đơn giản, AI vẽ cả banner qua node Tạo banner, đánh dấu node cần bổ sung, lưu project, hướng dẫn `/flow/guide`).
+## Troubleshooting (local)
 
-## Troubleshooting (Local Dev)
-
-- If you see React hydration mismatch warnings with `bis_skin_checked`, this is usually caused by browser extensions (commonly Bitwarden) injecting attributes into the DOM before hydration.
-- Fix: disable the extension/autofill for `localhost:3000` (or open in an extension-free profile) and hard refresh.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [next/font](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to load [Inter](https://fonts.google.com/specimen/Inter) (subset Latin + Vietnamese) via `app/layout.tsx`.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Cảnh báo hydration mismatch với `bis_skin_checked`: do extension trình duyệt (thường là Bitwarden) chèn attribute. Tắt extension cho `localhost:3000` hoặc dùng profile sạch rồi hard refresh.
+- Các lỗi khác (placeholder, 409 Clerk, 429, CSP): [Workflow § Xử lý sự cố](docs/workflow.md#xử-lý-sự-cố-troubleshooting).

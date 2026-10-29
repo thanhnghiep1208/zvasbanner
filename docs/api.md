@@ -5,11 +5,11 @@ Tài liệu mô tả **contract** các Route Handlers dưới `app/api/`. Mọi 
 ## Ghi chú chung
 
 - **Auth & RBAC**: một số endpoint yêu cầu **đã đăng nhập** Clerk và có **permission** phù hợp (xem từng mục). `401` khi chưa đăng nhập; `403` khi thiếu quyền hoặc tài khoản **blocked**. Logic role/permission: `lib/authz.ts`, gate: `requirePermissionJson` trong `lib/require-user.ts`.
-- **Model ảnh (generate)**: theo field `imageModel` trong body — `nano-banana-2` → `gemini-nano-banana-2.1` (Nano Banana 2.1, **mặc định server nếu thiếu/sai**), `nano-banana-pro` → `gemini-3-pro-image`. **Edit-image** dùng model theo implementation trong `lib/gemini-server.ts` (thường cùng family flash/pro tùy route).
+- **Model ảnh (generate)**: theo field `imageModel` trong body — `nano-banana-2` → `gemini-nano-banana-2.1` (Nano Banana 2.1, **mặc định server nếu thiếu/sai**), `nano-banana-pro` → `gemini-3-pro-image`. **Edit-image** luôn dùng Nano Banana 2.1 (`gemini-nano-banana-2.1`); field `imageModel` trong body bị bỏ qua.
 - **Ảnh trả về**: thường là chuỗi **data URL** (`data:image/png;base64,...`) hoặc định dạng tương thích client (ví dụ thẻ img với `src` trỏ tới data URL).
 - **Lỗi thân thiện + mã ngắn**: client có thể hiển thị tiền tố dạng `[E-GEN-…]`, `[E-ENH-…]`, `[E-EXP-…]`; server `edit-image` trả các mã kiểu `EDIT_TIMEOUT`, `EDIT_AUTH`, … trong trường `errorCode`. **Chi tiết kỹ thuật (raw error từ Gemini SDK) không còn trả về client** — chỉ `console.error` server-side; client chỉ nhận message thân thiện + `errorCode`.
-- **Rate limit + kích thước request** (`/api/generate`, `/api/enhance-prompt`, `/api/edit-image`): mặc định **20 request/giờ/user** (in-memory, per-instance — xem `lib/request-limits.ts`), vượt hạn mức trả `429`. Kích thước body cap **30MB** (`generate`, `enhance-prompt`) hoặc **20MB** (`edit-image`), enforce trên **byte thực tế đọc từ stream** (không chỉ header `Content-Length`) → `413` nếu vượt.
-- **Timeout**: generate trên server tối đa ~90s (`maxDuration` route, gồm generate chính ~58s + **harmony pass** tối đa 30s); client `requestGeneration*` timeout ~92s (`lib/client-generation.ts`). Edit-image timeout ~45s. Quá hạn generate → placeholder; harmony pass fail → trả ảnh generate gốc (best-effort).
+- **Rate limit + kích thước request** (`/api/generate`, `/api/enhance-prompt`, `/api/edit-image`): mỗi route **20 request/giờ/user**, **3 bộ đếm độc lập** (generate dùng `checkGenerationRateLimit` trong `lib/generation-rate-limit.ts`; enhance và edit mỗi route tự tạo `createRateLimiter` trong `lib/request-limits.ts`), in-memory per-instance, vượt hạn mức trả `429`. Rate limit được kiểm **trước** khi đọc body: request lỗi `400`/`413` vẫn bị tính lượt, và `429` thắng `413`/`400`. Route Flow `suggest-copy`, `brand-from-url` có bộ đếm riêng 30/giờ/user. Kích thước body cap **30MB** (`generate`, `enhance-prompt`) hoặc **20MB** (`edit-image`), enforce trên **byte thực tế đọc từ stream** (không chỉ header `Content-Length`) → `413` nếu vượt.
+- **Timeout**: generate trên server tối đa ~90s (`maxDuration` route, gồm generate chính ~58s + **harmony pass** tối đa 30s); client `requestGeneration*` timeout ~92s (`lib/client-generation.ts`). Edit-image timeout ~45s (`maxDuration` 60). Enhance-prompt: hạn chót 30s cho cả chuỗi model dự phòng (`maxDuration` 60). Quá hạn generate → placeholder; harmony pass fail → trả ảnh generate gốc (best-effort).
 - **Harmony pass (ngầm)**: sau khi `source === "gemini"`, server tự chạy một lần chỉnh cohesion (ánh sáng, viền, color grade) qua `runHarmonyPass` — không phải API riêng; xem `meta.harmonyApplied`.
 
 ---
@@ -56,10 +56,14 @@ Tạo **một** banner từ prompt + assets (multimodal).
       "effects": []
     }
   },
-  "imageModel": "nano-banana-2"
+  "imageModel": "nano-banana-2",
+  "marketingBrief": { "campaignIntents": ["flash-sale"], "focalSubject": "product" }
 }
 ```
 
+- `marketingBrief` (tùy chọn): chip mục tiêu chiến dịch + chủ thể chính (xem `lib/types.ts`, `openspec/specs/marketing-brief-input`).
+- `layoutAdaptationFromBanner` (tùy chọn): data URL `data:image/…;base64,` (≤ 12 triệu ký tự) của banner gốc — dùng cho **Biến thể kích thước**: dựng lại bố cục theo kích thước mới.
+- Tổng độ dài `assets[].dataUrl` tối đa 25.000.000 ký tự, vượt → `400`.
 - `imageModel` (tùy chọn): `nano-banana-2` (Nano Banana 2.1) | `nano-banana-pro`. Thiếu hoặc không hợp lệ → server dùng `nano-banana-2`.
 - Asset role `style-reference` được coi là **banner mẫu**: ảnh kết quả bám bố cục + phong cách mẫu, thay bằng chữ (`Headline:` / `Subheadline:` / `CTA:` trong `userPrompt`) và sản phẩm/logo của user.
 
@@ -69,6 +73,7 @@ Tạo **một** banner từ prompt + assets (multimodal).
 {
   "image": "data:image/png;base64,...",
   "source": "gemini",
+  "bannerId": "3f2c…-uuid",
   "meta": {
     "model": "gemini-3-pro-image",
     "elapsedMs": 8421,
@@ -81,7 +86,7 @@ Tạo **một** banner từ prompt + assets (multimodal).
 }
 ```
 
-`meta.totalTokens` / `meta.costUsd` có thể vắng tùy response model (cost thường là ước lượng). `meta.elapsedMs` / token / cost chỉ phản ánh **lần generate đầu**, chưa cộng harmony pass.
+`meta.totalTokens` / `meta.costUsd` có thể vắng tùy response model (cost là ước lượng). Khi harmony pass chạy thành công, token + cost là **tổng của cả 2 lượt** (`sumUsageMeta`), `meta.elapsedMs` tính cả hai. `bannerId`: UUID ngẫu nhiên server sinh cho mỗi response.
 
 - `meta.harmonyApplied` (boolean, tùy chọn): `true` khi bước harmony pass (post-process) chạy thành công; `false` hoặc vắng khi harmony bỏ qua (timeout/lỗi) hoặc `source === "placeholder"` (không chạy harmony).
 
@@ -91,7 +96,7 @@ Sau generate Gemini thành công, `app/api/generate/route.ts` gọi `runHarmonyP
 
 - Prompt cố định `HARMONY_EDIT_PROMPT` — chỉ cohesion (ánh sáng, feather edge, AO shadow, color grade, vignette); **không** đổi layout/copy/vị trí subject.
 - Timeout riêng **30s**; lỗi/timeout → log warning, trả ảnh trước harmony, `harmonyApplied: false`.
-- Dùng cùng pipeline ảnh như edit (`geminiGenerateOneImage` + asset base image), model theo `imageModel` trong request.
+- Gọi `geminiGenerateOneImage` với ảnh vừa tạo làm asset nền, cùng model theo `imageModel` trong request.
 
 ### Placeholder fallback — `200` (ảnh dự phòng khi model lỗi)
 
@@ -109,11 +114,14 @@ Sau generate Gemini thành công, `app/api/generate/route.ts` gọi `runHarmonyP
 }
 ```
 
+- `errorCode` có thể là: `GEMINI_AUTH_ERROR`, `GEMINI_HIGH_DEMAND_503`, `GEMINI_QUOTA_OR_RATE_LIMIT`, `GEMINI_TIMEOUT`, `GEMINI_EMPTY_IMAGE`, `GEMINI_INVALID_REQUEST`, `GEMINI_UNKNOWN_ERROR`.
 - Khi fallback, `meta.model` hiện là **id `imageModel` phía client** (ví dụ `nano-banana-2`), không phải tên model Gemini đầy đủ. Trường `failedStep` là id model Gemini đã gọi (`IMAGE_MODEL_MAP[imageModel]`, xem `app/api/generate/route.ts`).
 
-### Lỗi — `400` / `401` / `403` / `413` / `429` / `500` / `502` (tùy implementation)
+### Lỗi — `400` / `401` / `403` / `413` / `429` / `500`
 
-- Body không phải JSON hợp lệ, thiếu field bắt buộc → `400`.
+Lỗi từ Gemini **không** trả mã lỗi HTTP: luôn `200` + placeholder (mục trên).
+
+- Body không phải JSON hợp lệ, thiếu field bắt buộc, `layoutAdaptationFromBanner` sai định dạng, tổng `dataUrl` quá lớn → `400`.
 - Body vượt cap **30MB** (đếm byte thực tế, không bypass được qua chunked transfer) → `413`.
 - Chưa đăng nhập Clerk → `401` (message: cần đăng nhập để tạo banner).
 - Đã đăng nhập nhưng thiếu permission `generate_image` hoặc user **blocked** → `403`.
@@ -141,6 +149,8 @@ Viết lại / cải thiện prompt text trước khi generate. Yêu cầu đăn
 }
 ```
 
+`canvasConfig` và `assets` (có thể rỗng) là **bắt buộc**, thiếu → `400`.
+
 ### Success — `200`
 
 ```json
@@ -151,17 +161,19 @@ Viết lại / cải thiện prompt text trước khi generate. Yêu cầu đăn
 
 ### Lỗi
 
-- `400`: JSON/body không hợp lệ.
+- `400`: JSON/body không hợp lệ, thiếu `canvasConfig` / `assets`.
 - `401` / `403`: giống `POST /api/generate` (permission `generate_image`).
 - `413`: body vượt cap **30MB** (body có thể kèm `assets[]` với `dataUrl`, cùng scale với `/api/generate`).
 - `429`: vượt rate limit **20 request/giờ/user** (riêng với `generate`).
-- `500`: thiếu key hoặc lỗi server; message thường được phân loại (quota, timeout, auth, …).
+- `429`: Gemini báo hết quota.
+- `500`: thiếu `GEMINI_API_KEY`.
+- `502`: Gemini lỗi xác thực hoặc lỗi khác; `504`: quá thời gian. Message đã phân loại, không chứa raw error.
 
 ---
 
 ## 3) `POST /api/edit-image`
 
-Chỉnh sửa **ảnh đã tạo** (multimodal: ảnh hiện tại + hướng dẫn text). Yêu cầu đăng nhập và permission `**generate_image`**. Không yêu cầu tạo lại composition hoàn toàn mới — prompt hệ thống ép giữ subject/composition, chỉ điều chỉnh nhẹ vị trí, góc, màu. Implementation dùng `geminiEditImage()` trong `lib/gemini-server.ts` (model mặc định theo `IMAGE_MODEL_MAP`, thường Pro nếu không truyền `imageModel`).
+Chỉnh sửa **ảnh đã tạo** (multimodal: ảnh hiện tại + hướng dẫn text). Yêu cầu đăng nhập và permission `**generate_image`**. Không yêu cầu tạo lại composition hoàn toàn mới — prompt hệ thống ép giữ subject/composition, chỉ điều chỉnh nhẹ vị trí, góc, màu. Implementation dùng `geminiEditImage()` trong `lib/gemini-server.ts`, **luôn** Nano Banana 2.1 (route không truyền `imageModel`).
 
 ### Request body
 
@@ -235,7 +247,8 @@ Proxy ảnh remote để **tránh CORS** khi vẽ lên canvas / export.
 - `413`: ảnh vượt cap 20MB (theo header hoặc theo byte thực đọc).
 - `415`: response upstream không phải `image/*`.
 - `424`: upstream trả lỗi `4xx`.
-- `502`: fetch lỗi, upstream `5xx`, hoặc quá 3 redirect hop.
+- `502`: fetch lỗi, upstream `5xx`, quá 3 redirect hop, hoặc redirect tới URL không hợp lệ.
+- Định dạng địa chỉ IP không nhận ra → `403` (fail-closed). Upstream thiếu `Content-Type` → mặc định `image/png`.
 
 ---
 
@@ -245,7 +258,7 @@ Ghi **một** event analytics vào PostgreSQL (`banner_events`). Cần `DATABASE
 
 ### Bắt buộc trong body
 
-- `event` — một trong các tên đã định nghĩa trong `lib/analytics-events.ts` (ví dụ: `select_canvas`, `upload_asset`, `input_content`, `select_style`, `generate_banner`, `regenerate_banner`, `preview_banner`, `export_banner`). Event `admin_audit` chỉ được ghi từ server (dashboard users), không hợp lệ từ client track.
+- `event` — một trong 8 tên allowlist **hardcode trong route** (`ANALYTICS_EVENTS`, `app/api/track/route.ts`): `select_canvas`, `upload_asset`, `input_content`, `select_style`, `generate_banner`, `regenerate_banner`, `preview_banner`, `export_banner`. Thêm event mới phải sửa cả `lib/analytics-events.ts` lẫn allowlist này. Event `admin_audit` chỉ được ghi từ server (dashboard users), không hợp lệ từ client track.
 - `banner_id` — string.
 - `timestamp` — number (Unix **ms**).
 
@@ -253,9 +266,10 @@ Ghi **một** event analytics vào PostgreSQL (`banner_events`). Cần `DATABASE
 
 - `style`, `canvas_size` (string)
 - `has_asset`, `exported` (boolean)
-- `generation_time_ms`, `regenerate_count`, `cost_usd` (number)
+- `generation_time_ms`, `regenerate_count`, `cost_usd`, `prompt_tokens`, `output_tokens`, `total_tokens` (number)
+- `success` (boolean → cột `generation_success`), `image_model` (string)
 
-Field khác trong JSON có thể bị bỏ qua khi insert (tùy implementation route).
+Field khác bị bỏ qua. Route không có cap body riêng và không rate limit.
 
 ### Success — `200`
 
@@ -281,6 +295,11 @@ Tổng hợp metrics từ `banner_events` trong **khoảng thời gian** lọc. 
 | Param   | Giá trị              | Mặc định |
 | ------- | -------------------- | -------- |
 | `range` | `today`, `7d`, `30d` | `7d`     |
+| `refresh` | `1` / `true`: bỏ qua cache server 30 phút | — |
+| `includeUsers` | `1` / `true`: kèm `users`, `pagination`, `requesterRole` (như mục 7) để gộp lần tải đầu | — |
+| `usersPage` | Trang users khi `includeUsers` | `1` |
+
+Kết quả aggregate cache **30 phút** mỗi `range` (`DASHBOARD_AGGREGATE_CACHE_MS`). Header `Cache-Control: private, max-age=60` (`no-store` khi `refresh`).
 
 
 - `today`: từ 00:00 **UTC** của ngày hiện tại đến hiện tại.
@@ -304,7 +323,8 @@ Tổng hợp metrics từ `banner_events` trong **khoảng thời gian** lọc. 
   "total_tokens_month": 125000,
   "cost_per_gen_user": 0.012,
   "cost_per_success_image": 0.008,
-  "cost_per_export_image": 0.015
+  "cost_per_export_image": 0.015,
+  "generations_by_model": [{ "model": "gemini-nano-banana-2.1", "count": 100 }]
 }
 ```
 
@@ -313,6 +333,8 @@ Tổng hợp metrics từ `banner_events` trong **khoảng thời gian** lọc. 
 - `avg_generation_time`: trung bình `generation_time_ms` (theo aggregate hiện tại).
 - `total_cost`: tổng `cost_usd` trong range.
 - `current_period_cost` / `previous_period_cost`: tổng `cost_usd` trong **24h gần nhất** vs **24h trước đó** (dùng cho so sánh trend trên UI, không nhất thiết trùng với `range`).
+- `total_tokens_month`: tổng theo **tháng dương lịch hiện tại**, không theo `range`.
+- `generations_by_model`: số lần generate theo model (xem `lib/dashboard.ts`).
 - Các trường token / cost-per-* phụ thuộc schema DB (nếu thiếu cột, server có thể trả `0` theo query legacy).
 
 ### Lỗi — `401` / `403` / `500`
@@ -362,7 +384,7 @@ Kích thước trang cố định **15** user/trang (xem `PAGE_SIZE` trong code)
 }
 ```
 
-- `role`: một trong `admin` | `mod` | `editor` (theo metadata Clerk + override email admin mặc định trong code).
+- `role`: một trong `admin` | `mod` | `editor` (theo metadata Clerk; user có primary email trùng env `ADMIN_EMAIL` luôn là `admin`).
 - `blocked`: từ `privateMetadata.blocked` hoặc `publicMetadata.blocked`.
 - `requesterRole`: role của user đang gọi API (tiện cho UI ẩn/hiện thao tác admin).
 - Chỉ gồm user có `total_generate > 0` trong khoảng lọc.
@@ -411,6 +433,8 @@ Quản trị user qua Clerk (metadata) + ghi audit `admin_audit` vào `banner_ev
 - **Query**: `?targetUserId=user_…` (bắt buộc).
 - **Success**: `{ "ok": true }` — `200`.
 - **Lỗi**: `400` (thiếu `targetUserId`), `401` / `403`, `500`.
+
+Audit (`event_name = admin_audit`) ghi `style` = `role_change` / `block_toggle` / `delete_user`; lỗi ghi audit bị nuốt (không làm hỏng thao tác).
 
 ---
 
@@ -464,7 +488,9 @@ Quản lý phiên đăng nhập **của chính user đang đăng nhập** (Clerk
 
 ### Lỗi — `400` / `401` / `403` / `500`
 
+- `400`: `DELETE` thiếu `sessionId`.
 - `403`: `sessionId` không thuộc user hiện tại (sau khi kiểm tra danh sách active sessions).
+- `500`: lỗi Clerk.
 
 ---
 
@@ -487,44 +513,63 @@ Admin thu hồi phiên của user khác. Cần `CLERK_SECRET_KEY`.
 
 ### Lỗi — `400` / `401` / `403` / `500`
 
+- `400`: `GET` thiếu `targetUserId`; `DELETE` thiếu `targetUserId` hoặc `sessionId`.
+- `403`: thiếu quyền, hoặc `sessionId` không thuộc `targetUserId`.
+
 ---
+
+## Gate chung cho `/api/flow/*`
+
+Mọi route Flow dùng `requireFlowUser()` (`lib/flow-server/docs-route.ts`): đăng nhập (`401`), có permission **`generate_image`** và không bị block (`403`), cờ `FLOW_CANVAS` bật cho user (tắt → `404`).
 
 ## 11) `/api/flow/docs` — project Flow canvas
 
-Cần đăng nhập + cờ `FLOW_CANVAS` (tắt → 404). Mọi thao tác lọc theo user; project của user khác → 404.
+Gate chung `/api/flow/*` (ở trên). Mọi thao tác lọc theo user; project của user khác hoặc id không tồn tại → 404.
 
 - `GET /api/flow/docs` → `{ "docs": [{ id, title, templateId, updatedAt }] }`.
 - `POST /api/flow/docs` body `{ "title", "doc": StoredFlowDoc }` → `201 { "doc" }`; quá 200 project → `409`.
 - `GET /api/flow/docs/:id` → `{ "doc": { ...record, doc } }`; project hỏng / phiên bản mới hơn → `422`.
 - `PUT /api/flow/docs/:id` body như POST → `{ "doc" }`. `DELETE /api/flow/docs/:id` → `204`.
-- Body ≤ 1MB; graph được kiểm cấu trúc (`parseStoredFlowDoc`) và luôn bỏ `url` ảnh (không lưu ảnh). Lỗi DB → `503`.
+- Thiếu / sai `title` hoặc `doc` → `400`. Body ≤ 1MB; graph được kiểm cấu trúc (`parseStoredFlowDoc`) và luôn bỏ `url` ảnh (không lưu ảnh). Lỗi DB → `503`.
 
 ## 12) `POST /api/flow/suggest-copy`
 
-"Gợi ý chữ từ brief" của Flow canvas: 3 phương án headline / subheadline / CTA tiếng Việt (model văn bản Gemini, `lib/flow-server/suggest-copy.ts`). Cần đăng nhập + cờ `FLOW_CANVAS`; rate limit riêng 30 lần/giờ/user (không tính vào lượt tạo ảnh); body ≤ 16KB; `maxDuration = 45`.
+"Gợi ý chữ từ brief" của Flow canvas: 3 phương án headline / subheadline / CTA tiếng Việt (model văn bản Gemini, `lib/flow-server/suggest-copy.ts`). Gate chung `/api/flow/*`; rate limit riêng 30 lần/giờ/user (không tính vào lượt tạo ảnh); body ≤ 16KB; `maxDuration = 45`, timeout gọi Gemini 25s. `scene` cắt còn 1000 ký tự, `brandName` 100 ký tự.
 
 - Body: `{ "campaign": CampaignBrief, "intents"?: CampaignIntent[], "scene"?: string, "brandName"?: string }` – `campaign` = `{ audience, message, offer, tone? }` (`lib/flow/brief.ts`, mỗi chuỗi ≤ 300 ký tự), cần có thông điệp hoặc ưu đãi.
 - `200`: `{ "variants": [{ "headline", "subheadline", "cta" }] }` (tối đa 3, cắt theo `COPY_LIMITS` 40 / 90 / 22 ký tự).
-- Lỗi: `400` (brief thiếu / sai), `401`/`404`, `413`, `429` (rate limit hoặc quota Gemini), `502` (AI không trả gợi ý hợp lệ), `504` (quá thời gian).
+- Lỗi: `400` (brief thiếu / sai), `401`/`403`/`404`, `413`, `429` (rate limit hoặc quota Gemini), `502` (AI không trả gợi ý hợp lệ, hoặc server thiếu `GEMINI_API_KEY`), `504` (quá thời gian).
 
 ## 13) `POST /api/flow/brand-from-url`
 
-Gợi ý Brand kit từ website thương hiệu, **không gọi AI** (đọc HTML/CSS/icon – `lib/flow/brand-extract.ts`, tải có chống SSRF + giới hạn dung lượng trong `lib/flow-server/brand-fetch.ts`). Cần đăng nhập + cờ; rate limit riêng 30 lần/giờ/user; body ≤ 4KB; `maxDuration = 30`.
+Gợi ý Brand kit từ website thương hiệu, **không gọi AI** (đọc HTML/CSS/icon – `lib/flow/brand-extract.ts`, tải có chống SSRF + giới hạn dung lượng trong `lib/flow-server/brand-fetch.ts`). Gate chung `/api/flow/*`; rate limit riêng 30 lần/giờ/user; body ≤ 4KB; `maxDuration = 30`; timeout tải trang 8s.
 
 - Body: `{ "url": "https://..." }` (≤ 2048 ký tự).
-- `200`: `{ "name"?, "description"?, "colors": string[], "fontFamily"?, "fontId"?, "logos": [{ "url", "dataUrl", "fileName", "svg"? }] }`.
-- Lỗi: `400` (thiếu link, link không hợp lệ, không phải http(s), địa chỉ nội bộ / cổng lạ), `401`/`404`, `413` (body hoặc file trang quá lớn), `429`, `502` (website trả lỗi / không đọc được), `504` (website phản hồi chậm).
+- `200`: `{ "pageUrl", "name"?, "description"?, "colors": string[], "fontFamily"?, "fontId"?, "logos": [{ "url", "dataUrl", "fileName" }] }` (field `svg` nội bộ bị bỏ trước khi trả).
+- Lỗi: `400` (thiếu link, link không hợp lệ, không phải http(s), có user/password trong URL, địa chỉ nội bộ / cổng lạ, trang không phải HTML), `401`/`403`/`404`, `413` (body hoặc file trang quá lớn), `429`, `502` (website trả lỗi / không đọc được / không phân giải được tên miền), `504` (website phản hồi chậm).
 
 ## 14) `POST /api/flow/track`
 
-Ghi 1 event Flow canvas vào `flow_events` (`flow_opened`, `flow_template_used`, `flow_view_switched`, `flow_run_started`, `flow_run_completed`, `flow_run_failed`). Cần đăng nhập + cờ; body ≤ 4KB; field sai/thừa → `400`; thành công `204`.
+Ghi 1 event Flow canvas vào `flow_events` (`flow_opened`, `flow_template_used`, `flow_view_switched`, `flow_run_started`, `flow_run_completed`, `flow_run_failed`). Gate chung `/api/flow/*`; body ≤ 4KB; thành công `204`.
+
+- Body: `{ event, session_id, timestamp, doc_id?, template_id?, props }` — `session_id` bắt buộc; mỗi event có đúng bộ `props` riêng (`parseFlowEvent`, `lib/flow-server/flow-events.ts`), field sai/thừa → `400`.
+- `timestamp` lệch giờ server quá 1 ngày → thay bằng giờ server.
+- Lỗi DB → `503`.
 
 ## 15) `GET` / `PUT` — `/api/settings/contact`
 
 Thông tin liên hệ cấp tài khoản (hiện ở trang tạo banner khi chưa đăng nhập). Yêu cầu permission **`manage_settings`** (chỉ `admin`; `401` / `403`).
 
-- `GET` → `{ contact: { email, phone }, source: "db" | "env" }` (`env` = chưa lưu DB, đang dùng `CONTACT_EMAIL` / `CONTACT_PHONE`).
+- `GET` → `{ contact: { email, phone }, source: "db" | "env" }` (`env` = chưa lưu DB hoặc đọc DB lỗi, đang dùng `CONTACT_EMAIL` / `CONTACT_PHONE`). Không bao giờ trả `503`; header `Cache-Control: private, no-store`.
 - `PUT` body `{ email: string, phone: string }` (chuỗi rỗng = ẩn mục đó) → `{ contact, source: "db" }`. Sai định dạng → `400`; thiếu `DATABASE_URL` / lỗi DB → `503`. Ghi audit `settings_change`.
+
+## 16) `GET /api/auth/access`
+
+Role của user đang đăng nhập, cho client ẩn/hiện link Dashboard (`lib/use-can-view-dashboard.ts`).
+
+- **Permission**: đăng nhập (`requireUserJson`).
+- `200`: `{ "role": "admin" | "mod" | "editor", "canViewDashboard": boolean }`.
+- `401`: chưa đăng nhập; `403`: tài khoản bị block.
 
 ## Liên kết
 

@@ -26,18 +26,19 @@ Google Gemini API (generate / enhance / edit / harmony pass)
 | State client | Zustand (`store/editor.ts`) |
 | Auth | Clerk (`@clerk/nextjs`), middleware `proxy.ts` |
 | AI | `@google/generative-ai`; model ảnh theo lựa chọn: `gemini-nano-banana-2.1` (Nano Banana 2.1, slug `nano-banana-2`, **mặc định**) hoặc `gemini-3-pro-image` (Nano Banana Pro, slug `nano-banana-pro`) |
-| Analytics DB | `pg`, bảng `banner_events` (`db/banner_events.sql`); Flow canvas thêm `flow_docs`, `flow_events` (tự tạo lần gọi đầu) |
+| Analytics DB | `pg`, bảng `banner_events` (`db/banner_events.sql`, tạo tay); tự tạo lần gọi đầu: `flow_docs`, `flow_events` (Flow canvas), `app_settings` (cài đặt liên hệ) |
+| Test | Vitest (`vitest.config.mts`), chạy `npx vitest run` |
 | Deploy | Vercel + Postgres hosted (Neon, Supabase, …) |
 
 ## Cấu trúc thư mục (rút gọn)
 
 - **`app/`** — Trang (`page.tsx`), layout, Route Handlers dưới `app/api/**/route.ts`.
-- **`components/`** — UI theo vùng: `canvas/`, `layout/`, `prompt/`, `dashboard/`, `account/`, `auth/`, `assets/`, `results/`, `ui/`.
-- **`lib/`** — Logic dùng chung: `gemini-server.ts`, `prompt-builder.ts`, `client-generation.ts`, `analytics.ts`, `authz.ts`, `require-user.ts`, `request-limits.ts`, `clerk-sessions.ts`, `dashboard*.ts`, `db.ts`, `validate-generation.ts`, presets canvas.
+- **`components/`** — UI theo vùng: `canvas/`, `layout/`, `prompt/`, `dashboard/`, `account/`, `auth/`, `assets/`, `flow/`, `results/` (hiện không dùng), `ui/`.
+- **`lib/`** — Logic dùng chung: `gemini-server.ts`, `prompt-builder.ts`, `client-generation.ts`, `validate-generation.ts`, `analytics*.ts`, `authz.ts`, `require-user.ts`, `request-limits.ts`, `generation-rate-limit.ts`, `clerk-sessions.ts`, `dashboard*.ts`, `db.ts`, `contact-settings.ts` (bảng `app_settings`), `flags.ts` + `flow-rollout.ts` (cờ Flow), `image-model-pricing.ts`, presets canvas, `style-suggestions.ts`.
 - **`store/`** — Zustand: canvas config, assets, prompt/style, ảnh đã tạo, `currentBannerId` (analytics). Flow canvas: `flow-store.ts` (graph), `flow-history.ts` (undo/redo).
 - **`lib/flow/`** — domain Flow canvas thuần (schema graph, validate, compiler, executor, template, brief, brand kit); **`lib/flow-ui/`** — phần cần trình duyệt (adapter React Flow, nháp IndexedDB, cache ảnh); **`lib/flow-server/`** — DB/Gemini phía server; **`components/flow/`** — UI `/flow`.
 - **`proxy.ts`** — export `clerkMiddleware()` (Next.js 16 dùng tên file `proxy.ts` thay cho `middleware.ts`).
-- **`docs/`** — tài liệu dự án (file này + frontend/backend/api/deploy/workflow).
+- **`docs/`** — tài liệu dự án; người mới bắt đầu từ [onboarding.md](./onboarding.md).
 
 ## Luồng tạo ảnh (high level)
 
@@ -53,7 +54,7 @@ Chi tiết từng bước, component, và endpoint: xem [Frontend](./frontend.md
 
 ## Flow canvas (`/flow`)
 
-Trình tạo banner dạng node, nằm sau cờ `FLOW_CANVAS` (`lib/flags.ts`). Graph (node + dây) là nguồn dữ liệu duy nhất; có 2 cách xem: **Đơn giản** (form sinh từ template) và **Canvas** (đầy đủ node).
+Trình tạo banner dạng node — tên hiển thị cho user là **Chế độ nâng cao** — nằm sau cờ `FLOW_CANVAS` (`lib/flags.ts`). Graph (node + dây) là nguồn dữ liệu duy nhất; có 2 cách xem: **Đơn giản** (form sinh từ template) và **Canvas** (đầy đủ node).
 
 - **Tạo banner (flat, chế độ duy nhất)**: AI vẽ cả banner (nền, sản phẩm giữ nguyên chủ thể, chữ) qua `POST /api/generate` như form, kèm harmony pass; kích thước sau dựng lại theo ảnh kích thước đầu. Chế độ ghép layer (AI tạo nền + ghép trên client) đã gỡ 2026-10-20 vì chất lượng thấp hơn; project cũ tự chuyển sang Tạo banner khi mở.
 - Lưu project: `/api/flow/docs` → bảng `flow_docs` (không lưu ảnh); nháp tự động trên máy (localStorage + IndexedDB). Analytics: `/api/flow/track` → `flow_events`.
@@ -66,6 +67,7 @@ Trình tạo banner dạng node, nằm sau cờ `FLOW_CANVAS` (`lib/flags.ts`). 
 
 ## Tài liệu liên quan
 
+- [Onboarding](./onboarding.md) — lộ trình cho người mới.
 - [Frontend](./frontend.md) — cấu trúc UI, state, luồng tương tác.
 - [Backend](./backend.md) — Route Handlers, RBAC, Gemini, bảo mật.
 - [API Reference](./api.md) — contract từng endpoint.

@@ -3,7 +3,7 @@
 > Theo mục 9 của `SPEC.md`. Mỗi câu hỏi: bối cảnh, lựa chọn, đề xuất, trạng thái.
 > Khi Nghiệp trả lời: ghi quyết định vào dòng "Trạng thái", rồi cập nhật SPEC nếu cần.
 >
-> **2026-10-20:** chế độ composed (Ghép layer) đã gỡ (SPEC mục 3). Các câu hỏi về composed (Q2, Q3, Q8, Q10, Q11, Q13…) giữ lại làm lịch sử, không còn ràng buộc code hiện tại.
+> **2026-10-20:** chế độ composed (Ghép layer) đã gỡ (SPEC mục 3). Các câu hỏi về composed (Q2, Q3, Q10, Q11, Q13…) giữ lại làm lịch sử, không còn ràng buộc code hiện tại; mọi tham chiếu tới layout guide, `GUIDE_STYLE`, prompt nền (khối `=== CAMPAIGN ===`), mặc định composed trong Q9/Q11/Q17 là lịch sử. Q8 chỉ còn hiệu lực ở phần rate limit dùng chung: `lib/generation-rate-limit.ts` (hiện chỉ `/api/generate` dùng).
 
 ## Q1 – Không có config thật trong Postgres để làm fixture (task T1.4)
 Bối cảnh: DB chỉ có bảng analytics `banner_events` (`db/banner_events.sql`). App không lưu project hay `GenerationRequest`; form giữ state trong `store/editor.ts` (Zustand, không persist) và gửi thẳng lên `/api/generate`. Vì vậy không có "config thật từ Postgres".

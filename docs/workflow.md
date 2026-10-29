@@ -8,7 +8,7 @@ Tài liệu tập trung vào **cài đặt local, biến môi trường, luồng
 - **npm** (hoặc tương đương)
 - Tài khoản [Google AI Studio](https://aistudio.google.com/) hoặc API key Gemini hợp lệ
 - **Clerk** — khuyến nghị cho đăng nhập production (có thể dùng instance dev khi làm local)
-- **PostgreSQL** — tùy chọn cho dev thuần UI; **bắt buộc** nếu cần `/api/track`, `/api/dashboard`, `/api/dashboard/users`
+- **PostgreSQL** — tùy chọn cho dev thuần UI; **bắt buộc** nếu cần analytics (`/api/track`), dashboard, lưu dự án Flow (`/api/flow/docs`) và lưu cài đặt liên hệ
 
 ## Cài đặt
 
@@ -130,7 +130,16 @@ DATABASE_URL='postgresql://user:pass@host:5432/dbname?sslmode=require'
 
 # Tùy chọn — override admin theo email (ưu tiên set role qua Clerk Dashboard metadata)
 # ADMIN_EMAIL=you@example.com
+
+# Tùy chọn — liên hệ cấp tài khoản ở màn hình chưa đăng nhập (để trống = ẩn)
+CONTACT_EMAIL=
+CONTACT_PHONE=
+
+# Flow canvas / "Chế độ nâng cao" (local thường bật hết)
+FLOW_CANVAS=on
 ```
+
+`.env.local.example` còn dòng `NEXT_PUBLIC_APP_URL` nhưng code hiện không đọc biến này.
 
 ## Migration analytics (PostgreSQL)
 
@@ -143,7 +152,9 @@ psql "$DATABASE_URL" -f db/banner_events.sql
 
 Nếu bảng/index đã tồn tại, Postgres có thể báo `already exists, skipping` — vẫn coi là thành công.
 
-Index composite cho dashboard (`idx_banner_events_ts_event`, `idx_banner_events_ts_user`) nằm trong cùng file; lần gọi `ensureAnalyticsSchemaReady` (track/dashboard) cũng tạo index nếu thiếu.
+Index composite cho dashboard (`idx_banner_events_ts_event`, `idx_banner_events_ts_user`) nằm trong cùng file; lần gọi `ensureAnalyticsSchemaReady` (track/dashboard) bổ sung cột/index nếu thiếu, nhưng **không tạo bảng** — thiếu bảng thì track/dashboard lỗi 500.
+
+Các bảng khác tự tạo ở lần dùng đầu, không cần chạy tay: `flow_docs`, `flow_events` (Flow canvas), `app_settings` (cài đặt liên hệ).
 
 Kiểm tra nhanh:
 
@@ -153,7 +164,7 @@ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM banner_events;"
 
 ## Luồng làm việc (workflow) — từ góc nhìn sản phẩm
 
-1. **Đăng nhập** (Clerk) — các thao tác tạo banner chính yêu cầu user đã sign in. Có thể đăng nhập **nhiều thiết bị/trình duyệt** cùng lúc (mỗi nơi một session Clerk).
+1. **Đăng nhập** (Clerk) — các thao tác tạo banner chính yêu cầu user đã sign in; khi chưa đăng nhập, màn hình hiện email / Zalo liên hệ cấp tài khoản. Có thể đăng nhập **nhiều thiết bị/trình duyệt** cùng lúc (mỗi nơi một session Clerk).
 2. **(Tùy chọn) Quản lý phiên** — `/account/sessions` hoặc link **Phiên** trên toolbar: xem thiết bị đang đăng nhập, đăng xuất phiên khác (`DELETE /api/sessions?sessionId=…`).
 3. **Chọn canvas** — preset (ví dụ Zalo OA Img, MP3 Home) hoặc custom; state trong Zustand.
 4. **Upload asset** — ảnh sản phẩm / logo / ảnh tham chiếu style; chuẩn bị data URL gửi kèm generate.
@@ -165,6 +176,7 @@ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM banner_events;"
 10. **(Tùy chọn) Chỉnh sửa ảnh đã tạo** — `POST /api/edit-image` với `imageDataUrl` + `editPrompt` (điều chỉnh nhẹ, không tạo mới hoàn toàn).
 11. **Xuất file** — export PNG/JPG qua Canvas API; có thể dùng `GET /api/proxy-image` nếu cần tải ảnh remote (yêu cầu đăng nhập).
 12. **Analytics** — `track(...)` gửi sự kiện tới `POST /api/track` (generate, preview, export, …).
+13. **(Tùy chọn, user được bật cờ) Chế độ nâng cao** — nút trên toolbar chuyển nội dung form sang `/flow` (Flow canvas); xem [Flow SPEC](./flow/SPEC.md).
 
 ## Dashboard analytics
 
@@ -187,7 +199,9 @@ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM banner_events;"
   - `manage_roles`: đổi role (UI dropdown)
   - `block_user`: block/unblock; **xem/thu hồi phiên user** (`/api/dashboard/users/sessions`) — chỉ **admin**
   - `delete_user`: xóa user Clerk
-  - `generate_image`: generate, enhance prompt, edit image
+  - `manage_settings`: sửa thông tin liên hệ ở `/dashboard` → **Cài đặt** (`/api/settings/contact`) — chỉ **admin**
+  - `generate_image`: generate, enhance prompt, edit image, mọi route `/api/flow/*`
+- Ma trận: `editor` = `generate_image`; `mod` = + `view_dashboard`, `manage_roles`; `admin` = tất cả.
 
 ## Chạy local
 
@@ -204,12 +218,17 @@ npm run build
 npm run start
 ```
 
-## Lint / type-check
+## Test / lint / type-check
+
+Chưa có script `npm test`; chạy Vitest trực tiếp (37 file test, ~2s):
 
 ```bash
+npx vitest run
 npm run lint
 npx tsc --noEmit
 ```
+
+`npx vitest run lib/flow store` (lệnh trong Flow SPEC) chỉ chạy `lib/flow*` + `store/__tests__`, **không** gồm `components/flow/__tests__` và `lib/__tests__` — trước khi commit nên chạy cả bộ.
 
 ## Triển khai (deploy)
 
@@ -242,8 +261,8 @@ Hướng dẫn chi tiết: checklist **Vercel + Clerk + domain + Postgres**, c�
    - Admin: dashboard → Top Users → **Phiên** → thu hồi phiên user → user đó bị đăng xuất trên thiết bị tương ứng.
    - User bị `blocked` vẫn không gọi được `/api/generate` (403).
 8. **RBAC — bảo vệ admin**: đăng nhập là `mod`, thử `PATCH /api/dashboard/users` đổi role của một user đang là `admin` → phải nhận `403` (cả promote lẫn demote).
-9. **Rate limit / size cap** (tùy chọn, để xác nhận sau khi đổi `lib/request-limits.ts`): gọi `/api/generate` quá 20 lần/giờ → `429`; gửi body vượt cap → `413`.
-10. **Flow canvas** (`FLOW_CANVAS=on`): mở `/flow` → chế độ Đơn giản có template; sang Canvas thấy node ảnh sản phẩm trống viền nét đứt + nút "1 node cần bổ sung"; tải ảnh → hết đánh dấu; xoá 1 dây vào Tạo banner → node đỏ "Thiếu dây"; Chạy tất cả ra ảnh (2 lượt AI / kích thước); tải lại trang → nháp mở lại đủ chữ + ảnh; ⌘/Ctrl+Z hoàn tác; Lưu ⌘/Ctrl+S → mở lại từ menu project (ảnh cần tải lại).
+9. **Rate limit / size cap** (tùy chọn, để xác nhận sau khi đổi `lib/request-limits.ts`): gọi `/api/generate` quá 20 lần/giờ → `429`; gửi body vượt cap → `413` (cap: generate / enhance-prompt 30MB, edit-image 20MB, flow docs 1MB, flow track 4KB).
+10. **Flow canvas** (`FLOW_CANVAS=on`): ở form bấm **Chế độ nâng cao** (lần đầu có popover giới thiệu) hoặc mở `/flow` → chế độ Đơn giản có template; sang Canvas thấy node ảnh sản phẩm trống viền nét đứt + nút "1 node cần bổ sung"; tải ảnh → hết đánh dấu; xoá 1 dây vào Tạo banner → node đỏ "Thiếu dây"; Chạy tất cả ra ảnh (2 lượt AI / kích thước); tải lại trang → nháp mở lại đủ chữ + ảnh; ⌘/Ctrl+Z hoàn tác; Lưu ⌘/Ctrl+S → mở lại từ menu dự án (ảnh cần tải lại).
 11. **Console không có lỗi CSP**: mở DevTools khi dùng app (đăng nhập, generate, mở dashboard) — không thấy dòng `Refused to connect/load because it violates the following Content Security Policy directive`.
 
 ## Xử lý sự cố (troubleshooting)
@@ -258,7 +277,7 @@ Hướng dẫn chi tiết: checklist **Vercel + Clerk + domain + Postgres**, c�
 - **Clerk `POST .../sign_ins` 409 (Conflict)**: xem `errors[0].code` trong Network → Response. `user_settings_invalid` = "The authentication settings are invalid." → bật **Username + Password** trong Clerk Dashboard (xem bảng checklist mục Clerk username/password). `session_exists` = đã login — mở `/`. `form_identifier_not_found` = sai username hoặc user chưa tạo. Sau khi đổi từ Google: xóa cookie + đăng nhập bằng username.
 - **Thu hồi phiên hiện tại**: sau `DELETE /api/sessions?sessionId=…` với `revokedCurrent: true`, `SessionsPanel` redirect `/sign-in`. Phiên khác bị revoke sẽ nhận `401` ở API protected ở lần gọi tiếp theo.
 - **Console báo lỗi CSP (`Refused to connect/load`)**: domain mới chưa có trong `next.config.mjs` (`csp`) — xem [Backend § Bảo mật](./backend.md#bảo-mật) và [Deploy § CSP](./deploy.md#41-environment-variables-production) trước khi thêm.
-- **429 khi test nhiều lần liên tục**: rate limit 20 req/giờ/user trên `generate`/`edit-image`/`enhance-prompt` là **per-instance** — restart dev server hoặc đợi hết cửa sổ 1 giờ để reset (không cần đổi code).
+- **429 khi test nhiều lần liên tục**: rate limit 20 req/giờ/user trên `generate`/`edit-image`/`enhance-prompt` (mỗi route một bộ đếm; `flow/suggest-copy`, `flow/brand-from-url` 30/giờ) là **per-instance** — restart dev server hoặc đợi hết cửa sổ 1 giờ để reset (không cần đổi code).
 
 ## Tài liệu liên quan
 

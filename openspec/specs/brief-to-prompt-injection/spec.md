@@ -2,26 +2,9 @@
 
 ## Purpose
 
-Defines how marketing brief fields (`industries`, `campaignIntents`, `focalSubjects`) are injected into the AI prompt layers during banner generation.
+Defines how marketing brief fields (`campaignIntents`, `focalSubjects`) are injected into the AI prompt layers during banner generation (`lib/prompt-builder.ts`). Applies to both the form and Flow canvas (Flow builds the same `GenerationRequest` via `lib/flow/legacy/to-legacy-config.ts`). There is no industry field: Layer 2 (`buildContextBlock`) receives nothing from the brief.
 
 ## Requirements
-
-### Requirement: Industry context injected into Layer 2
-The system SHALL inject an industry visual language phrase into `buildContextBlock()` for each selected industry. The phrase MUST appear under a dedicated "Industry context" heading. If `marketingBrief.industries` is empty, the section MUST NOT appear.
-
-#### Scenario: Single industry injected
-- **WHEN** `marketingBrief.industries` contains `["fnb"]`
-- **THEN** Layer 2 contains: `Industry context\n- F&B visual language: warm appetizing color tones, natural food photography lighting, texture-forward surfaces, appetite-stimulating warm highlights.`
-
-#### Scenario: Multiple industries injected
-- **WHEN** `marketingBrief.industries` contains `["fashion", "beauty"]`
-- **THEN** Layer 2 contains both industry phrases as separate bullet lines under "Industry context"
-
-#### Scenario: No industry — section absent
-- **WHEN** `marketingBrief.industries` is empty or undefined
-- **THEN** Layer 2 contains no "Industry context" heading or phrase
-
----
 
 ### Requirement: Campaign intent injected into Layer 3
 The system SHALL append a campaign intent phrase to `buildStylePhrase()` output for each selected intent, joined with ` + ` when multiple. If `marketingBrief.campaignIntents` is empty, nothing is appended.
@@ -65,5 +48,5 @@ The system SHALL produce identical prompt output when `marketingBrief` is undefi
 - **THEN** `assembleFullPrompt()` output is byte-for-byte identical to pre-feature output
 
 #### Scenario: All-empty brief
-- **WHEN** `marketingBrief` is `{ campaignIntents: [], focalSubjects: [], industries: [] }`
+- **WHEN** `marketingBrief` is `{ campaignIntents: [], focalSubjects: [] }`
 - **THEN** `assembleFullPrompt()` output is byte-for-byte identical to pre-feature output

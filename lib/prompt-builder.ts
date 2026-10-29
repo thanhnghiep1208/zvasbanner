@@ -112,7 +112,7 @@ function buildReferenceTextBlock(request: GenerationRequest): string {
 }
 
 /**
- * Layer 2 — Structured context: canvas, assets (by role with URLs), brand kit, and industry context.
+ * Layer 2 — Structured context: canvas, assets (by role with URLs), brand kit.
  */
 export function buildContextBlock(config: GenerationRequest): string {
   const { canvasConfig, assets, brandKit } = config;

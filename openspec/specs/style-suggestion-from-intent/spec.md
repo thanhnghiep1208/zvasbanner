@@ -7,7 +7,7 @@ Defines how campaign intent selection surfaces non-intrusive style suggestions (
 ## Requirements
 
 ### Requirement: Style suggestion badge shown in StyleControls
-The system SHALL display a small "Gợi ý" badge next to the mood selector and style selector in `StyleControls` when the current `marketingBrief.campaignIntents[0]` has a known suggestion that differs from the current StyleControls value. The badge MUST NOT appear if the user's current selection already matches the suggestion.
+The system SHALL display a small "💡 Gợi ý: <label>" badge next to the mood selector and style selector in `StyleControls` when the current `marketingBrief.campaignIntents[0]` has a known suggestion that differs from the current StyleControls value. The badge MUST NOT appear if the user's current selection already matches the suggestion.
 
 #### Scenario: Badge appears when suggestion differs from current value
 - **WHEN** user selects intent `flash-sale` (suggests mood: energetic, style: bold)

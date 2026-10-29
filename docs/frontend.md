@@ -23,6 +23,8 @@ Tài liệu mô tả **UI, state client, và luồng tương tác người dùng
 - `app/dashboard/page.tsx` — trang dashboard analytics.
 - `app/sign-in/[[...sign-in]]/page.tsx` — trang đăng nhập riêng (không dùng modal Clerk, tránh lỗi 409 khi redirect).
 - `app/account/sessions/page.tsx` — trang quản lý phiên đăng nhập của chính user.
+- `app/(studio)/flow/page.tsx`, `app/(studio)/flow/guide/page.tsx` — Flow canvas ("Chế độ nâng cao") và trang hướng dẫn; server kiểm đăng nhập (chưa → `/sign-in`) và cờ `FLOW_CANVAS` (tắt → 404).
+- `app/(editor)/page.tsx` là server component: đọc cờ Flow (`isFlowCanvasEnabled`) và thông tin liên hệ (`getContactInfo`) rồi truyền xuống `EditorWorkspace`.
 
 ## Trang editor chính (`/`)
 
@@ -40,9 +42,11 @@ Layout 3 cột, lắp bởi `components/layout/EditorWorkspace.tsx`:
    - Hộp status sau generate: model, thời gian (giây, chỉ tính lần generate đầu), token usage, badge **「Đã tinh chỉnh hòa hợp」** khi `meta.harmonyApplied === true`.
 3. **Panel phải** — `components/canvas/CanvasArea.tsx`: preview banner kết quả; tab **Biến thể kích thước** (`AdditionalCanvasSizesPanel.tsx` + `PresetAspectShape.tsx` cho icon tỉ lệ preset); `GeneratedImageEditBar.tsx` cho chỉnh sửa ảnh đã tạo (`POST /api/edit-image`, logic trong `use-generated-image-edit.ts`).
 4. **Export** — `components/layout/ExportPopover.tsx`: chọn định dạng PNG/JPG, quality, scale 1x/2x; export qua Canvas API (`lib/export.ts`), không chèn watermark logo.
-5. **Toolbar** (`components/layout/Toolbar.tsx`) — link **Phiên** → `/account/sessions` (chỉ hiện khi signed-in), icon **Dashboard** → `/dashboard`.
+5. **Toolbar** (`components/layout/Toolbar.tsx`) — nút **Chế độ nâng cao** (`OpenInCanvasButton.tsx`, chỉ khi cờ Flow bật; lần đầu tự mở popover giới thiệu), link **Phiên** → `/account/sessions` (chỉ hiện khi signed-in), icon **Dashboard** → `/dashboard` (chỉ hiện khi role có `view_dashboard`, kiểm qua `GET /api/auth/access` — `lib/use-can-view-dashboard.ts`).
 
-Các route/action yêu cầu **đăng nhập Clerk** (gate `<Show>` signed-in/signed-out); khi chưa đăng nhập, UI hiện hướng dẫn sign-in thay vì canvas.
+Các route/action yêu cầu **đăng nhập Clerk** (gate `<Show>` signed-in/signed-out); khi chưa đăng nhập, UI hiện hướng dẫn sign-in thay vì canvas, kèm email / Zalo liên hệ cấp tài khoản (admin sửa ở Dashboard → Cài đặt).
+
+`components/results/VariationGrid.tsx` hiện không được import ở đâu (code chết).
 
 ## State (Zustand — `store/editor.ts`)
 
@@ -75,6 +79,8 @@ Chỉ hiện khi cờ `FLOW_CANVAS` bật cho user (form có thêm nút **Chế 
 - `components/dashboard/TimeRangeFilter.tsx` — lọc `today` / `7d` / `30d`.
 - `components/dashboard/UserAnalyticsTable.tsx` — bảng Top Users (badge role, thao tác đổi role/block/xóa theo quyền của người xem).
 - `components/dashboard/UserSessionsDialog.tsx` — admin xem/thu hồi phiên của user khác (nút **Phiên** trong bảng).
+- `components/dashboard/ContactSettingsCard.tsx` — mục **Cài đặt** (chỉ admin): sửa email / Zalo liên hệ (`GET`/`PUT /api/settings/contact`).
+- Header trang dùng `components/layout/HomeBackHeader.tsx` (nút quay về `/`).
 - Poll định kỳ (mặc định mỗi 4 giờ — xem `DASHBOARD_AGGREGATE_POLL_MS` trong `lib/dashboard.ts`) khi đã đăng nhập; nút **Làm mới** gọi lại với `refresh=1` để bypass cache server.
 - API tương ứng: `GET /api/dashboard`, `GET/PATCH/POST/DELETE /api/dashboard/users`, `GET/DELETE /api/dashboard/users/sessions` — xem [API Reference](./api.md).
 
@@ -86,7 +92,8 @@ Chỉ hiện khi cờ `FLOW_CANVAS` bật cho user (form có thêm nút **Chế 
 ## Analytics client
 
 - `lib/analytics.ts` — hàm `track()` type-safe theo `lib/analytics-events.ts`, gửi `POST /api/track` (tự thêm `banner_id`, `timestamp`; server luôn lấy `user_id` từ session Clerk, không tin field client gửi).
-- Event chính: `select_canvas`, `upload_asset`, `input_content`, `select_style`, `generate_banner`, `regenerate_banner`, `preview_banner`, `export_banner`.
+- Event chính: `select_canvas`, `upload_asset`, `input_content`, `select_style`, `generate_banner`, `regenerate_banner`, `preview_banner`, `export_banner` — server chỉ nhận 8 event này (allowlist trong `app/api/track/route.ts`). Type còn khai báo `open_canva*` cho đề xuất Canva ([roadmap](./roadmap/canva-connect-integration.md)) nhưng chưa dùng.
+- Flow canvas có analytics riêng: `components/flow/flow-analytics.ts` → `POST /api/flow/track` → bảng `flow_events`.
 
 ## Gọi API & proxy ảnh
 

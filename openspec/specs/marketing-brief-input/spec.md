@@ -2,12 +2,12 @@
 
 ## Purpose
 
-Defines the UI for capturing marketing brief metadata (campaign intent, focal subject, industry) through chip selection in `PromptInput`, and how that state is stored and displayed.
+Defines the UI for capturing marketing brief metadata (campaign intent, focal subject) through chip selection in `PromptInput` (`components/prompt/MarketingBriefChips.tsx`), and how that state is stored and displayed. `MarketingBrief` (`lib/types.ts`) has exactly two fields: `campaignIntents` and `focalSubjects`. The industry chip group ("Ngành") from the original change was not kept.
 
 ## Requirements
 
 ### Requirement: Campaign intent chip selection
-The system SHALL display a multi-select chip group labeled "Mục tiêu banner" inside `PromptInput`, above the textarea. Options: Flash sale, Ra mắt sản phẩm, Nhận thức thương hiệu, Sự kiện / Ngày lễ. All chips are optional; zero selected is valid.
+The system SHALL display a multi-select chip group labeled "Mục tiêu banner" inside `PromptInput`, above the textarea. Options (label has an emoji prefix): ⚡ Flash sale (`flash-sale`), 🚀 Ra mắt sản phẩm (`product-launch`), 💡 Nhận thức thương hiệu (`brand-awareness`), 🎉 Sự kiện / Ngày lễ (`event`). All chips are optional; zero selected is valid. Chips are disabled while a generation is running.
 
 #### Scenario: Select single intent
 - **WHEN** user clicks one intent chip
@@ -28,7 +28,7 @@ The system SHALL display a multi-select chip group labeled "Mục tiêu banner" 
 ---
 
 ### Requirement: Focal subject chip selection
-The system SHALL display a multi-select chip group labeled "Nhân vật chính" inside `PromptInput`, below campaign intent chips. Options: Sản phẩm, Người / Model, Text / Thông điệp, Không gian. All optional.
+The system SHALL display a multi-select chip group labeled "Nhân vật chính" inside `PromptInput`, below campaign intent chips. Options (label has an emoji prefix): 📦 Sản phẩm (`product`), 👤 Người / Model (`person`), ✍️ Text / Thông điệp (`text`), 🌆 Không gian (`scene`). All optional.
 
 #### Scenario: Select focal subject
 - **WHEN** user clicks a focal subject chip
@@ -44,21 +44,8 @@ The system SHALL display a multi-select chip group labeled "Nhân vật chính" 
 
 ---
 
-### Requirement: Industry context chip selection
-The system SHALL display a multi-select chip group labeled "Ngành" inside `PromptInput`, below focal subject chips. Options: Thời trang, F&B, Công nghệ, Beauty, Tài chính, Giáo dục. All optional.
-
-#### Scenario: Select industry
-- **WHEN** user clicks an industry chip
-- **THEN** chip becomes active and value is added to `marketingBrief.industries`
-
-#### Scenario: No industry selected
-- **WHEN** user generates without selecting any industry chip
-- **THEN** generation proceeds with no industry context phrase injected
-
----
-
 ### Requirement: Pill summary feedback
-The system SHALL display a compact pill summary below the textarea showing the active brief selections. The pill MUST be hidden when all three fields are empty.
+The system SHALL display a compact pill summary below the textarea showing the active brief selections. The pill MUST be hidden when both fields are empty. Values use short lowercase labels: intents `flash sale`, `ra mắt SP`, `nhận thức TH`, `sự kiện`; focal subjects `sản phẩm`, `người`, `text`, `không gian`. Intents come first, then focal subjects.
 
 #### Scenario: Pill appears on first selection
 - **WHEN** user activates at least one chip across any field
@@ -73,8 +60,8 @@ The system SHALL display a compact pill summary below the textarea showing the a
 - **THEN** no pill is rendered (no empty placeholder)
 
 #### Scenario: Pill content format
-- **WHEN** user has selected: Flash sale + Sản phẩm + F&B
-- **THEN** pill shows: `flash sale · sản phẩm · F&B`
+- **WHEN** user has selected: Flash sale + Ra mắt sản phẩm + Sản phẩm
+- **THEN** pill shows: `flash sale · ra mắt SP · sản phẩm`
 
 ---
 

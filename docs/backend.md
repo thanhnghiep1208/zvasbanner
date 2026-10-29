@@ -17,6 +17,12 @@ Tài liệu mô tả **Route Handlers, RBAC, tích hợp Gemini, analytics DB, v
 | `/api/dashboard/users` | `GET/PATCH/POST/DELETE` | `view_dashboard`/`manage_roles`/`block_user`/`delete_user` | Danh sách + quản trị user (role, block, xóa). |
 | `/api/dashboard/users/sessions` | `GET/DELETE` | `block_user` (chỉ `admin`) | Xem/thu hồi phiên của user khác. |
 | `/api/sessions` | `GET/DELETE` | đăng nhập | User tự xem/thu hồi phiên Clerk của chính mình. |
+| `/api/auth/access` | `GET` | đăng nhập (403 nếu bị block) | Trả `{ role, canViewDashboard }` để client ẩn/hiện link Dashboard. |
+| `/api/settings/contact` | `GET/PUT` | `manage_settings` (chỉ `admin`) | Đọc/sửa email + Zalo liên hệ cấp tài khoản (bảng `app_settings`). |
+| `/api/flow/docs`, `/api/flow/docs/[id]` | `GET/POST`, `GET/PUT/DELETE` | `generate_image` + cờ `FLOW_CANVAS` | Lưu / mở / xoá dự án Flow canvas (`flow_docs`). |
+| `/api/flow/track` | `POST` | `generate_image` + cờ | Ghi event Flow vào `flow_events`. |
+| `/api/flow/suggest-copy` | `POST` | `generate_image` + cờ | Gợi ý headline/sub/CTA từ brief (Gemini text, 30/giờ/user). |
+| `/api/flow/brand-from-url` | `POST` | `generate_image` + cờ | Gợi ý Brand kit từ website (không AI, chống SSRF, 30/giờ/user). |
 
 Chi tiết request/response từng route: [API Reference](./api.md).
 
@@ -43,13 +49,13 @@ Next.js 16 dùng file `proxy.ts` (thay `middleware.ts`) cho request interception
 - `geminiEditImage()` — dùng cho `/api/edit-image`: sửa nhẹ ảnh đã tạo, giữ composition.
 - `runGeminiEnhance()` — viết lại prompt text (`/api/enhance-prompt`).
 - Prompt được ghép theo layer trong `lib/prompt-builder.ts`: system → context (canvas/assets/brand kit/marketing brief) → creative (`buildCohesionInstructions`, style, campaign intent/focal subject phrase) → output priority.
-- Timeout: enhance ~30s, harmony pass ~30s, generate ảnh chính ~58s; route `generate` có `maxDuration = 90`; client timeout tương ứng ~92s (`lib/client-generation.ts`).
+- Timeout: enhance ~30s (cả chuỗi model dự phòng), harmony pass ~30s, mỗi lượt gọi ảnh 55s (`GEMINI_IMAGE_TIMEOUT_MS`), cả bước generate chính ~58s; edit-image ~45s (`maxDuration` 60); route `generate` có `maxDuration = 90`; client timeout tương ứng ~92s (`lib/client-generation.ts`).
 
 ## Flow canvas (server)
 
-- Route: Flow canvas tạo ảnh qua `/api/generate` như form (route `/api/flow/generate-background` của chế độ ghép layer đã gỡ 2026-10-20); `/api/flow/docs` + `/api/flow/docs/[id]` (lưu/mở project), `/api/flow/track` (analytics). Mọi route kiểm đăng nhập + cờ `FLOW_CANVAS` (tắt → 404).
+- Route: Flow canvas tạo ảnh qua `/api/generate` như form (route `/api/flow/generate-background` của chế độ ghép layer đã gỡ 2026-10-20); `/api/flow/docs` + `/api/flow/docs/[id]` (lưu/mở project), `/api/flow/track` (analytics). Mọi route qua `requireFlowUser()` (`lib/flow-server/docs-route.ts`): đăng nhập, permission `generate_image`, không bị block, cờ `FLOW_CANVAS` bật cho user (tắt → 404).
 - Bảng `flow_docs`, `flow_events` tự tạo ở lần gọi đầu (`lib/flow-server/flow-docs.ts`, `flow-events.ts`; SQL tham khảo `db/flow_docs.sql`, `db/flow_events.sql`). Project không lưu ảnh (chỉ metadata), tối đa 200 project/user.
-- Prompt: Flow dựng `GenerationRequest` qua adapter `lib/flow/legacy/to-legacy-config.ts` (brief marketing thành các dòng tiếng Việt trong `userPrompt`, sản phẩm luôn `strictPreserveMode`) rồi dùng chung `lib/prompt-builder.ts` của form. Gợi ý chữ từ brief: `POST /api/flow/suggest-copy` (`lib/flow-server/suggest-copy.ts`, rate limit riêng 30/giờ/user).
+- Prompt: Flow dựng `GenerationRequest` qua adapter `lib/flow/legacy/to-legacy-config.ts` (brief marketing thành các dòng tiếng Việt trong `userPrompt`, sản phẩm luôn `strictPreserveMode`) rồi dùng chung `lib/prompt-builder.ts` của form. Gợi ý chữ từ brief: `POST /api/flow/suggest-copy` (`lib/flow-server/suggest-copy.ts`, rate limit riêng 30/giờ/user). Brand kit từ website: `POST /api/flow/brand-from-url` (`lib/flow-server/brand-fetch.ts` tải trang có chống SSRF, `lib/flow/brand-extract.ts` trích màu/font/logo).
 
 ## Analytics & Dashboard DB (PostgreSQL)
 
@@ -57,6 +63,7 @@ Next.js 16 dùng file `proxy.ts` (thay `middleware.ts`) cho request interception
 - `POST /api/track` insert một dòng; `user_id` **luôn** lấy từ session Clerk server-side, field `user_id` trong body bị bỏ qua.
 - `GET /api/dashboard` — aggregate theo `range` (`today`/`7d`/`30d`), cache kết quả **30 phút** (`DASHBOARD_AGGREGATE_CACHE_MS`), bypass bằng `?refresh=1`.
 - `GET /api/dashboard/users` — phân trang **15 user/trang** (`DASHBOARD_USERS_PAGE_SIZE`), enrich tên/email/role/blocked từ Clerk.
+- `banner_events` phải tạo tay bằng `db/banner_events.sql`; `ensureAnalyticsSchemaReady` (`lib/db.ts`) chỉ bổ sung cột/index.
 - Bảng `app_settings` (`db/app_settings.sql`, tự tạo ở lần đọc/ghi đầu): cài đặt key→JSONB do admin sửa. Hiện chỉ có `contact_info` (email / Zalo cấp tài khoản, `lib/contact-settings.ts`): đọc thẳng DB mỗi request (không cache, để lưu xong hiện ngay), chưa có bản ghi hoặc DB lỗi thì lấy `CONTACT_EMAIL` / `CONTACT_PHONE`. Admin sửa ở `/dashboard` → Cài đặt qua `GET`/`PUT /api/settings/contact`.
 - Hành động admin (đổi role, block, xóa user, thu hồi phiên, đổi cài đặt) ghi audit qua `lib/dashboard-audit.ts` → `banner_events` với `event_name = admin_audit` (không được ghi từ client track trực tiếp).
 
@@ -84,7 +91,7 @@ Các lớp bảo vệ đã áp dụng ở backend, tập trung tại các điể
 
 Dùng chung cho `/api/generate`, `/api/edit-image`, `/api/enhance-prompt`:
 
-- `createRateLimiter(max, windowMs)` — sliding-window **per-instance** (in-memory `Map`), mặc định **20 request/giờ/user**. Vì là per-instance, trên Vercel serverless với nhiều instance chạy song song, giới hạn thực tế có thể cao hơn con số khai báo — muốn enforce chính xác toàn cục cần chuyển sang Redis/KV.
+- `createRateLimiter(max, windowMs)` — sliding-window **per-instance** (in-memory `Map`), **20 request/giờ/user** cho mỗi route; mỗi lần gọi `createRateLimiter` là một bộ đếm riêng: `generate` dùng `checkGenerationRateLimit` (`lib/generation-rate-limit.ts`), `enhance-prompt` và `edit-image` mỗi route một bộ đếm; `flow/suggest-copy`, `flow/brand-from-url` 30/giờ. Rate limit kiểm trước khi đọc body nên request lỗi vẫn bị tính lượt. Vì là per-instance, trên Vercel serverless với nhiều instance chạy song song, giới hạn thực tế có thể cao hơn con số khai báo — muốn enforce chính xác toàn cục cần chuyển sang Redis/KV.
 - `readJsonWithSizeLimit(req, maxBytes)` — đọc body qua `ReadableStream` và đếm **byte thực tế**, abort ngay khi vượt cap; không chỉ dựa vào header `Content-Length` (client dùng chunked transfer hoặc header sai vẫn bị chặn đúng). Cap: `generate` 30MB, `enhance-prompt` 30MB (có thể kèm `assets[].dataUrl`), `edit-image` 20MB (một ảnh + prompt).
 
 ### Không leak chi tiết lỗi kỹ thuật ra client

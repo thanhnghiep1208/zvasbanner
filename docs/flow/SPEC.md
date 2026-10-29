@@ -46,7 +46,9 @@ Style/Brand/Ref┘
 
 | Lớp | Vị trí | Trạng thái |
 |---|---|---|
-| Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có; toàn repo 417 test pass (2026-10-16) |
+| Domain (schema, rules, validate, compiler, decompiler, persistence) | `lib/flow/` | Có; toàn repo 37 file / 322 test pass (`npx vitest run`, 2026-10-29) |
+| Brief, brand, gợi ý chữ, cần bổ sung | `lib/flow/brief.ts`, `brand.ts`, `brand-extract.ts`, `copy-suggest.ts`, `attention.ts` | Campaign brief (Q17), Brand kit + "Lấy từ website" (Q16), node cần bổ sung |
+| Server | `lib/flow-server/` (`docs-route.ts` gate `requireFlowUser`, `flow-docs.ts`, `flow-events.ts`, `suggest-copy.ts`, `brand-fetch.ts`) | Route `app/api/flow/{docs,docs/[id],track,suggest-copy,brand-from-url}` |
 | IR | `lib/flow/compiled-job.ts` (`CompiledJob`, `estimateAiCalls`) | Có |
 | Adapter legacy | `lib/flow/legacy/to-legacy-config.ts`, `from-legacy-config.ts` (legacy = `GenerationRequest`) | Có (T1.2–T1.4) |
 | Text layer | `lib/flow/text/text-style.ts` | Model + mặc định theo vai trò, danh sách font cho Brand kit. Renderer, layout engine, compose: đã gỡ (mục 3) |
@@ -59,7 +61,7 @@ Style/Brand/Ref┘
 | RF adapter | `lib/flow-ui/rf-adapter.ts` (FlowNode ↔ React Flow node) | Có (T2.1) |
 | Store | `store/flow-store.ts` | Giữ `FlowGraph` domain + ui riêng (T2.2) |
 | UI | `components/flow/` | Layout 3 cột + header, Tailwind + token flow (T3.1) |
-| Route | `app/(studio)/flow/page.tsx` (hoặc `src/app/...`) | Có, sau flag |
+| Route | `app/(studio)/flow/page.tsx`, `app/(studio)/flow/guide/page.tsx` | Có, sau flag (chưa đăng nhập → `/sign-in`, tắt cờ → 404) |
 
 Node registry (`lib/flow/node-definitions.ts`): product-asset (nhãn "Ảnh sản phẩm"), reference-image, brief, text-layer, brand-kit, ratio, style, generate-flat (nhãn "Tạo banner", legacy, đã gồm harmony pass server-side: 2 AI call/ratio), export (chỉ nhận `raster`). Node `harmony-pass` bị bỏ (Q4); auto-layout, generate-background, compose bị gỡ 2026-10-20.
 
@@ -102,7 +104,7 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset (nhãn "Ảnh sả
 ### 5.7 Simple view
 - Template = graph + danh sách `exposed: { id, nodeId, path, label, control, … }[]` (`lib/flow/template/`). `path` (mảng) thay `paramKey` vì nhiều field nằm sâu (vd. `style.fill.color`); `path: []` = cả params (ảnh). `control` cho Simple view biết vẽ input gì.
 - Simple view render form từ `exposed`; sửa ở đây ghi thẳng vào graph.
-- Nút "Mở canvas" chuyển sang Canvas view cùng graph.
+- Link "Chỉnh sâu hơn trong Canvas" (và tab Đơn giản / Canvas trên header) chuyển sang Canvas view cùng graph.
 - Field ảnh (`ImageListField`): 1 ô kéo thả/chọn nhiều tệp + danh sách ảnh (thumbnail, tên, X, dropdown chức năng: sản phẩm, logo, trang trí, nền, tham chiếu style). Ảnh thêm tự nối dây như ảnh cùng loại; đổi giữa nhóm giữ pixel ↔ tham chiếu thì đổi type node.
 - Cột phải chỉ có Kết quả (tab "Xem trước bố cục" và mục "Kiểu chữ" đã gỡ cùng Ghép layer). Field kiểu chữ của text layer không hiện.
 - Template mặc định (`lib/flow/template/defaults.ts`, đều Tạo banner): Sản phẩm nổi bật (mặc định), Theo banner mẫu (Q13), Khuyến mãi đa kích thước, Bài đăng mạng xã hội, Sự kiện theo thương hiệu.
@@ -110,18 +112,19 @@ Node registry (`lib/flow/node-definitions.ts`): product-asset (nhãn "Ảnh sả
 ### 5.8 Persistence + migration
 - Bảng/cột lưu `StoredFlowDoc` (JSONB). Migration DB theo cách repo đang làm (tìm helper `pool`).
 - Không có kho lưu asset trong P1 (Q7B): graph lưu metadata asset (`assetId`, `fileName`, `role`, `hasAlpha`, `originalDims`) nhưng không lưu `blob:` hay `dataUrl`; mở lại project → node asset báo "Cần tải lại ảnh", user upload lại rồi mới chạy.
-- App cũ không lưu project nên không có dữ liệu migrate (Q5). Thay bằng nút "Mở trong canvas" trên form: state editor → `GenerationRequest` → `fromLegacyConfig` → `decompileJob`.
+- Giới hạn: graph ≤ 200 node / 600 dây, tên ≤ 120 ký tự (`FLOW_DOC_LIMITS`), ≤ 200 dự án/user, body lưu ≤ 1MB. UI gọi project là "dự án".
+- App cũ không lưu project nên không có dữ liệu migrate (Q5). Thay bằng nút trên form (ban đầu tên "Mở trong canvas", từ 2026-10-21 hiển thị là **Chế độ nâng cao**): state editor → `GenerationRequest` → `fromLegacyConfig` → `decompileJob`.
 - Nháp trên máy (Q14): tự lưu sau 800ms và khi rời trang (theo userId); mở `/flow` không có `?doc`/`?template` và không từ form → mở lại nháp kèm nút "Bỏ nháp". Template chưa sửa hoặc project đã lưu chưa sửa thì xoá nháp.
 
 ### 5.9 Analytics
-Type trong `lib/analytics-events.ts`; ghi qua `/api/flow/track` vào bảng `flow_events` (props JSONB, Q12). Event mới: `flow_opened`, `flow_run_started` (aiCalls), `flow_run_completed` (durationMs, renderMode), `flow_run_failed` (code), `flow_view_switched` (simple/canvas), `flow_template_used`.
+Type trong `lib/analytics-events.ts`; ghi qua `/api/flow/track` vào bảng `flow_events` (props JSONB, Q12). Event mới: `flow_opened`, `flow_run_started`, `flow_run_completed`, `flow_run_failed`, `flow_view_switched` (simple/canvas), `flow_template_used`. Props dạng snake_case (`ai_calls`, `reusable`, `ratio_count`, `from_node`, `duration_ms`, `render_mode`, `code`, …) — nguồn chuẩn là `FlowAnalyticsPropsMap` trong `lib/analytics-events.ts`; server kiểm đúng bộ props mỗi event (`parseFlowEvent`). Type `FlowRenderMode` vẫn có `composed` để đọc dữ liệu cũ.
 
 ### 5.10 Chữ tự động theo banner
 Đã gỡ 2026-10-20 cùng Ghép layer: AI vẽ chữ theo nội dung + vai trò; font/màu theo Phong cách và Brand kit (font thương hiệu, vị trí logo gửi vào prompt).
 
 ## 6. Quy tắc làm việc cho Claude Code
 
-1. Đầu phiên: đọc file này + `docs/flow/QUESTIONS.md`; chạy `npx vitest run lib/flow store` để chắc nền đang xanh.
+1. Đầu phiên: đọc file này + `docs/flow/QUESTIONS.md`; chạy `npx vitest run` để chắc nền đang xanh.
 2. Làm **một task** mỗi lần, theo thứ tự mục 8. Task bị chặn bởi câu hỏi chưa trả lời → bỏ qua, làm task kế tiếp không phụ thuộc.
 3. Trước khi code: tìm và đọc file liên quan trong repo. Không đoán API.
 4. Sau mỗi task: test + `npx tsc --noEmit` pass → tick checklist mục 8 → commit `feat(flow): <task id> <mô tả>`.
@@ -132,7 +135,8 @@ Type trong `lib/analytics-events.ts`; ghi qua `/api/flow/track` vào bảng `flo
 ## 7. Lệnh kiểm tra
 
 ```bash
-npx vitest run lib/flow store   # khớp lib/flow, lib/flow-ui, store/__tests__ (lọc theo chuỗi con của đường dẫn)
+npx vitest run                  # toàn bộ (khuyến nghị trước commit)
+npx vitest run lib/flow store   # nhanh: lib/flow, lib/flow-ui, lib/flow-server, store/__tests__ (lọc theo chuỗi con đường dẫn); KHÔNG gồm components/flow/__tests__, lib/__tests__/flow-rollout.test.ts
 npx tsc --noEmit
 npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 ```
@@ -146,6 +150,8 @@ npm run dev   # mở /flow, cần FLOW_CANVAS=on trong .env.local
 - [x] **T1.3** `to-legacy-config.ts` + test
 - [x] **T1.4** Thay fixture giả bằng ≥3 payload `GenerationRequest` thật log từ form chạy local (bỏ `dataUrl`, ẩn dữ liệu nhạy cảm), bổ sung case tự dựng nếu thiếu (Q1); round-trip `legacy → job → graph → job → legacy` khớp
 - [x] **T1.5** Thiết kế model text layer mới (font family/weight/size, line-height, color, align, max lines…) thay `typography: Record<string, unknown>` (Q2)
+
+> Ghi chú 2026-10-29: các task T2.5, T4.1–T4.4 (layout engine, Tạo nền, Compose, renderer chữ + font `next/font`) đã làm xong rồi bị gỡ ở T7.1; `FLOW_FONTS` chỉ còn là danh sách font cho Brand kit. T5.4 "không có canvas trống" sau đó có ngoại lệ `BLANK_TEMPLATE` (mục 5.6).
 
 ### Bước 2 – Canvas chạy được 1 path
 - [x] **T2.1** `lib/flow-ui/rf-adapter.ts`: FlowNode/FlowEdge ↔ React Flow node/edge (handle id = port id)
@@ -201,6 +207,8 @@ Trạng thái: chờ Nghiệp
 Rồi chuyển sang task khác không phụ thuộc.
 
 ## 10. Nhật ký phiên
+
+> Nhật ký là **lịch sử**: các mục trước 2026-10-20 mô tả cả tính năng đã gỡ (Ghép layer, chữ tự động, 12 node type…). Hành vi hiện tại xem mục 1–8.
 
 <!-- Claude Code ghi vào đây cuối mỗi phiên: ngày, task đã xong, kết quả test, việc tiếp theo -->
 
@@ -274,3 +282,4 @@ Rồi chuyển sang task khác không phụ thuộc.
 - **2026-10-20** – T7.1 (Nghiệp quyết sau khi dùng thử: ghép layer cho banner chất lượng thấp hơn flat). Gỡ node Auto layout, Tạo nền, Ghép layer cùng layout engine, compose/renderer Canvas 2D, prompt nền, chữ tự động, bảng màu ảnh, font next/font của canvas, route `/api/flow/generate-background`; `CompiledJob.renderMode` chỉ còn `flat`; Xuất ảnh chỉ nhận `raster`. Template mặc định chuyển sang Tạo banner (bỏ field màu chữ/nút). UI: Simple view bỏ tab Xem trước bố cục + mục Kiểu chữ; Inspector Text chỉ còn Nội dung + Vai trò; node "Tạo banner (flat)" → "Tạo banner", "Asset (giữ pixel)" → "Ảnh sản phẩm"; trang `/flow/guide` còn 1 flow 3 bước. Project/nháp cũ: `convertComposedDoc` tự đổi sang Tạo banner khi mở (có test). Test: 307 pass, tsc + eslint + `next build` pass. Chưa chạy Gemini thật sau thay đổi.
 - **2026-10-20** – Ngoài task (Nghiệp yêu cầu): node chưa có thông tin, ảnh trống hoặc chưa nối dễ nhận ra hơn. `lib/flow/attention.ts` (`nodeAttention`, `graphAttention`, thuần): thiếu dây bắt buộc = error; trống / chưa nối ra = warning. `FlowNodeCard`: viền nét đứt + quầng màu, nhãn ("Thiếu dây" / "Chưa có thông tin" / "Chưa nối") có chấm nhấp nháy (tắt khi reduced-motion), lời nhắc liệt kê từng vấn đề, ô "Thả ảnh vào đây" cho node ảnh trống; thay khối "Chưa nối" cũ chỉ dành cho ảnh. `FlowCanvas`: nút "N node cần bổ sung" trên header đi lần lượt (chọn + `setCenter`), minimap tô đỏ/vàng. Template mới mở chỉ đánh dấu ô ảnh sản phẩm trống. Test `attention.test.ts`; 313 test pass, tsc + eslint pass. Chưa xem trên trình duyệt (cần đăng nhập).
 - **2026-10-21** – Ngoài task (feedback user: "Mở trong canvas" khó hiểu vì ở form "canvas" là khung banner). Tên hiển thị cho user đổi thành **Chế độ nâng cao** (nút toolbar, tiêu đề /flow, tab trình duyệt, trang hướng dẫn), "project" → "dự án". Nút: icon `SlidersHorizontal` (mobile chỉ icon; header mobile trước đó tràn nên ẩn badge kích thước dưới `sm`, nút Download chỉ icon); tooltip nói lợi ích; lần đầu tự mở popover giới thiệu ("Thử ngay" / "Để sau", localStorage `zvas:advanced-mode-intro-dismissed`). Tên trong code/docs kỹ thuật (Flow canvas, `FLOW_CANVAS`, `/flow`) và tab "Đơn giản" / "Canvas" bên trong giữ nguyên.
+- **2026-10-29** – Rà docs với code (Nghiệp yêu cầu): SPEC mục 4 (số test 322, thêm brief/brand/attention, `lib/flow-server/`, route `/flow/guide`, bỏ `src/app`), 5.7 (link "Chỉnh sâu hơn trong Canvas"), 5.8 (giới hạn dự án, tên nút Chế độ nâng cao), 5.9 (props snake_case), 6–7 (lệnh test đầy đủ), ghi chú task đã gỡ ở mục 8; QUESTIONS (Q8/Q9/Q11/Q17), `lib/flow/legacy/README.md` (model mặc định). Thêm `docs/onboarding.md` cho người mới. `openspec/specs` bỏ phần "Ngành" (industry) cho khớp `MarketingBrief` hiện tại.
